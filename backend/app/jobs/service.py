@@ -28,6 +28,7 @@ from app.jobs.errors import (
 from app.jobs.models import TERMINAL_STATUSES, Job, JobStatus, utcnow
 from app.jobs.repository import JobRepository
 from app.jobs.state_machine import validate_transition
+from app.jobs.titles import derive_title
 from app.providers.base import GenerationRequest, JobState, MusicGenerationProvider
 from app.providers.errors import ProviderError
 from app.storage.base import AudioStorage
@@ -37,6 +38,7 @@ from app.storage.media_types import guess_media_type
 
 DEFAULT_POLL_INTERVAL_SECONDS = 3.0
 DEFAULT_MAX_POLL_SECONDS = 1800.0  # 30 minutes
+_SEARCH_WINDOW = 500
 
 # GenerationResult.metadata may carry provider-transport details that only
 # made sense before Tunora had its own storage (e.g. AceStepMusicGenerationProvider
@@ -87,12 +89,18 @@ class JobService:
 
     # -- lifecycle -----------------------------------------------------------
 
-    async def create_and_submit(self, request: GenerationRequest) -> Job:
+    async def create_and_submit(self, request: GenerationRequest, title: Optional[str] = None) -> Job:
         """Create a Tunora job and submit it to the provider. Never raises for
         provider failures — the returned Job's status/error reflect the outcome.
         """
 
-        job = Job(id=self._id_factory(), provider=self._provider.name, status=JobStatus.CREATED, request=request)
+        job = Job(
+            id=self._id_factory(),
+            provider=self._provider.name,
+            status=JobStatus.CREATED,
+            request=request,
+            title=derive_title(request.prompt, title),
+        )
         self._repository.create(job)
 
         try:
@@ -268,6 +276,34 @@ class JobService:
 
     def list(self, limit: int = 50) -> list[Job]:
         return self._repository.list(limit)
+
+    def search(
+        self,
+        *,
+        status: Optional[JobStatus] = None,
+        query: str = "",
+        sort: str = "newest",
+        limit: int = 200,
+    ) -> list[Job]:
+        """Filter and sort jobs for the library. Local-first scale: the newest
+        `_SEARCH_WINDOW` jobs are loaded and filtered in memory.
+        """
+
+        jobs = self._repository.list(_SEARCH_WINDOW)
+        if status is not None:
+            jobs = [j for j in jobs if j.status == status]
+        needle = query.strip().lower()
+        if needle:
+            jobs = [
+                j for j in jobs if needle in (j.title or derive_title(j.request.prompt)).lower() or needle in j.request.prompt.lower()
+            ]
+        if sort == "oldest":
+            jobs.sort(key=lambda j: j.created_at)
+        elif sort == "title":
+            jobs.sort(key=lambda j: (j.title or derive_title(j.request.prompt)).lower())
+        else:
+            jobs.sort(key=lambda j: j.created_at, reverse=True)
+        return jobs[:limit]
 
     # -- internals ---------------------------------------------------------------
 

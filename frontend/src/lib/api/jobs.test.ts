@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError, audioUrl, createJob, getAudioResource, isTunoraAudioUrl, safeDownloadName } from "./jobs";
+import { ApiError, audioUrl, createJob, getAudioResource, isTunoraAudioUrl, listSongs, safeDownloadName } from "./jobs";
 
 const payload = {
   prompt: "p",
@@ -158,5 +158,34 @@ describe("safeDownloadName", () => {
       },
     } as unknown as Parameters<typeof getAudioResource>[0];
     expect(getAudioResource(job)?.filename).toBe("tunora-tunora-1");
+  });
+});
+
+describe("listSongs", () => {
+  it("asks the backend for COMPLETED songs with search and sort, and returns them", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify([{ id: "tunora-1", title: "A" }])));
+    const songs = await listSongs({ query: "  rain  ", sort: "title" });
+    expect(songs).toHaveLength(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/jobs?status=COMPLETED&sort=title&q=rain");
+    expect(init.cache).toBe("no-store");
+  });
+
+  it("omits an empty search and caps its length", async () => {
+    fetchMock.mockResolvedValue(new Response("[]"));
+    await listSongs({ query: "   " });
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/jobs?status=COMPLETED&sort=newest");
+    fetchMock.mockResolvedValue(new Response("[]"));
+    await listSongs({ query: "x".repeat(300) });
+    expect(new URL(fetchMock.mock.calls[1][0], "http://x").searchParams.get("q")).toHaveLength(100);
+  });
+
+  it("maps failures to fixed messages", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("boom /tmp/secret", { status: 500 }));
+    const server = await listSongs().catch((e) => e);
+    expect(server.kind).toBe("server");
+    expect(server.message).toBe("Could not load your songs. Please try again.");
+    fetchMock.mockRejectedValueOnce(new TypeError("down"));
+    expect((await listSongs().catch((e) => e)).kind).toBe("network");
   });
 });

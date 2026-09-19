@@ -12,6 +12,7 @@ export type JobStatus =
   | "FAILED";
 
 export interface CreateJobPayload {
+  title?: string | null;
   prompt: string;
   lyrics: string;
   language: string;
@@ -45,6 +46,7 @@ export interface JobResult {
 
 export interface GenerationJob {
   id: string;
+  title: string;
   provider: string;
   status: JobStatus;
   created_at: string;
@@ -183,5 +185,35 @@ export async function getJob(jobId: string, options: { signal?: AbortSignal } = 
   } catch (error) {
     console.error("getJob returned unreadable body", error);
     throw new ApiError("server", MESSAGES.server);
+  }
+}
+
+export type LibrarySort = "newest" | "oldest" | "title";
+
+/** Completed songs for the library, filtered and sorted by the backend. */
+export async function listSongs(
+  options: { query?: string; sort?: LibrarySort; signal?: AbortSignal } = {},
+): Promise<GenerationJob[]> {
+  const params = new URLSearchParams({ status: "COMPLETED", sort: options.sort ?? "newest" });
+  const query = (options.query ?? "").trim();
+  if (query) params.set("q", query.slice(0, 100));
+
+  let response: Response;
+  try {
+    response = await fetch(`/api/jobs?${params.toString()}`, { cache: "no-store", signal: options.signal });
+  } catch (error) {
+    if (options.signal?.aborted) throw error;
+    console.error("listSongs network failure", error);
+    throw new ApiError("network", MESSAGES.network);
+  }
+  if (!response.ok) {
+    console.error("listSongs failed", response.status);
+    throw new ApiError("server", "Could not load your songs. Please try again.");
+  }
+  try {
+    return (await response.json()) as GenerationJob[];
+  } catch (error) {
+    console.error("listSongs returned unreadable body", error);
+    throw new ApiError("server", "Could not load your songs. Please try again.");
   }
 }

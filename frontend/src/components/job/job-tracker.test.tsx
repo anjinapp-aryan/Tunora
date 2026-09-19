@@ -18,6 +18,7 @@ const fetchMock = vi.fn();
 function job(status: string, overrides: Record<string, unknown> = {}) {
   return {
     id: "tunora-1",
+    title: "Sunrise Over Hills",
     provider: "ace-step",
     status,
     created_at: "2026-09-19T00:00:00+00:00",
@@ -120,6 +121,17 @@ describe("JobTracker", () => {
     const bar = screen.getByRole("progressbar");
     expect(bar).not.toHaveAttribute("aria-valuenow");
     expect(container.textContent).not.toMatch(/\d+\s?%/);
+  });
+
+  it("shows the song title, and keeps the technical job id secondary inside Details", async () => {
+    fetchMock.mockResolvedValue(ok(job("RUNNING")));
+    await renderTracker();
+
+    expect(screen.getByTestId("song-title")).toHaveTextContent("Sunrise Over Hills");
+    const details = screen.getByText("Details").closest("details")!;
+    expect(details).not.toHaveAttribute("open");
+    expect(details).toContainElement(screen.getByTestId("job-id"));
+    expect(screen.getByRole("heading", { level: 1 })).not.toHaveTextContent(/tunora-1/);
   });
 
   it("renders COMPLETED with the saved notice, the audio player and a download control", async () => {

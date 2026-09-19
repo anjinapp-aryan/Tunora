@@ -13,6 +13,7 @@ function jobResponse(overrides: Record<string, unknown> = {}, status = 200) {
   return new Response(
     JSON.stringify({
       id: "tunora-abc-123",
+      title: "An upbeat synth pop song",
       provider: "ace-step",
       status: "SUBMITTED",
       created_at: "2026-09-19T00:00:00+00:00",
@@ -46,9 +47,41 @@ describe("CreateSongForm", () => {
     expect(screen.getByLabelText(/lyrics/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/language/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/duration/i)).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: /instrumental/i })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /vocals/i })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /^vocal$/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /instrumental/i })).not.toBeChecked();
+    expect(screen.getByLabelText(/song title/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/seed/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /generate song/i })).toBeEnabled();
+  });
+
+  it("keeps technical controls under Advanced options and fakes no voice controls", () => {
+    render(<CreateSongForm />);
+    const advanced = screen.getByText("Advanced options").closest("details")!;
+    expect(advanced).not.toHaveAttribute("open");
+    expect(advanced).toContainElement(screen.getByLabelText(/seed/i));
+    expect(advanced).toContainElement(screen.getByLabelText(/song title/i));
+    expect(screen.queryByLabelText(/female|male|singer|voice style/i)).toBeNull();
+    expect(screen.queryByRole("radio", { name: /female|male/i })).toBeNull();
+  });
+
+  it("sends the optional title when given", async () => {
+    fetchMock.mockResolvedValue(jobResponse());
+    render(<CreateSongForm />);
+    await fillPrompt();
+    await userEvent.type(screen.getByLabelText(/song title/i), "Evening Rain");
+    await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).title).toBe("Evening Rain");
+  });
+
+  it("opens Advanced options to show a seed error", async () => {
+    render(<CreateSongForm />);
+    await fillPrompt();
+    await userEvent.type(screen.getByLabelText(/seed/i), "abc");
+    await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
+    await screen.findByText(/seed must be a whole number/i);
+    expect(screen.getByText("Advanced options").closest("details")).toHaveAttribute("open");
   });
 
   it("does not expose fields the flow does not surface (batch size)", () => {
@@ -83,7 +116,7 @@ describe("CreateSongForm", () => {
 
   it("disables lyrics when instrumental is on", async () => {
     render(<CreateSongForm />);
-    await userEvent.click(screen.getByRole("switch", { name: /instrumental/i }));
+    await userEvent.click(screen.getByRole("radio", { name: /instrumental/i }));
     expect(screen.getByLabelText(/lyrics/i)).toBeDisabled();
   });
 
@@ -104,6 +137,7 @@ describe("CreateSongForm", () => {
     expect(url).toBe("/api/jobs");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({
+      title: null,
       prompt: "an upbeat synth pop song",
       lyrics: "[Verse] la la",
       language: "kn",
@@ -118,7 +152,7 @@ describe("CreateSongForm", () => {
     render(<CreateSongForm />);
     await fillPrompt();
     await userEvent.type(screen.getByLabelText(/lyrics/i), "will be dropped");
-    await userEvent.click(screen.getByRole("switch", { name: /instrumental/i }));
+    await userEvent.click(screen.getByRole("radio", { name: /instrumental/i }));
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());

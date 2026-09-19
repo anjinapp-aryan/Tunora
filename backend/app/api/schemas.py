@@ -7,6 +7,7 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from app.jobs.models import Job, JobStatus
+from app.jobs.titles import derive_title
 from app.storage.filenames import safe_audio_filename
 
 # Job.error holds raw exception text (it can contain filesystem paths or
@@ -18,6 +19,7 @@ _PUBLIC_METADATA_FIELDS = ("bpm", "genres", "key_scale", "time_signature", "prom
 
 
 class CreateJobRequest(BaseModel):
+    title: Optional[str] = None
     prompt: str
     lyrics: str = ""
     language: str = "en"
@@ -29,6 +31,7 @@ class CreateJobRequest(BaseModel):
 
 class JobResponse(BaseModel):
     id: str
+    title: str
     provider: str
     status: str
     created_at: str
@@ -42,6 +45,7 @@ class JobResponse(BaseModel):
     def from_job(cls, job: Job) -> "JobResponse":
         return cls(
             id=job.id,
+            title=job.title or derive_title(job.request.prompt),
             provider=job.provider,
             status=job.status.value,
             created_at=job.created_at.isoformat(),

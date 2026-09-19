@@ -54,3 +54,4 @@ class Job:
     provider_job_id: Optional[str] = None
     error: Optional[str] = None
     result: Optional[dict[str, Any]] = None
+    title: str = ""

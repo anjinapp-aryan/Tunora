@@ -74,3 +74,29 @@ def test_sqlite_repository_list_orders_newest_first(tmp_path):
 
     jobs = repo.list(limit=10)
     assert {j.id for j in jobs} == {"tunora-a", "tunora-b"}
+
+
+def test_sqlite_title_roundtrip_and_migration_of_an_old_database(tmp_path):
+    import sqlite3
+
+    db_path = tmp_path / "old.db"
+    # A database created before titles existed (no title column).
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "CREATE TABLE jobs (id TEXT PRIMARY KEY, provider TEXT NOT NULL, status TEXT NOT NULL, "
+            "request_json TEXT NOT NULL, created_at TEXT NOT NULL, submitted_at TEXT, started_at TEXT, "
+            "completed_at TEXT, failed_at TEXT, provider_job_id TEXT, error TEXT, result_json TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO jobs (id, provider, status, request_json, created_at) VALUES (?, ?, ?, ?, ?)",
+            ("tunora-old", "ace-step", "COMPLETED", '{"prompt": "old song"}', "2026-01-01T00:00:00+00:00"),
+        )
+
+    repo = SqliteJobRepository(db_path)  # must migrate, not fail or lose data
+    old = repo.get("tunora-old")
+    assert old is not None and old.title == "" and old.status == JobStatus.COMPLETED
+
+    new = _make_job("tunora-new")
+    new.title = "Brand New"
+    repo.create(new)
+    assert SqliteJobRepository(db_path).get("tunora-new").title == "Brand New"

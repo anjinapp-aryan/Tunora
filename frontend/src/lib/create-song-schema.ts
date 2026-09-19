@@ -28,7 +28,10 @@ export const LYRICS_MAX = 5000;
 const languageValues = LANGUAGES.map((l) => l.value) as [string, ...string[]];
 const durationValues = DURATIONS.map((d) => d.value) as [string, ...string[]];
 
+export const TITLE_MAX = 80;
+
 export const createSongSchema = z.object({
+  title: z.string().trim().max(TITLE_MAX, `Keep the title under ${TITLE_MAX} characters.`),
   prompt: z
     .string()
     .trim()
@@ -37,7 +40,7 @@ export const createSongSchema = z.object({
   lyrics: z.string().max(LYRICS_MAX, `Keep lyrics under ${LYRICS_MAX} characters.`),
   language: z.enum(languageValues, { message: "Choose a language." }),
   duration: z.enum(durationValues, { message: "Choose a duration." }),
-  instrumental: z.boolean(),
+  vocals: z.enum(["vocal", "instrumental"]),
   seed: z
     .string()
     .trim()
@@ -47,10 +50,11 @@ export const createSongSchema = z.object({
 export type CreateSongValues = z.infer<typeof createSongSchema>;
 
 export const DEFAULT_VALUES: CreateSongValues = {
+  title: "",
   prompt: "",
   lyrics: "",
   language: "en",
   duration: "30",
-  instrumental: false,
+  vocals: "vocal",
   seed: "",
 };

@@ -3,8 +3,8 @@ import path from "node:path";
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
-const NEXT = "http://127.0.0.1:3100"; // Next.js dev server (started by Playwright)
-const BACKEND = "http://127.0.0.1:8000"; // FastAPI, for comparing the proxy against the origin
+const NEXT = `http://127.0.0.1:${process.env.E2E_PORT ?? 3100}`; // Next.js dev server (started by Playwright, or reused)
+const BACKEND = `http://127.0.0.1:${process.env.E2E_BACKEND_PORT ?? 8000}`; // FastAPI, for comparing the proxy against the origin
 // Real generation time varies with GPU state; wait generously, not for a fixed duration.
 const GENERATION_TIMEOUT_MS = 150_000;
 const POLL_INTERVAL_MS = 2000;
@@ -89,7 +89,7 @@ test("Create Song -> tracked -> COMPLETED -> playable audio with waveform, seek,
   await page.goto("/create");
   await expect(page.getByRole("heading", { name: /create a song/i })).toBeVisible();
   await page.getByLabel(/describe your song/i).fill("short upbeat instrumental synth loop");
-  await page.getByRole("switch", { name: /instrumental/i }).click();
+  await page.getByRole("radio", { name: /instrumental/i }).check();
 
   const created = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
   await page.getByRole("button", { name: /generate song/i }).click();
@@ -99,6 +99,9 @@ test("Create Song -> tracked -> COMPLETED -> playable audio with waveform, seek,
   await expect(page).toHaveURL(new RegExp(`/jobs/${job.id}$`));
   await expect(page.getByRole("heading", { name: /generating your song|generation complete/i })).toBeVisible();
   await expect(page.getByTestId("job-prompt")).toHaveText(/short upbeat instrumental synth loop/);
+  // A human-readable title (derived from the prompt), with the technical job id tucked under Details.
+  await expect(page.getByTestId("song-title")).toHaveText("Short upbeat instrumental synth loop");
+  await expect(page.getByRole("heading", { level: 1 })).not.toContainText(job.id);
 
   // Refresh mid-run: state must come back from the backend, not React memory.
   await page.reload();
@@ -188,7 +191,10 @@ test("Create Song -> tracked -> COMPLETED -> playable audio with waveform, seek,
   expect(audioMeta.filename).toBe(`${job.id}.mp3`); // one filename contract, from the backend
   expect(download.suggestedFilename()).toBe(audioMeta.filename);
   expect(download.suggestedFilename()).toMatch(/^[A-Za-z0-9][A-Za-z0-9._-]*\.mp3$/);
-  await expect(page.getByRole("status").filter({ hasText: "Download started." })).toBeVisible();
+  const startedNotice = page.getByRole("status").filter({ hasText: "Download started." });
+  await expect(startedNotice).toBeVisible();
+  // It is a passing notification, not permanent page content.
+  await expect(startedNotice).toBeHidden({ timeout: 10_000 });
 
   const downloadedPath = await download.path();
   expect(downloadedPath).toBeTruthy();
@@ -264,6 +270,26 @@ test("Create Song -> tracked -> COMPLETED -> playable audio with waveform, seek,
     await expect(page.getByTestId("download-status")).toHaveCount(0);
     await expect(page.getByTestId("audio-player")).toBeVisible();
   }
+
+  // ---- Library: the finished song is listed by title, searchable, and opens its page ----
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Library" }).click();
+  await expect(page).toHaveURL(/\/library$/);
+  const item = page.getByTestId("library-item").filter({ hasText: "Short upbeat instrumental synth loop" });
+  await expect(item).toBeVisible();
+  expect(await item.innerText()).not.toMatch(/tunora-[0-9a-f]{8}/); // no technical id shown
+  expect(await page.locator("main").innerHTML()).not.toMatch(INTERNAL_ANYWHERE);
+  await page.getByLabel("Search songs").fill("zzz-no-such-song");
+  await expect(page.getByTestId("library-empty")).toHaveText(/no songs match/i);
+  await page.getByLabel("Search songs").fill("UPBEAT");
+  await expect(item).toBeVisible();
+  await page.setViewportSize({ width: 375, height: 800 });
+  const libraryOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(libraryOverflow).toBeLessThanOrEqual(0);
+  await item.getByRole("link").first().click();
+  await expect(page).toHaveURL(new RegExp(`/jobs/${job.id}$`));
+  await expect(page.getByTestId("audio-player")).toBeVisible();
 });
 
 test("an unknown job id shows 'Job not found', no player, and stops polling", async ({ page }) => {

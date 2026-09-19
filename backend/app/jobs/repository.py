@@ -104,10 +104,15 @@ class SqliteJobRepository(JobRepository):
                     failed_at TEXT,
                     provider_job_id TEXT,
                     error TEXT,
-                    result_json TEXT
+                    result_json TEXT,
+                    title TEXT NOT NULL DEFAULT ''
                 )
                 """
             )
+            # Additive migration for databases created before titles existed.
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(jobs)")}
+            if "title" not in columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN title TEXT NOT NULL DEFAULT ''")
 
     def _row_to_job(self, row: sqlite3.Row) -> Job:
         return Job(
@@ -123,6 +128,7 @@ class SqliteJobRepository(JobRepository):
             provider_job_id=row["provider_job_id"],
             error=row["error"],
             result=json.loads(row["result_json"]) if row["result_json"] else None,
+            title=row["title"] or "",
         )
 
     def _job_to_params(self, job: Job) -> tuple[Any, ...]:
@@ -139,6 +145,7 @@ class SqliteJobRepository(JobRepository):
             job.provider_job_id,
             job.error,
             json.dumps(job.result) if job.result is not None else None,
+            job.title,
         )
 
     def create(self, job: Job) -> None:
@@ -147,8 +154,8 @@ class SqliteJobRepository(JobRepository):
                 """
                 INSERT INTO jobs (id, provider, status, request_json, created_at,
                                    submitted_at, started_at, completed_at, failed_at,
-                                   provider_job_id, error, result_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                   provider_job_id, error, result_json, title)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 self._job_to_params(job),
             )
@@ -165,7 +172,7 @@ class SqliteJobRepository(JobRepository):
                 """
                 UPDATE jobs SET provider=?, status=?, request_json=?, created_at=?,
                     submitted_at=?, started_at=?, completed_at=?, failed_at=?,
-                    provider_job_id=?, error=?, result_json=?
+                    provider_job_id=?, error=?, result_json=?, title=?
                 WHERE id=?
                 """,
                 params[1:] + (job.id,),

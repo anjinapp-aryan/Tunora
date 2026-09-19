@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2Icon, MusicIcon } from "lucide-react";
 
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, createJob } from "@/lib/api/jobs";
 import { rememberJobPrompt } from "@/lib/jobs/job-summary";
@@ -22,14 +21,19 @@ import {
   LANGUAGES,
   LYRICS_MAX,
   PROMPT_MAX,
+  TITLE_MAX,
   type CreateSongValues,
 } from "@/lib/create-song-schema";
 
 const FAILED_MESSAGE = "Unable to start the song generation. Please try again.";
 
+const RADIO_CLASS =
+  "size-4 cursor-pointer accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
 export function CreateSongForm() {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const {
     register,
@@ -41,19 +45,21 @@ export function CreateSongForm() {
     defaultValues: DEFAULT_VALUES,
   });
 
-  const instrumental = useWatch({ control, name: "instrumental" });
+  const instrumental = useWatch({ control, name: "vocals" }) === "instrumental";
   const promptLength = useWatch({ control, name: "prompt" }).length;
 
   async function onSubmit(values: CreateSongValues) {
     setSubmitError(null);
     try {
+      const isInstrumental = values.vocals === "instrumental";
       const job = await createJob({
+        title: values.title || null,
         prompt: values.prompt.trim(),
-        lyrics: values.instrumental ? "" : values.lyrics,
+        lyrics: isInstrumental ? "" : values.lyrics,
         language: values.language,
         duration: Number(values.duration),
         seed: values.seed === "" ? null : Number(values.seed),
-        instrumental: values.instrumental,
+        instrumental: isInstrumental,
       });
       // The backend reports submission failures as a 200 with status FAILED.
       if (job.status === "FAILED") {
@@ -132,39 +138,56 @@ export function CreateSongForm() {
           </Field>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2">
-          <Field orientation="horizontal">
-            <Controller
-              control={control}
-              name="instrumental"
-              render={({ field }) => (
-                <Switch
-                  id="instrumental"
-                  aria-labelledby="instrumental-label"
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  disabled={isSubmitting}
-                />
-              )}
-            />
-            <FieldLabel id="instrumental-label" htmlFor="instrumental">
+        <fieldset className="flex flex-col gap-2" disabled={isSubmitting}>
+          <legend className="mb-1 text-sm font-medium">Vocals</legend>
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input type="radio" value="vocal" className={RADIO_CLASS} {...register("vocals")} />
+              Vocal
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input type="radio" value="instrumental" className={RADIO_CLASS} {...register("vocals")} />
               Instrumental
-            </FieldLabel>
-          </Field>
+            </label>
+          </div>
+        </fieldset>
 
-          <Field data-invalid={!!errors.seed}>
-            <FieldLabel htmlFor="seed">Seed (optional)</FieldLabel>
-            <Input
-              id="seed"
-              inputMode="numeric"
-              placeholder="Random"
-              aria-invalid={!!errors.seed}
-              disabled={isSubmitting}
-              {...register("seed")}
-            />
-            <FieldError errors={[errors.seed]} />
-          </Field>
-        </div>
+        <details
+          className="rounded-lg border border-border/60 px-3 py-2"
+          open={advancedOpen || !!errors.seed || !!errors.title}
+          onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
+        >
+          <summary className="cursor-pointer text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+            Advanced options
+          </summary>
+          <div className="mt-4 grid gap-6 sm:grid-cols-2">
+            <Field data-invalid={!!errors.title}>
+              <FieldLabel htmlFor="title">Song title (optional)</FieldLabel>
+              <Input
+                id="title"
+                maxLength={TITLE_MAX + 20}
+                placeholder="Auto: from your description"
+                aria-invalid={!!errors.title}
+                disabled={isSubmitting}
+                {...register("title")}
+              />
+              <FieldError errors={[errors.title]} />
+            </Field>
+            <Field data-invalid={!!errors.seed}>
+              <FieldLabel htmlFor="seed">Seed (optional)</FieldLabel>
+              <Input
+                id="seed"
+                inputMode="numeric"
+                placeholder="Random"
+                aria-invalid={!!errors.seed}
+                disabled={isSubmitting}
+                {...register("seed")}
+              />
+              <FieldDescription>Reuse a number to get a similar result again.</FieldDescription>
+              <FieldError errors={[errors.seed]} />
+            </Field>
+          </div>
+        </details>
       </FieldGroup>
 
       {submitError && (
