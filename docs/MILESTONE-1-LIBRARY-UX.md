@@ -43,10 +43,21 @@ No dependency was added. Licenses touched: none new.
 | Real-GPU smoke tests | **VERIFIED** 3 passed |
 | Frontend (Vitest) | **VERIFIED** 200 passed (was 183) |
 | TypeScript / ESLint / production build | **VERIFIED** clean; `/library` is in the build |
-| Real E2E (Next → FastAPI → ACE-Step → RTX 5060 Ti) | **VERIFIED** 4/4: create with the new form (Instrumental radio), derived title shown and the job id absent from the heading, playback/seek/waveform, Range through the proxy, download bytes equal to the stored file, "Download started." disappears, a real 500 on a deleted file, then the Library lists the song, search filters it, no technical id is shown, 375 px has no overflow, and opening it shows the player |
+| Real E2E (Next → FastAPI → ACE-Step → RTX 5060 Ti) | **VERIFIED** 5/5 (two real generations). Test A: create with the new form (Instrumental radio), derived title shown and the job id absent from the heading, playback/seek/waveform, Range through the proxy, download bytes equal to the stored file, "Download started." disappears, then Library → search → open **this** song → its audio still plays, seeks and downloads. Test B (separate generation): the stored file is deleted and the UI, the audio route and the reloaded player all fail safely. See "E2E cleanup" below. |
 | Screenshots reviewed by eye | Create (desktop) and Library (375 px) |
 
 Existing test changes (intentional contract changes only): the exact-key assertion on the job JSON now includes `title`; the E2E and form tests use the radio instead of the switch; the job-page tests look for the Job ID inside Details.
+
+## E2E cleanup (follow-up)
+
+The first version of this milestone's E2E deleted the generated audio to exercise the real 500 path **before** walking the Library, so the final "open the song" step landed on a job whose file was gone. It proved navigation and the safe error state, not that a song opened from the Library actually plays. The suite was split:
+
+- **Test A — the successful flow:** create → real generation → play/pause/seek/Range/download → Library → search → open **that same song by its link** → waveform painted, playback advances, both seek gestures work, download bytes match the stored file again. The audio is never touched in this test.
+- **Test B — missing audio:** its own real generation, then the stored file is removed; the download control shows "Audio is temporarily unavailable.", the audio route returns a generic 500 with no path, the job record still reads COMPLETED, and a reload shows the player's own safe error.
+
+Shared helpers (`generateRealSong`, `expectPlayableAudio`, `expectDownloadMatchesStoredAudio`, `expectNoInternalLeak`, `expectFitsViewport`, `expectRangesToWork`) are reused by both, so the Library round trip asserts exactly what the job page asserts. No production code changed and no dependency was added.
+
+Two test-only robustness fixes came out of this: the Library row is now located by its `/jobs/<id>` link (earlier runs sharing a derived title made a title-only locator ambiguous), and Test B skips explicitly when `E2E_STORAGE_ROOT` is unset instead of silently passing. Mutation check: re-inserting the deletion before the Library step made Test A fail at the new `player-error` assertion, then it was reverted.
 
 ## Known limitations and technical debt
 
@@ -55,7 +66,6 @@ Existing test changes (intentional contract changes only): the exact-key asserti
 - Failed and in-progress jobs are not listed (the Library shows completed songs only); there is no delete or rename.
 - Titles are not used in filenames (still job-id based).
 - Durations shown are the provider-reported values.
-- In the E2E, the final Library → song-page step opens a job whose file the test had deleted earlier, so it proves navigation and the safe player state, not playback from the Library.
 - Two long-lived local processes (a `next dev` on port 3000 and a backend on 8000, apparently from outside this session) could not be stopped from here (access denied), so the E2E ran on separate ports. The 8000 backend runs the older code.
 - Playwright and unit tests cover Chromium only; no axe or screen-reader run.
 
