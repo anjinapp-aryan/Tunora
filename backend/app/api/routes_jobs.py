@@ -18,6 +18,7 @@ from app.api.schemas import CreateJobRequest, JobResponse
 from app.jobs.models import JobStatus
 from app.jobs.errors import AudioIntegrityError, AudioNotAvailableError, JobNotFoundError
 from app.jobs.service import JobService
+from app.songs.errors import InvalidIdError, SongNotFoundError
 from app.providers.base import GenerationRequest
 
 logger = logging.getLogger(__name__)
@@ -41,10 +42,18 @@ async def create_job(payload: CreateJobRequest, request: Request, background_tas
         instrumental=payload.instrumental,
         batch_size=payload.batch_size,
     )
-    job = await service.create_and_submit(generation_request, title=payload.title)
+    try:
+        job = await service.create_and_submit(generation_request, title=payload.title, song_id=payload.song_id)
+    except (SongNotFoundError, InvalidIdError):
+        raise HTTPException(status_code=404, detail="Song not found.")
     if job.status.value not in ("FAILED",):
         background_tasks.add_task(service.run_until_terminal, job.id)
-    return JobResponse.from_job(job)
+    return _respond(service, [job])[0]
+
+
+def _respond(service: JobService, jobs: list) -> list[JobResponse]:
+    versions = service.versions_for(jobs)
+    return [JobResponse.from_job(job, versions.get(job.version_id)) for job in jobs]
 
 
 @router.get("/{job_id}", response_model=JobResponse)
@@ -54,7 +63,7 @@ async def get_job(job_id: str, request: Request):
         job = service.get(job_id)
     except JobNotFoundError:
         raise HTTPException(status_code=404, detail=f"No job found with id {job_id!r}")
-    return JobResponse.from_job(job)
+    return _respond(service, [job])[0]
 
 
 @router.get("", response_model=list[JobResponse])
@@ -72,7 +81,7 @@ async def list_jobs(
             wanted = JobStatus(status.upper())
         except ValueError:
             raise HTTPException(status_code=422, detail="Unknown status.")
-    return [JobResponse.from_job(job) for job in service.search(status=wanted, query=q, sort=sort, limit=limit)]
+    return _respond(service, service.search(status=wanted, query=q, sort=sort, limit=limit))
 
 
 @router.get("/{job_id}/audio")

@@ -14,6 +14,7 @@ app/storage/local.py.
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,10 +32,15 @@ from app.jobs.state_machine import validate_transition
 from app.jobs.titles import derive_title
 from app.providers.base import GenerationRequest, JobState, MusicGenerationProvider
 from app.providers.errors import ProviderError
+from app.songs.errors import InvalidIdError, SongNotFoundError
+from app.songs.ids import is_valid_id, new_song_id, new_version_id
+from app.songs.models import Song, Version, VersionAudio
 from app.storage.base import AudioStorage
 from app.storage.errors import StorageError
 from app.storage.filenames import safe_audio_filename
 from app.storage.media_types import guess_media_type
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_POLL_INTERVAL_SECONDS = 3.0
 DEFAULT_MAX_POLL_SECONDS = 1800.0  # 30 minutes
@@ -89,19 +95,50 @@ class JobService:
 
     # -- lifecycle -----------------------------------------------------------
 
-    async def create_and_submit(self, request: GenerationRequest, title: Optional[str] = None) -> Job:
-        """Create a Tunora job and submit it to the provider. Never raises for
-        provider failures — the returned Job's status/error reflect the outcome.
+    async def create_and_submit(
+        self,
+        request: GenerationRequest,
+        title: Optional[str] = None,
+        song_id: Optional[str] = None,
+    ) -> Job:
+        """Create a Job (and its Version, and a new Song unless `song_id` names an
+        existing one) atomically, then submit it to the provider.
+
+        The database transaction commits BEFORE the provider is called, so no
+        transaction is ever held open across ACE-Step. Never raises for provider
+        failures: the returned Job's status/error reflect the outcome. Raises
+        SongNotFoundError / InvalidIdError for a bad `song_id`.
         """
+
+        if song_id is not None:
+            if not is_valid_id(song_id):
+                raise InvalidIdError("Malformed song id.")
+            song = self._repository.get_song(song_id)
+            if song is None:
+                raise SongNotFoundError(song_id)
+            new_song = None
+            display_title = song.title
+        else:
+            display_title = derive_title(request.prompt, title)
+            new_song = Song(id=new_song_id(), title=display_title)
+            song_id = new_song.id
 
         job = Job(
             id=self._id_factory(),
             provider=self._provider.name,
             status=JobStatus.CREATED,
             request=request,
-            title=derive_title(request.prompt, title),
+            title=display_title,
         )
-        self._repository.create(job)
+        version = self._repository.create_generation(
+            new_song=new_song,
+            version=Version(id=new_version_id(), song_id=song_id, spec=request, provider=self._provider.name),
+            job=job,
+        )
+        logger.info(
+            "generation created song_id=%s version_id=%s version_number=%s job_id=%s",
+            song_id, version.id, version.version_number, job.id,
+        )
 
         try:
             provider_job = await self._provider.generate(request)
@@ -181,7 +218,17 @@ class JobService:
                 "duration": result.duration,
                 "metadata": _strip_provider_transport_metadata(result.metadata),
             }
-            self._repository.update(job)
+            # Job row + the Version's audio reference commit together.
+            self._repository.complete_job(
+                job,
+                VersionAudio(
+                    key=stored.key,
+                    filename=stored.filename,
+                    media_type=stored.media_type,
+                    size_bytes=stored.size_bytes,
+                    duration=result.duration,
+                ),
+            )
             return job
 
         if provider_state == JobState.RUNNING:
@@ -276,6 +323,23 @@ class JobService:
 
     def list(self, limit: int = 50) -> list[Job]:
         return self._repository.list(limit)
+
+    def get_song(self, song_id: str) -> Song:
+        if not is_valid_id(song_id):
+            raise InvalidIdError("Malformed song id.")
+        song = self._repository.get_song(song_id)
+        if song is None:
+            raise SongNotFoundError(song_id)
+        return song
+
+    def list_versions(self, song_id: str) -> list[Version]:
+        self.get_song(song_id)
+        return self._repository.list_versions(song_id)
+
+    def versions_for(self, jobs: list[Job]) -> dict[str, Version]:
+        """The Version of each job that has one, keyed by version id (one query)."""
+
+        return self._repository.get_versions([j.version_id for j in jobs if j.version_id])
 
     def search(
         self,

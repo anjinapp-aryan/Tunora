@@ -1,0 +1,56 @@
+"""Song, Version and audio reference.
+
+`Version.spec` reuses `GenerationRequest` (already provider-neutral), so the
+domain never depends on ACE-Step or any provider request shape.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Optional
+
+from app.providers.base import GenerationRequest
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+@dataclass(frozen=True)
+class Song:
+    """A song's durable identity. Only title/updated_at may ever change."""
+
+    id: str
+    title: str
+    created_at: datetime = field(default_factory=utcnow)
+    updated_at: datetime = field(default_factory=utcnow)
+
+
+@dataclass(frozen=True)
+class VersionAudio:
+    """Reference to the stored audio of a Version (bytes live in AudioStorage)."""
+
+    key: str
+    filename: str
+    media_type: str
+    size_bytes: int
+    duration: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class Version:
+    """One reproducible generation snapshot of a Song.
+
+    `version_number` is 1, 2, 3... within the song and is assigned by the
+    repository at creation (pass 0 to request the next number). Everything
+    except `audio` is immutable; `audio` is write-once.
+    """
+
+    id: str
+    song_id: str
+    spec: GenerationRequest
+    provider: str
+    version_number: int = 0
+    created_at: datetime = field(default_factory=utcnow)
+    audio: Optional[VersionAudio] = None

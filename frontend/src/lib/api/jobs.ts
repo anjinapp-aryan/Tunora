@@ -47,6 +47,10 @@ export interface JobResult {
 export interface GenerationJob {
   id: string;
   title: string;
+  /** Tunora ids of the Song/Version this job generates; null for jobs created before versions existed. */
+  song_id?: string | null;
+  version_id?: string | null;
+  version_number?: number | null;
   provider: string;
   status: JobStatus;
   created_at: string;

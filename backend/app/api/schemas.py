@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.jobs.models import Job, JobStatus
 from app.jobs.titles import derive_title
+from app.songs.models import Version
 from app.storage.filenames import safe_audio_filename
 
 # Job.error holds raw exception text (it can contain filesystem paths or
@@ -20,6 +21,8 @@ _PUBLIC_METADATA_FIELDS = ("bpm", "genres", "key_scale", "time_signature", "prom
 
 class CreateJobRequest(BaseModel):
     title: Optional[str] = None
+    # Generate another Version of an existing Song instead of a new Song.
+    song_id: Optional[str] = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$")
     prompt: str
     lyrics: str = ""
     language: str = "en"
@@ -32,6 +35,10 @@ class CreateJobRequest(BaseModel):
 class JobResponse(BaseModel):
     id: str
     title: str
+    # Tunora ids of the Song/Version this job generates (null for pre-domain rows).
+    song_id: Optional[str] = None
+    version_id: Optional[str] = None
+    version_number: Optional[int] = None
     provider: str
     status: str
     created_at: str
@@ -42,10 +49,13 @@ class JobResponse(BaseModel):
     result: Optional[dict[str, Any]] = None
 
     @classmethod
-    def from_job(cls, job: Job) -> "JobResponse":
+    def from_job(cls, job: Job, version: Optional[Version] = None) -> "JobResponse":
         return cls(
             id=job.id,
             title=job.title or derive_title(job.request.prompt),
+            song_id=version.song_id if version else None,
+            version_id=job.version_id,
+            version_number=version.version_number if version else None,
             provider=job.provider,
             status=job.status.value,
             created_at=job.created_at.isoformat(),

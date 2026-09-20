@@ -45,7 +45,7 @@ def test_create_job_returns_tunora_shape_only():
     assert response.status_code == 200
     body = response.json()
     assert set(body.keys()) == {
-        "id", "title", "provider", "status", "created_at", "submitted_at",
+        "id", "title", "song_id", "version_id", "version_number", "provider", "status", "created_at", "submitted_at",
         "started_at", "completed_at", "error", "result",
     }
     assert body["status"] == "SUBMITTED"
