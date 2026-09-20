@@ -8,7 +8,7 @@ Free, open-source-first, self-hostable AI Music Studio: describe a song (optiona
 
 Repo layout: `backend/` (FastAPI), `frontend/` (Next.js), `docs/` (decisions and per-phase write-ups), `ACE-Step-1.5/` (git **submodule**: the upstream model server, treated as an external dependency; never add Tunora code there and never commit its local/untracked files), `start-tunora.ps1`.
 
-State: the vertical slice Create → Generate → Track → Save → Play/Seek → Download → Library works end to end and is tested. Song → Version → Audio domain exists (Phase 4) but there is no Song Details page, version history UI, Projects, or Extend/Remix/Repaint yet. Read the latest `docs/PHASE-*.md` / `docs/MILESTONE-*.md` before assuming what exists; they record what was actually verified and known limitations.
+State: the vertical slice Create → Generate → Track → Save → Play/Seek → Download → Song-oriented Library → Song Details (`/songs/{id}`, version history and selection) works end to end and is tested. Song → Version → Audio domain exists (Phases 4–5A); there is no UI to create a new version, Projects, or Extend/Remix/Repaint yet. Read the latest `docs/PHASE-*.md` / `docs/MILESTONE-*.md` before assuming what exists; they record what was actually verified and known limitations.
 
 ## The rule that governs everything: Reuse-First Law
 

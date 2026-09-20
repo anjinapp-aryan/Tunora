@@ -54,3 +54,21 @@ class Version:
     version_number: int = 0
     created_at: datetime = field(default_factory=utcnow)
     audio: Optional[VersionAudio] = None
+
+
+@dataclass(frozen=True)
+class VersionEntry:
+    """A Version plus the job that produced it (needed to reach its audio route)."""
+
+    version: Version
+    job_id: Optional[str]
+    job_status: Optional[str]
+
+
+@dataclass(frozen=True)
+class SongSummary:
+    """One Library row: a Song, how many playable versions it has, and the newest playable one."""
+
+    song: Song
+    version_count: int
+    latest: Version

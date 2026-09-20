@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -20,6 +21,9 @@ const SONG_TITLE = "Short upbeat instrumental synth loop"; // derived from the p
 
 interface Job {
   id: string;
+  song_id: string;
+  version_id: string;
+  version_number: number;
   title: string;
   status: string;
   result: { audio: { filename: string; size_bytes: number; media_type: string; audio_url: string } } | null;
@@ -95,10 +99,14 @@ function trackAudioRequests(page: Page) {
  * Creates one REAL song through the Create Song form and waits for the backend
  * to report COMPLETED. No provider mocking, no injected data.
  */
-async function generateRealSong(page: Page, prompt = SONG_PROMPT): Promise<Job> {
+async function generateRealSong(page: Page, prompt = SONG_PROMPT, title?: string): Promise<Job> {
   await page.goto("/create");
   await expect(page.getByRole("heading", { name: /create a song/i })).toBeVisible();
   await page.getByLabel(/describe your song/i).fill(prompt);
+  if (title) {
+    await page.getByText("Advanced options").click();
+    await page.getByLabel(/song title/i).fill(title);
+  }
   await page.getByRole("radio", { name: /instrumental/i }).check();
 
   const created = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
@@ -261,6 +269,17 @@ async function expectFitsViewport(page: Page, width: number, controls: Locator[]
   }
 }
 
+const songPageControls = (page: Page) => [
+  page.getByRole("button", { name: /^(Play|Pause)$/ }),
+  page.getByRole("button", { name: /^download mp3/i }),
+  page.getByRole("slider", { name: "Seek" }),
+  page.getByRole("slider", { name: "Volume" }),
+  page.getByTestId("player-time"),
+  page.getByTestId("waveform"),
+  page.getByTestId("version-list"),
+  page.getByTestId("song-title"),
+];
+
 const playerControls = (page: Page) => [
   page.getByRole("button", { name: /^(Play|Pause)$/ }),
   page.getByRole("button", { name: /^download mp3/i }),
@@ -355,9 +374,10 @@ test("Create -> real generation -> play/seek/download -> Library -> search -> op
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Library" }).click();
   await expect(page).toHaveURL(/\/library$/);
   // Pin the row to THIS song by its link, so earlier runs sharing the title cannot satisfy the test.
-  const item = page.getByTestId("library-item").filter({ has: page.locator(`a[href="/jobs/${job.id}"]`) });
+  const item = page.getByTestId("library-item").filter({ has: page.locator(`a[href="/songs/${job.song_id}"]`) });
   await expect(item).toBeVisible();
   await expect(item).toContainText(SONG_TITLE);
+  await expect(item.getByTestId("version-count")).toHaveText("1 version");
   expect(await item.innerText()).not.toMatch(/tunora-[0-9a-f]{8}/); // no technical id shown
   await expectNoInternalLeak(page);
 
@@ -369,11 +389,11 @@ test("Create -> real generation -> play/seek/download -> Library -> search -> op
 
   // ---- Open that exact song from the Library: its REAL audio must still work ----
   await page.setViewportSize({ width: 1280, height: 900 });
-  await item.getByRole("link").first().click();
-  await expect(page).toHaveURL(new RegExp(`/jobs/${job.id}$`));
-  await expect(page.getByRole("heading", { name: /generation complete/i })).toBeVisible();
+  await item.getByRole("link", { name: /open song/i }).click();
+  await expect(page).toHaveURL(new RegExp(`/songs/${job.song_id}$`));
   await expect(page.getByTestId("song-title")).toHaveText(SONG_TITLE);
-  await expect(page.getByTestId("audio-saved")).toHaveText(/audio saved in tunora/i);
+  await expect(page.getByTestId("version-option")).toHaveCount(1);
+  await expect(page.getByTestId("active-version-title")).toHaveText("Version 1 — Latest");
   // No stale error from the earlier page, and the audio is genuinely there.
   await expect(page.getByTestId("player-error")).toHaveCount(0);
 
@@ -385,7 +405,7 @@ test("Create -> real generation -> play/seek/download -> Library -> search -> op
   // Still the same single audio route for every load and download, never a Range request.
   expect(audioRequests.every((r) => r.method === "GET" && r.range === undefined)).toBe(true);
   expect(audioRequests.length).toBe(4); // job page load + download, then Library-opened load + download
-  await expectFitsViewport(page, 375, playerControls(page));
+  await expectFitsViewport(page, 375, songPageControls(page));
 });
 
 test("a song whose stored audio disappeared: safe 500 everywhere, no path leak", async ({ page, request }) => {
@@ -424,6 +444,125 @@ test("a song whose stored audio disappeared: safe 500 everywhere, no path leak",
   await page.reload();
   await expect(page.getByTestId("player-error")).toHaveText(/can't be played right now/i);
   await expectNoInternalLeak(page, job);
+});
+
+const sha = (file: string) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+
+/** Generate another Version of an existing Song through the API (no UI for this yet) and wait for COMPLETED. */
+async function generateNextVersion(request: APIRequestContext, songId: string, prompt: string): Promise<Job> {
+  const created = await request.post(`${NEXT}/api/jobs`, {
+    data: { prompt, song_id: songId, instrumental: true, duration: 10, seed: 22 },
+  });
+  expect(created.status()).toBe(200);
+  const job = (await created.json()) as Job;
+  await expect
+    .poll(async () => ((await (await request.get(`${NEXT}/api/jobs/${job.id}`)).json()) as Job).status, {
+      timeout: GENERATION_TIMEOUT_MS,
+      intervals: [2000],
+    })
+    .toBe("COMPLETED");
+  return fetchCompletedJob(request, job.id);
+}
+
+test("two real versions of ONE song: one Library row, version history, and each version plays and downloads its own audio", async ({
+  page,
+  request,
+}) => {
+  test.skip(!STORAGE_ROOT, "Needs E2E_STORAGE_ROOT to compare versions with the stored files");
+  test.setTimeout(GENERATION_TIMEOUT_MS * 2 + 240_000);
+  await trackMediaElement(page);
+  const TITLE = "I Will Rise";
+
+  // ---- Version 1: real generation through the UI, with an explicit title ----
+  const first = await generateRealSong(page, "warm cinematic instrumental with soft piano", TITLE);
+  const v1 = await fetchCompletedJob(request, first.id);
+  expect(v1.version_number).toBe(1);
+  const v1File = storedAudioPath(v1);
+  const v1Hash = sha(v1File);
+  const v1Bytes = fs.readFileSync(v1File);
+
+  // ---- Version 2 of the SAME song: real generation ----
+  const v2 = await generateNextVersion(request, v1.song_id, "energetic uplifting instrumental with driving drums");
+  expect(v2.song_id).toBe(v1.song_id);
+  expect(v2.version_number).toBe(2);
+  expect(v2.id).not.toBe(v1.id);
+  expect(sha(storedAudioPath(v2))).not.toBe(v1Hash); // genuinely different audio
+  const jobsBefore = ((await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[]).length;
+
+  // ---- Library: ONE row for the song, two versions, latest = Version 2 ----
+  await page.goto("/library");
+  await page.getByLabel("Search songs").fill(TITLE);
+  const row = page.getByTestId("library-item").filter({ has: page.locator(`a[href="/songs/${v1.song_id}"]`) });
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId("version-count")).toHaveText("2 versions");
+  await expect(row).toContainText("Latest: Version 2");
+  await expect(row).toContainText(TITLE);
+  // Not one card per version: nothing in the Library links to either job.
+  await expect(page.locator(`a[href="/songs/${v1.song_id}"]`)).toHaveCount(1);
+  await expect(page.locator(`a[href="/jobs/${v1.id}"], a[href="/jobs/${v2.id}"]`)).toHaveCount(0);
+  await expectNoInternalLeak(page);
+  await expectFitsViewport(page, 375, [row]);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  // ---- Song Details: versions newest-first, Version 2 active and Latest ----
+  await row.getByRole("link", { name: /open song/i }).click();
+  await expect(page).toHaveURL(new RegExp(`/songs/${v1.song_id}$`));
+  await expect(page.getByTestId("song-title")).toHaveText(TITLE);
+  const options = page.getByTestId("version-option");
+  await expect(options).toHaveCount(2);
+  await expect(options.nth(0)).toHaveAttribute("data-version-number", "2");
+  await expect(options.nth(1)).toHaveAttribute("data-version-number", "1");
+  await expect(options.nth(0)).toContainText("Latest");
+  await expect(options.nth(1)).not.toContainText("Latest");
+  await expect(page.getByTestId("active-version-title")).toHaveText("Version 2 — Latest");
+  await expect(page.getByRole("radio", { name: /version 2\b/i })).toBeChecked();
+
+  const details = (await (await request.get(`${NEXT}/api/songs/${v1.song_id}`)).json()) as {
+    versions: Array<{ version_number: number; duration: number | null; audio: { audio_url: string } | null }>;
+  };
+  expect(details.versions.map((v) => v.version_number)).toEqual([2, 1]);
+  const apiDuration = (n: number) => details.versions.find((v) => v.version_number === n)!.duration!;
+
+  // ---- Version 2 (default): its audio loads, plays, seeks, downloads ----
+  const totalV2 = await expectPlayableAudio(page, v2.id);
+  expect(Math.abs(totalV2 - apiDuration(2))).toBeLessThan(2);
+  await expectDownloadMatchesStoredAudio(page, request, v2);
+
+  // ---- Select Version 1: the player switches to Version 1's audio ----
+  await page.getByRole("radio", { name: /version 1\b/i }).check();
+  await expect(page.getByTestId("active-version-title")).toHaveText("Version 1");
+  await expect(page.getByTestId("audio-player")).toHaveAttribute("data-audio-url", `/api/jobs/${v1.id}/audio`);
+  const totalV1 = await expectPlayableAudio(page, v1.id);
+  expect(Math.abs(totalV1 - apiDuration(1))).toBeLessThan(2);
+  await expectDownloadMatchesStoredAudio(page, request, v1); // Version 1's own file, not Version 2's
+  await expectFitsViewport(page, 768, songPageControls(page));
+  await expectFitsViewport(page, 375, songPageControls(page));
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  // ---- Back to Version 2: still Version 2's audio ----
+  await page.getByRole("radio", { name: /version 2\b/i }).check();
+  await expect(page.getByTestId("audio-player")).toHaveAttribute("data-audio-url", `/api/jobs/${v2.id}/audio`);
+  await expectPlayableAudio(page, v2.id);
+
+  // ---- Nothing was created or changed by selecting versions; Version 1 is untouched ----
+  expect(((await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[]).length).toBe(jobsBefore);
+  expect(sha(v1File)).toBe(v1Hash);
+  expect(Buffer.compare(fs.readFileSync(v1File), v1Bytes)).toBe(0);
+  const servedV1 = await request.get(`${NEXT}/api/jobs/${v1.id}/audio`);
+  expect(Buffer.compare(await servedV1.body(), v1Bytes)).toBe(0);
+  await expectNoInternalLeak(page, details);
+});
+
+test("an unknown or malformed song shows a safe 'Song not found' page and the API refuses it", async ({ page, request }) => {
+  await page.goto("/songs/song-does-not-exist");
+  await expect(page.getByTestId("song-not-found")).toBeVisible();
+  await expect(page.getByTestId("audio-player")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /library/i }).first()).toBeVisible();
+  expect((await request.get(`${NEXT}/api/songs/song-does-not-exist`)).status()).toBe(404);
+  expect((await request.get(`${NEXT}/api/songs/bad'id`)).status()).toBe(422);
+  const traversal = await request.get(`${NEXT}/api/songs/..%2F..%2Fetc%2Fpasswd`);
+  expect([404, 422]).toContain(traversal.status());
+  expect(await traversal.text()).not.toMatch(INTERNAL_PATH);
 });
 
 test("an unknown job id shows 'Job not found', no player, and stops polling", async ({ page }) => {

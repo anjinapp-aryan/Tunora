@@ -34,7 +34,7 @@ from app.providers.base import GenerationRequest, JobState, MusicGenerationProvi
 from app.providers.errors import ProviderError
 from app.songs.errors import InvalidIdError, SongNotFoundError
 from app.songs.ids import is_valid_id, new_song_id, new_version_id
-from app.songs.models import Song, Version, VersionAudio
+from app.songs.models import Song, SongSummary, Version, VersionAudio, VersionEntry
 from app.storage.base import AudioStorage
 from app.storage.errors import StorageError
 from app.storage.filenames import safe_audio_filename
@@ -381,3 +381,15 @@ class JobService:
         job.error = error_message
         job.failed_at = utcnow()
         self._repository.update(job)
+
+    # -- song-oriented reads (Library, Song Details) ----------------------------------------------
+
+    def list_songs(self, *, query: str = "", sort: str = "newest", limit: int = 50) -> list[SongSummary]:
+        return self._repository.list_song_summaries(query=query, sort=sort, limit=limit)
+
+    def song_details(self, song_id: str) -> tuple[Song, list[VersionEntry]]:
+        """A song and all of its versions (newest first). Versions are loaded by the
+        song's own id, so a version can never be returned under another song."""
+
+        song = self.get_song(song_id)
+        return song, self._repository.list_version_entries(song.id)

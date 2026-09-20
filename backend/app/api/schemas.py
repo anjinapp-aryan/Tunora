@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.jobs.models import Job, JobStatus
 from app.jobs.titles import derive_title
-from app.songs.models import Version
+from app.songs.models import Song, SongSummary, Version, VersionEntry
 from app.storage.filenames import safe_audio_filename
 
 # Job.error holds raw exception text (it can contain filesystem paths or
@@ -98,3 +98,112 @@ def _public_result(job: Job) -> Optional[dict[str, Any]]:
         "duration": result.get("duration"),
         "metadata": {name: metadata[name] for name in _PUBLIC_METADATA_FIELDS if name in metadata},
     }
+
+
+# -- Songs (Phase 5A) ---------------------------------------------------------------------------
+
+
+class LatestVersionSummary(BaseModel):
+    version_number: int
+    duration: Optional[float] = None
+    created_at: str
+
+
+class SongSummaryResponse(BaseModel):
+    id: str
+    title: str
+    version_count: int
+    latest_version: LatestVersionSummary
+    created_at: str
+    updated_at: str
+
+
+class SongListResponse(BaseModel):
+    items: list[SongSummaryResponse]
+
+
+class VersionAudioResponse(BaseModel):
+    filename: str
+    media_type: str
+    size_bytes: int
+    audio_url: str
+
+
+class VersionResponse(BaseModel):
+    id: str
+    version_number: int
+    is_latest: bool
+    status: str
+    created_at: str
+    duration: Optional[float] = None
+    # Null when the version has no stored audio (failed, still generating, or never completed).
+    audio: Optional[VersionAudioResponse] = None
+    prompt: str
+    lyrics: str
+    language: str
+    instrumental: bool
+    seed: Optional[int] = None
+
+
+class SongDetailsResponse(BaseModel):
+    id: str
+    title: str
+    created_at: str
+    updated_at: str
+    versions: list[VersionResponse]
+
+
+def song_summary_response(summary: SongSummary) -> SongSummaryResponse:
+    latest = summary.latest
+    return SongSummaryResponse(
+        id=summary.song.id,
+        title=summary.song.title,
+        version_count=summary.version_count,
+        latest_version=LatestVersionSummary(
+            version_number=latest.version_number,
+            duration=latest.audio.duration if latest.audio else None,
+            created_at=latest.created_at.isoformat(),
+        ),
+        created_at=summary.song.created_at.isoformat(),
+        updated_at=summary.song.updated_at.isoformat(),
+    )
+
+
+def song_details_response(song: Song, entries: list[VersionEntry]) -> SongDetailsResponse:
+    """Built field by field: no storage key, absolute path, provider name or task id can leak."""
+
+    latest_number = max((e.version.version_number for e in entries), default=None)
+    versions = []
+    for entry in entries:
+        v = entry.version
+        audio = None
+        if v.audio is not None and entry.job_id:
+            audio = VersionAudioResponse(
+                filename=safe_audio_filename(v.audio.filename, job_id=entry.job_id, media_type=v.audio.media_type),
+                media_type=v.audio.media_type,
+                size_bytes=v.audio.size_bytes,
+                audio_url=audio_url_for(entry.job_id),
+            )
+        versions.append(
+            VersionResponse(
+                id=v.id,
+                version_number=v.version_number,
+                is_latest=v.version_number == latest_number,
+                status=entry.job_status or "CREATED",
+                created_at=v.created_at.isoformat(),
+                duration=v.audio.duration if v.audio else None,
+                audio=audio,
+                prompt=v.spec.prompt,
+                lyrics=v.spec.lyrics,
+                language=v.spec.language,
+                instrumental=v.spec.instrumental,
+                seed=v.spec.seed,
+            )
+        )
+    return SongDetailsResponse(
+        id=song.id,
+        title=song.title,
+        created_at=song.created_at.isoformat(),
+        updated_at=song.updated_at.isoformat(),
+        versions=versions,
+    )

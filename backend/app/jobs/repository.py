@@ -27,7 +27,7 @@ from app.jobs.migrations import migrate
 from app.jobs.models import Job, JobStatus
 from app.providers.base import GenerationRequest
 from app.songs.errors import ImmutableVersionError, SongNotFoundError, VersionNotFoundError
-from app.songs.models import Song, Version, VersionAudio
+from app.songs.models import Song, SongSummary, Version, VersionAudio, VersionEntry
 from app.songs.repository import SongRepository
 
 _MAX_IN_QUERY = 500
@@ -121,6 +121,29 @@ class InMemoryJobRepository(JobRepository):
 
     def list_versions(self, song_id: str) -> list[Version]:
         return sorted((v for v in self._versions.values() if v.song_id == song_id), key=lambda v: v.version_number)
+
+    def list_song_summaries(self, *, query: str, sort: str, limit: int) -> list[SongSummary]:
+        needle = query.strip().lower()
+        rows: list[SongSummary] = []
+        for song in self._songs.values():
+            playable = [v for v in self._versions.values() if v.song_id == song.id and v.audio is not None]
+            if not playable:
+                continue
+            if needle and needle not in song.title.lower() and not any(needle in v.spec.prompt.lower() for v in self._versions.values() if v.song_id == song.id):
+                continue
+            rows.append(SongSummary(song=song, version_count=len(playable), latest=max(playable, key=lambda v: v.version_number)))
+        if sort == "title":
+            rows.sort(key=lambda r: (r.song.title.lower(), r.song.id))
+        else:
+            rows.sort(key=lambda r: (r.latest.created_at, r.song.id), reverse=(sort != "oldest"))
+        return rows[:limit]
+
+    def list_version_entries(self, song_id: str) -> list[VersionEntry]:
+        entries = []
+        for v in sorted((v for v in self._versions.values() if v.song_id == song_id), key=lambda v: v.version_number, reverse=True):
+            jobs = sorted((j for j in self._jobs.values() if j.version_id == v.id), key=lambda j: j.created_at, reverse=True)
+            entries.append(VersionEntry(version=v, job_id=jobs[0].id if jobs else None, job_status=jobs[0].status.value if jobs else None))
+        return entries
 
 
 # -- sqlite ---------------------------------------------------------------------------
@@ -359,3 +382,51 @@ class SqliteJobRepository(JobRepository):
                 "SELECT * FROM versions WHERE song_id = ? ORDER BY version_number", (song_id,)
             ).fetchall()
         return [self._row_to_version(row) for row in rows]
+
+    _SORT_CLAUSES = {
+        "newest": "lv.created_at DESC, s.id",
+        "oldest": "lv.created_at ASC, s.id",
+        "title": "lower(s.title), s.id",
+    }
+
+    def list_song_summaries(self, *, query: str, sort: str, limit: int) -> list[SongSummary]:
+        # One query: playable-version count and the latest playable version id per song
+        # (no per-song follow-up queries); a second bulk lookup loads those versions.
+        order_by = self._SORT_CLAUSES.get(sort, self._SORT_CLAUSES["newest"])  # whitelist, never user text
+        needle = query.strip().lower()
+        # '!' is the LIKE escape character, so user text cannot act as a wildcard.
+        pattern = "%" + needle.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+        sql = (
+            "SELECT s.id, s.title, s.created_at, s.updated_at, lv.id AS latest_id, "
+            "  (SELECT COUNT(*) FROM versions c WHERE c.song_id = s.id AND c.audio_key IS NOT NULL) AS version_count "
+            "FROM songs s JOIN versions lv ON lv.song_id = s.id AND lv.audio_key IS NOT NULL "
+            "  AND lv.version_number = (SELECT MAX(m.version_number) FROM versions m "
+            "                           WHERE m.song_id = s.id AND m.audio_key IS NOT NULL) "
+            "WHERE (? = '' OR lower(s.title) LIKE ? ESCAPE '!' "
+            "       OR EXISTS (SELECT 1 FROM versions p WHERE p.song_id = s.id AND lower(p.prompt) LIKE ? ESCAPE '!')) "
+            f"ORDER BY {order_by} LIMIT ?"  # noqa: S608 - order_by comes from the fixed mapping above
+        )
+        with self._connect() as conn:
+            rows = conn.execute(sql, (needle, pattern, pattern, limit)).fetchall()
+        latest = self.get_versions([r["latest_id"] for r in rows])
+        return [
+            SongSummary(
+                song=Song(id=r["id"], title=r["title"], created_at=_str_to_dt(r["created_at"]), updated_at=_str_to_dt(r["updated_at"])),
+                version_count=r["version_count"],
+                latest=latest[r["latest_id"]],
+            )
+            for r in rows
+        ]
+
+    def list_version_entries(self, song_id: str) -> list[VersionEntry]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT v.*, j.id AS job_id, j.status AS job_status FROM versions v "
+                "LEFT JOIN jobs j ON j.version_id = v.id WHERE v.song_id = ? "
+                "ORDER BY v.version_number DESC, j.created_at DESC",
+                (song_id,),
+            ).fetchall()
+        entries: dict[str, VersionEntry] = {}
+        for row in rows:  # one entry per version; if it ever has several jobs the newest wins
+            entries.setdefault(row["id"], VersionEntry(self._row_to_version(row), row["job_id"], row["job_status"]))
+        return list(entries.values())

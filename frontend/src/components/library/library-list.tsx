@@ -2,26 +2,22 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ArrowRightIcon } from "lucide-react";
 
-import { DownloadButton } from "@/components/audio/download-button";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { getAudioResource, listSongs, type GenerationJob, type LibrarySort } from "@/lib/api/jobs";
+import { listSongSummaries, type LibrarySort, type SongSummary } from "@/lib/api/songs";
 import { formatTime } from "@/lib/audio/format-time";
+import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
 const SEARCH_DEBOUNCE_MS = 300;
 const LOAD_ERROR = "Could not load your songs. Please try again.";
 
-type Result = { key: string; songs?: GenerationJob[]; error?: string };
+type Result = { key: string; songs?: SongSummary[]; error?: string };
 
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-}
-
-/** Completed songs, searchable and sortable. Reuses the job/audio API; no second player or store. */
+/** The Library: one row per Song (never per version), grouped by the backend. */
 export function LibraryList() {
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
@@ -37,7 +33,7 @@ export function LibraryList() {
   const key = `${query}|${sort}|${attempt}`;
   useEffect(() => {
     const controller = new AbortController();
-    listSongs({ query, sort, signal: controller.signal })
+    listSongSummaries({ query, sort, signal: controller.signal })
       .then((songs) => setResult({ key, songs }))
       .catch((error) => {
         if (controller.signal.aborted) return;
@@ -106,19 +102,26 @@ export function LibraryList() {
       {songs && songs.length > 0 && (
         <ul className="flex flex-col gap-3">
           {songs.map((song) => {
-            const audio = getAudioResource(song);
+            const latest = song.latest_version;
+            const meta = [
+              `Latest: Version ${latest.version_number}`,
+              latest.duration ? formatTime(latest.duration) : "",
+            ].filter(Boolean);
             return (
               <li key={song.id} className="rounded-xl border border-border/60 p-4" data-testid="library-item">
-                <Link
-                  href={`/jobs/${encodeURIComponent(song.id)}`}
-                  className="text-base font-medium [overflow-wrap:anywhere] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-                >
-                  {song.title}
-                </Link>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {[formatDate(song.created_at), audio?.durationSeconds ? formatTime(audio.durationSeconds) : ""].filter(Boolean).join(" · ")}
+                <h2 className="text-base font-medium [overflow-wrap:anywhere]">{song.title}</h2>
+                <p className="mt-1 text-sm text-muted-foreground" data-testid="version-count">
+                  {song.version_count} {song.version_count === 1 ? "version" : "versions"}
                 </p>
-                {audio && <DownloadButton resource={audio} />}
+                <p className="text-sm text-muted-foreground">{meta.join(" · ")}</p>
+                <p className="text-sm text-muted-foreground">Created {formatDate(song.created_at)}</p>
+                <Link
+                  href={`/songs/${encodeURIComponent(song.id)}`}
+                  aria-label={`Open song: ${song.title}`}
+                  className={cn(buttonVariants({ variant: "outline" }), "mt-3")}
+                >
+                  Open Song <ArrowRightIcon aria-hidden="true" />
+                </Link>
               </li>
             );
           })}
