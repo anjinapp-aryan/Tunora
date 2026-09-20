@@ -10,16 +10,26 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Path, Query, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Path, Query, Request
 
+from app.api.routes_jobs import _respond
 from app.api.schemas import (
+    JobResponse,
     SongDetailsResponse,
     SongListResponse,
+    VersionOperationRequest,
     song_details_response,
     song_summary_response,
 )
 from app.jobs.service import JobService
-from app.songs.errors import InvalidIdError, SongNotFoundError
+from app.providers.errors import UnsupportedOperationError
+from app.songs.errors import (
+    InvalidIdError,
+    InvalidOperationError,
+    SongNotFoundError,
+    SourceAudioUnavailableError,
+    SourceVersionNotFoundError,
+)
 
 router = APIRouter(prefix="/api/songs", tags=["songs"])
 
@@ -49,3 +59,44 @@ async def get_song(
     except (SongNotFoundError, InvalidIdError):
         raise HTTPException(status_code=404, detail="Song not found.")
     return song_details_response(song, entries)
+
+
+_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9-]*$"
+
+
+@router.post("/{song_id}/versions/{version_id}/{operation}", response_model=JobResponse)
+async def create_version_from_operation(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    payload: VersionOperationRequest,
+    song_id: str = Path(max_length=80, pattern=_ID_PATTERN),
+    version_id: str = Path(max_length=80, pattern=_ID_PATTERN),
+    operation: Literal["extend", "remix", "repaint"] = Path(),
+):
+    """Create a NEW version of a song from one of its existing versions. The source version
+    is only read; the result is a normal job that will produce the new version."""
+
+    service = _get_service(request)
+    try:
+        job = await service.create_version_from_operation(
+            song_id,
+            version_id,
+            operation.upper(),
+            prompt=payload.prompt,
+            lyrics=payload.lyrics,
+            extend_seconds=payload.extend_seconds,
+            repaint_start=payload.repaint_start,
+            repaint_end=payload.repaint_end,
+            remix_strength=payload.remix_strength,
+        )
+    except (InvalidIdError, SongNotFoundError, SourceVersionNotFoundError):
+        raise HTTPException(status_code=404, detail="Song or version not found.")
+    except SourceAudioUnavailableError:
+        raise HTTPException(status_code=409, detail="The source audio is unavailable.")
+    except InvalidOperationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except UnsupportedOperationError:
+        raise HTTPException(status_code=422, detail="This operation is not supported.")
+    if job.status.value != "FAILED":
+        background_tasks.add_task(service.run_until_terminal, job.id)
+    return _respond(service, [job])[0]

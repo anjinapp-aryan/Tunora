@@ -54,6 +54,11 @@ class Version:
     version_number: int = 0
     created_at: datetime = field(default_factory=utcnow)
     audio: Optional[VersionAudio] = None
+    # How this version was made: ORIGINAL, or a creative operation on `source_version_id`
+    # (another version of the same song). Immutable, like the rest of the snapshot.
+    operation: str = "ORIGINAL"
+    source_version_id: Optional[str] = None
+    operation_params: Optional[dict] = None
 
 
 @dataclass(frozen=True)

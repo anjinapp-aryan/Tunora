@@ -9,6 +9,8 @@ cannot both apply it. Steps never drop or rewrite existing user data.
   0 -> 1  baseline: `jobs` table (+ `title` column added in Milestone 1)
   1 -> 2  Song/Version domain: songs, versions, jobs.version_id, triggers,
           and a deterministic backfill (one legacy job -> one song -> version 1)
+  2 -> 3  Version lineage: versions.operation / source_version_id / operation_params
+          (existing versions become ORIGINAL with no source)
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from app.providers.base import GenerationRequest
 
 logger = logging.getLogger(__name__)
 
-LATEST_VERSION = 2
+LATEST_VERSION = 3
 
 _JOB_ID = re.compile(r"^tunora-([0-9a-fA-F-]{36})$")
 _SPEC_FIELDS = tuple(GenerationRequest.__dataclass_fields__)
@@ -39,7 +41,7 @@ def migrate(conn: sqlite3.Connection) -> None:
         raise RuntimeError(
             f"Database schema version {current} is newer than this Tunora build supports ({LATEST_VERSION})."
         )
-    for target, step in ((1, _to_v1), (2, _to_v2)):
+    for target, step in ((1, _to_v1), (2, _to_v2), (3, _to_v3)):
         if current >= target:
             continue
         _run_step(conn, target, step)
@@ -154,6 +156,38 @@ def _to_v2(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_version_id ON jobs(version_id)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at)")
     _backfill_legacy_jobs(conn)
+
+
+def _to_v3(conn: sqlite3.Connection) -> None:
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(versions)")}
+    if "operation" not in columns:
+        conn.execute("ALTER TABLE versions ADD COLUMN operation TEXT NOT NULL DEFAULT 'ORIGINAL'")
+    if "source_version_id" not in columns:
+        conn.execute("ALTER TABLE versions ADD COLUMN source_version_id TEXT REFERENCES versions(id)")
+    if "operation_params" not in columns:
+        conn.execute("ALTER TABLE versions ADD COLUMN operation_params TEXT")
+    # Lineage is part of the immutable snapshot ...
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS versions_lineage_immutable
+        BEFORE UPDATE OF operation, source_version_id, operation_params ON versions
+        BEGIN
+            SELECT RAISE(ABORT, 'version generation snapshot is immutable');
+        END
+        """
+    )
+    # ... and a version can only be derived from another version of the SAME song.
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS versions_source_same_song
+        BEFORE INSERT ON versions
+        WHEN NEW.source_version_id IS NOT NULL
+         AND (SELECT song_id FROM versions WHERE id = NEW.source_version_id) IS NOT NEW.song_id
+        BEGIN
+            SELECT RAISE(ABORT, 'source version must belong to the same song');
+        END
+        """
+    )
 
 
 def legacy_ids(job_id: str) -> tuple[str, str]:

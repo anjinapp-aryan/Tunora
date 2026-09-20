@@ -14,9 +14,10 @@ app/storage/local.py.
 from __future__ import annotations
 
 import asyncio
+import math
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -31,8 +32,15 @@ from app.jobs.repository import JobRepository
 from app.jobs.state_machine import validate_transition
 from app.jobs.titles import derive_title
 from app.providers.base import GenerationRequest, JobState, MusicGenerationProvider
-from app.providers.errors import ProviderError
-from app.songs.errors import InvalidIdError, SongNotFoundError
+from app.providers.errors import ProviderError, UnsupportedOperationError
+from app.songs import operations as ops
+from app.songs.errors import (
+    InvalidIdError,
+    InvalidOperationError,
+    SongNotFoundError,
+    SourceAudioUnavailableError,
+    SourceVersionNotFoundError,
+)
 from app.songs.ids import is_valid_id, new_song_id, new_version_id
 from app.songs.models import Song, SongSummary, Version, VersionAudio, VersionEntry
 from app.storage.base import AudioStorage
@@ -70,6 +78,42 @@ class AudioResource:
     size_bytes: int
 
 
+def _valid_seconds(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value > 0
+
+
+def _expected_duration(request: GenerationRequest) -> Optional[float]:
+    """Length of a creative operation's output when the provider does not report it
+    (ACE-Step returns "N/A" for cover/repaint). Verified locally: extend = source + extension,
+    remix and repaint keep the source length (docs/PHASE-5B-EXTEND-REMIX-REPAINT.md)."""
+
+    if request.operation == "EXTEND" and request.source_duration and request.extend_seconds:
+        return request.source_duration + request.extend_seconds
+    if request.operation in ("REMIX", "REPAINT"):
+        return request.source_duration
+    return None
+
+
+def _base_spec(request: GenerationRequest) -> GenerationRequest:
+    """The reproducible generation inputs of a version, without operation plumbing."""
+
+    return GenerationRequest(
+        prompt=request.prompt,
+        lyrics=request.lyrics,
+        language=request.language,
+        duration=request.duration,
+        seed=request.seed,
+        instrumental=request.instrumental,
+        batch_size=request.batch_size,
+    )
+
+
+def _finite(value: object, name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise InvalidOperationError(f"{name} must be a number.")
+    return float(value)
+
+
 def _default_id_factory() -> str:
     return f"tunora-{uuid.uuid4()}"
 
@@ -100,6 +144,9 @@ class JobService:
         request: GenerationRequest,
         title: Optional[str] = None,
         song_id: Optional[str] = None,
+        *,
+        source_version_id: Optional[str] = None,
+        operation_params: Optional[dict] = None,
     ) -> Job:
         """Create a Job (and its Version, and a new Song unless `song_id` names an
         existing one) atomically, then submit it to the provider.
@@ -109,6 +156,9 @@ class JobService:
         failures: the returned Job's status/error reflect the outcome. Raises
         SongNotFoundError / InvalidIdError for a bad `song_id`.
         """
+
+        if request.operation not in self._provider.supported_operations:
+            raise UnsupportedOperationError(f"Operation {request.operation!r} is not supported by this provider")
 
         if song_id is not None:
             if not is_valid_id(song_id):
@@ -127,12 +177,21 @@ class JobService:
             id=self._id_factory(),
             provider=self._provider.name,
             status=JobStatus.CREATED,
-            request=request,
+            # Stored job/version records never keep the source file path; only the provider call does.
+            request=replace(request, source_audio_path=None),
             title=display_title,
         )
         version = self._repository.create_generation(
             new_song=new_song,
-            version=Version(id=new_version_id(), song_id=song_id, spec=request, provider=self._provider.name),
+            version=Version(
+                id=new_version_id(),
+                song_id=song_id,
+                spec=_base_spec(request),
+                provider=self._provider.name,
+                operation=request.operation,
+                source_version_id=source_version_id,
+                operation_params=operation_params,
+            ),
             job=job,
         )
         logger.info(
@@ -204,6 +263,7 @@ class JobService:
                 self._fail(job, f"Failed to store generated audio: {exc}")
                 return job
 
+            duration = result.duration if _valid_seconds(result.duration) else _expected_duration(job.request)
             self._transition(job, JobStatus.COMPLETED)
             job.started_at = job.started_at or utcnow()
             job.completed_at = utcnow()
@@ -215,7 +275,7 @@ class JobService:
                     "media_type": stored.media_type,
                     "size_bytes": stored.size_bytes,
                 },
-                "duration": result.duration,
+                "duration": duration,
                 "metadata": _strip_provider_transport_metadata(result.metadata),
             }
             # Job row + the Version's audio reference commit together.
@@ -226,7 +286,7 @@ class JobService:
                     filename=stored.filename,
                     media_type=stored.media_type,
                     size_bytes=stored.size_bytes,
-                    duration=result.duration,
+                    duration=duration,
                 ),
             )
             return job
@@ -393,3 +453,102 @@ class JobService:
 
         song = self.get_song(song_id)
         return song, self._repository.list_version_entries(song.id)
+
+    # -- creative operations (Phase 5B) ----------------------------------------------------------
+
+    async def create_version_from_operation(
+        self,
+        song_id: str,
+        source_version_id: str,
+        operation: str,
+        *,
+        prompt: Optional[str] = None,
+        lyrics: Optional[str] = None,
+        extend_seconds: Optional[float] = None,
+        repaint_start: Optional[float] = None,
+        repaint_end: Optional[float] = None,
+        remix_strength: Optional[float] = None,
+    ) -> Job:
+        """Create a NEW Version of `song_id` by extending / remixing / repainting an existing
+        version of the same song, then submit it as a normal Job.
+
+        The source version is never touched: the new Version gets its own row, Job and audio
+        file. All validation happens before anything is written. Raises InvalidIdError,
+        SongNotFoundError, SourceVersionNotFoundError (unknown, or another song's version),
+        SourceAudioUnavailableError, InvalidOperationError or UnsupportedOperationError.
+        """
+
+        if operation not in ops.CREATIVE_OPERATIONS:
+            raise InvalidOperationError("Unknown operation.")
+        if not is_valid_id(song_id) or not is_valid_id(source_version_id):
+            raise InvalidIdError("Malformed id.")
+        self.get_song(song_id)
+        source = self._repository.get_version(source_version_id)
+        if source is None or source.song_id != song_id:
+            raise SourceVersionNotFoundError(source_version_id)
+        if operation not in self._provider.supported_operations:
+            raise UnsupportedOperationError(f"Operation {operation!r} is not supported by this provider")
+        if source.audio is None:
+            raise SourceAudioUnavailableError("The source version has no audio.")
+        try:
+            source_path = self._storage.get_path(source.audio.key)
+        except StorageError as exc:
+            raise SourceAudioUnavailableError("The source audio is unavailable.") from exc
+        if not source_path.is_file() or source_path.stat().st_size == 0:
+            raise SourceAudioUnavailableError("The source audio is unavailable.")
+
+        spec = source.spec
+        new_prompt = (prompt or "").strip() or None
+        source_duration = source.audio.duration if _valid_seconds(source.audio.duration) else None
+        common: dict = dict(
+            lyrics=spec.lyrics if lyrics is None else lyrics,
+            language=spec.language,
+            seed=spec.seed,
+            instrumental=spec.instrumental,
+            operation=operation,
+            source_audio_path=str(source_path),
+            source_duration=source_duration,
+        )
+
+        if operation == ops.EXTEND:
+            seconds = _finite(extend_seconds, "Extension length")
+            if not ops.EXTEND_MIN_SECONDS <= seconds <= ops.EXTEND_MAX_SECONDS:
+                raise InvalidOperationError(
+                    f"Extend by between {ops.EXTEND_MIN_SECONDS:g} and {ops.EXTEND_MAX_SECONDS:g} seconds."
+                )
+            if source_duration is None:
+                raise InvalidOperationError("The source duration is unknown, so it cannot be extended.")
+            request = GenerationRequest(
+                prompt=new_prompt or spec.prompt, duration=source_duration + seconds, extend_seconds=seconds, **common
+            )
+            params = {"extend_seconds": seconds}
+        elif operation == ops.REMIX:
+            if new_prompt is None:
+                raise InvalidOperationError("Describe the new interpretation.")
+            strength = ops.DEFAULT_REMIX_STRENGTH if remix_strength is None else _finite(remix_strength, "Strength")
+            if not 0.0 <= strength <= 1.0:
+                raise InvalidOperationError("Strength must be between 0 and 1.")
+            request = GenerationRequest(prompt=new_prompt, duration=source_duration, remix_strength=strength, **common)
+            params = {"remix_strength": strength}
+        else:  # REPAINT
+            if new_prompt is None:
+                raise InvalidOperationError("Describe what the repainted section should sound like.")
+            start = _finite(repaint_start, "Start")
+            end = _finite(repaint_end, "End")
+            if source_duration is None:
+                raise InvalidOperationError("The source duration is unknown, so it cannot be repainted.")
+            if start < 0 or end > source_duration + 0.05 or end <= start:
+                raise InvalidOperationError("Choose a section inside the song.")
+            end = min(end, source_duration)
+            if not ops.REPAINT_MIN_SECONDS <= end - start <= ops.REPAINT_MAX_SECONDS:
+                raise InvalidOperationError(
+                    f"The section must be between {ops.REPAINT_MIN_SECONDS:g} and {ops.REPAINT_MAX_SECONDS:g} seconds."
+                )
+            request = GenerationRequest(
+                prompt=new_prompt, duration=source_duration, repaint_start=start, repaint_end=end, **common
+            )
+            params = {"repaint_start": start, "repaint_end": end}
+
+        return await self.create_and_submit(
+            request, song_id=song_id, source_version_id=source.id, operation_params=params
+        )

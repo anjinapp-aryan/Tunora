@@ -235,6 +235,9 @@ class SqliteJobRepository(JobRepository):
             provider=row["provider"],
             created_at=_str_to_dt(row["created_at"]),
             audio=audio,
+            operation=row["operation"],
+            source_version_id=row["source_version_id"],
+            operation_params=json.loads(row["operation_params"]) if row["operation_params"] else None,
         )
 
     @staticmethod
@@ -307,11 +310,13 @@ class SqliteJobRepository(JobRepository):
             spec = version.spec
             conn.execute(
                 "INSERT INTO versions (id, song_id, version_number, prompt, lyrics, language, duration, seed, "
-                "instrumental, batch_size, provider, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "instrumental, batch_size, provider, created_at, operation, source_version_id, operation_params) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     version.id, version.song_id, number, spec.prompt, spec.lyrics, spec.language, spec.duration,
                     spec.seed, 1 if spec.instrumental else 0, spec.batch_size, version.provider,
-                    _dt_to_str(version.created_at),
+                    _dt_to_str(version.created_at), version.operation, version.source_version_id,
+                    json.dumps(version.operation_params) if version.operation_params else None,
                 ),
             )
             job.version_id = version.id

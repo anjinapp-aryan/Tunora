@@ -33,6 +33,15 @@ class GenerationRequest:
     seed: Optional[int] = None
     instrumental: bool = False
     batch_size: Optional[int] = None
+    # Creative operations on an existing version (see app.songs.operations). ORIGINAL is a
+    # plain text-to-music generation; the others condition on the source audio below.
+    operation: str = "ORIGINAL"
+    source_audio_path: Optional[str] = None  # trusted local file resolved from AudioStorage, never client input
+    source_duration: Optional[float] = None
+    extend_seconds: Optional[float] = None
+    repaint_start: Optional[float] = None
+    repaint_end: Optional[float] = None
+    remix_strength: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -70,6 +79,10 @@ class MusicGenerationProvider(ABC):
     Tunora's domain/UI layer depends only on this interface — never on a
     specific provider's request/response schema.
     """
+
+    # Operations this provider genuinely performs (see GenerationRequest.operation).
+    # A provider must not list an operation it cannot honour with the source audio.
+    supported_operations: frozenset = frozenset({"ORIGINAL"})
 
     @abstractmethod
     async def generate(self, request: GenerationRequest) -> GenerationJob:

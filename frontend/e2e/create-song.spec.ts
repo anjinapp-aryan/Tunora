@@ -595,3 +595,104 @@ test("Create Song has no horizontal overflow at mobile width", async ({ page }) 
   expect(overflow).toBeLessThanOrEqual(0);
   await expect(page.getByRole("button", { name: /generate song/i })).toBeVisible();
 });
+
+/** Runs one operation from the Actions section and waits for the new version to become the active, playable one. */
+async function runOperationThroughUi(page: Page, opName: string, fill: () => Promise<void>, expectedNumber: number) {
+  await page.getByRole("button", { name: opName, exact: true }).click();
+  await fill();
+  await page.getByRole("button", { name: new RegExp(`create ${opName} version`, "i") }).click();
+  await expect(page.getByTestId("version-pending")).toContainText(`Creating Version ${expectedNumber}`);
+  await expect(page.getByTestId("version-actions")).toHaveCount(0); // one operation at a time
+  // Not Latest and not selected while generating.
+  await expect(page.getByTestId("active-version-title")).not.toContainText(`Version ${expectedNumber}`);
+  await expect(page.getByTestId("active-version-title")).toHaveText(`Version ${expectedNumber} — Latest`, { timeout: GENERATION_TIMEOUT_MS });
+  await expect(page.getByTestId("version-pending")).toHaveCount(0);
+}
+
+test("Extend, Remix and Repaint from the UI each create a NEW version of the same song and never touch Version 1", async ({ page, request }) => {
+  test.skip(!STORAGE_ROOT, "Needs E2E_STORAGE_ROOT to compare stored files");
+  test.setTimeout(GENERATION_TIMEOUT_MS * 4 + 300_000);
+  await trackMediaElement(page);
+  const TITLE = "Creative Ops Song";
+
+  const first = await generateRealSong(page, "short upbeat instrumental synth loop", TITLE);
+  const v1 = await fetchCompletedJob(request, first.id);
+  const v1File = storedAudioPath(v1);
+  const v1Hash = sha(v1File);
+  const v1Size = fs.statSync(v1File).size;
+  const jobIds = new Set<string>([v1.id]);
+
+  await page.goto(`/songs/${v1.song_id}`);
+  await expect(page.getByTestId("active-version-title")).toHaveText("Version 1 — Latest");
+  await expect(page.getByTestId("active-version-operation")).toHaveText("Original");
+  await expectFitsViewport(page, 375, [page.getByTestId("version-actions")]);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  const cases: Array<{ name: string; op: string; params: Record<string, unknown>; fill: () => Promise<void> }> = [
+    { name: "Extend", op: "EXTEND", params: { extend_seconds: 10 }, fill: async () => { await page.getByLabel("Extend by").selectOption("10"); } },
+    {
+      name: "Remix", op: "REMIX", params: { remix_strength: 0.7 },
+      fill: async () => { await page.getByLabel("Description", { exact: true }).fill("slow warm acoustic piano version"); },
+    },
+    {
+      name: "Repaint", op: "REPAINT", params: { repaint_start: 3, repaint_end: 7 },
+      fill: async () => {
+        await page.getByLabel("Start (seconds)").fill("3");
+        await page.getByLabel("End (seconds)").fill("7");
+        await page.getByLabel("Description", { exact: true }).fill("add a soft pad");
+      },
+    },
+  ];
+
+  // Every operation is applied to Version 1 (select it first), so each one branches from the original.
+  for (const [index, c] of cases.entries()) {
+    const number = index + 2;
+    await page.getByRole("radio", { name: /^version 1 /i }).check();
+    await expect(page.getByTestId("active-version-title")).toHaveText(index === 0 ? "Version 1 — Latest" : `Version 1`);
+    await runOperationThroughUi(page, c.name, c.fill, number);
+
+    const details = (await (await request.get(`${NEXT}/api/songs/${v1.song_id}`)).json()) as {
+      versions: Array<{ version_number: number; operation: string; source_version_number: number | null; is_latest: boolean; duration: number | null; audio: { audio_url: string } | null }>;
+    };
+    const created = details.versions.find((v) => v.version_number === number)!;
+    expect([created.operation, created.source_version_number, created.is_latest]).toEqual([c.op, 1, true]);
+    expect(details.versions.filter((v) => v.is_latest)).toHaveLength(1);
+    await expect(page.getByTestId("active-version-operation")).toHaveText(`${c.name} · from Version 1`);
+
+    const jobId = created.audio!.audio_url.split("/")[3];
+    jobIds.add(jobId);
+    const job = await fetchCompletedJob(request, jobId);
+    expect(job.version_number).toBe(number);
+    expect(sha(storedAudioPath(job))).not.toBe(v1Hash); // its own, different audio
+    if (c.op === "EXTEND") expect(created.duration!).toBeGreaterThan(v1.result!.audio.size_bytes > 0 ? 15 : 0);
+
+    // Version 1 is exactly as it was.
+    expect([sha(v1File), fs.statSync(v1File).size]).toEqual([v1Hash, v1Size]);
+    // The new version plays and downloads its own file.
+    await expectPlayableAudio(page, job.id);
+    await expectDownloadMatchesStoredAudio(page, request, job);
+  }
+
+  // ---- Library: still ONE song, four versions; no extra jobs beyond the four generations ----
+  await page.goto("/library");
+  await page.getByLabel("Search songs").fill(TITLE);
+  const row = page.getByTestId("library-item").filter({ has: page.locator(`a[href="/songs/${v1.song_id}"]`) });
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId("version-count")).toHaveText("4 versions");
+  await expect(row).toContainText("Latest: Version 4");
+  expect(jobIds.size).toBe(4);
+
+  // ---- Song Details: operation labels for every version; selecting is read-only ----
+  await page.goto(`/songs/${v1.song_id}`);
+  const options = page.getByTestId("version-option");
+  await expect(options).toHaveCount(4);
+  await expect(options.nth(0)).toContainText("Repaint · from Version 1");
+  await expect(options.nth(1)).toContainText("Remix · from Version 1");
+  await expect(options.nth(2)).toContainText("Extend · from Version 1");
+  await expect(options.nth(3)).toContainText("Original");
+  await expectFitsViewport(page, 375, songPageControls(page));
+  await expectFitsViewport(page, 768, songPageControls(page));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expectNoInternalLeak(page);
+  expect([sha(v1File), fs.statSync(v1File).size]).toEqual([v1Hash, v1Size]);
+});

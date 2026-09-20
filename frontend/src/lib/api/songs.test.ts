@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createVersionOperation,
   defaultVersion,
   getSongDetails,
+  operationLabel,
   listSongSummaries,
   versionAudioResource,
   type SongDetails,
@@ -19,6 +21,8 @@ beforeEach(() => {
 
 const v = (n: number, audio: boolean, overrides: Partial<SongVersion> = {}): SongVersion => ({
   id: `ver-${n}`,
+  operation: "ORIGINAL",
+  source_version_number: null,
   version_number: n,
   is_latest: false,
   status: "COMPLETED",
@@ -102,5 +106,46 @@ describe("versionAudioResource / defaultVersion", () => {
     expect(defaultVersion({ ...base, versions: [v(3, false), v(2, true)] } as SongDetails)?.version_number).toBe(2);
     expect(defaultVersion({ ...base, versions: [v(3, false), v(2, false)] } as SongDetails)?.version_number).toBe(3);
     expect(defaultVersion({ ...base, versions: [] } as SongDetails)).toBeNull();
+  });
+});
+
+describe("operationLabel", () => {
+  it("names the operation and its source without exposing ids", () => {
+    expect(operationLabel({ operation: "ORIGINAL", source_version_number: null })).toBe("Original");
+    expect(operationLabel({ operation: "EXTEND", source_version_number: 2 })).toBe("Extend · from Version 2");
+    expect(operationLabel({ operation: "REMIX", source_version_number: 1 })).toBe("Remix · from Version 1");
+    expect(operationLabel({ operation: "REPAINT", source_version_number: 3 })).toBe("Repaint · from Version 3");
+    expect(operationLabel({ operation: "REPAINT", source_version_number: null })).toBe("Repaint");
+  });
+});
+
+describe("createVersionOperation", () => {
+  it("POSTs the params to the encoded operation URL and returns the job", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ id: "job-1", version_number: 2 })));
+    const job = await createVersionOperation("song-1", "ver/1", "EXTEND", { extend_seconds: 20 });
+    expect(job.id).toBe("job-1");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/songs/song-1/versions/ver%2F1/extend");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ extend_seconds: 20 });
+  });
+
+  it.each([
+    [404, "not_found"],
+    [409, "server"],
+    [422, "validation"],
+    [500, "server"],
+  ])("maps HTTP %i to a fixed message of kind %s", async (status, kind) => {
+    fetchMock.mockResolvedValue(new Response("Traceback C:\secret /v1/audio", { status }));
+    const error = await createVersionOperation("s", "v", "REMIX", { prompt: "x" }).catch((e) => e);
+    expect(error.kind).toBe(kind);
+    expect(error.message).not.toMatch(/secret|Traceback|v1\/audio/);
+  });
+
+  it("maps a network failure and an unreadable body", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("down"));
+    expect((await createVersionOperation("s", "v", "REPAINT", {}).catch((e) => e)).kind).toBe("network");
+    fetchMock.mockResolvedValueOnce(new Response("not json"));
+    expect((await createVersionOperation("s", "v", "REPAINT", {}).catch((e) => e)).kind).toBe("server");
   });
 });

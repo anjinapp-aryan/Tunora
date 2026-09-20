@@ -37,6 +37,8 @@ const clicks: Array<{ download: string }> = [];
 function version(n: number, overrides: Record<string, unknown> = {}) {
   return {
     id: `ver-${n}`,
+    operation: "ORIGINAL",
+    source_version_number: null,
     version_number: n,
     is_latest: false,
     status: "COMPLETED",

@@ -21,3 +21,19 @@ class InvalidIdError(ValueError):
 
 class ImmutableVersionError(Exception):
     """An attempt to change a Version's generation snapshot or overwrite its audio."""
+
+
+class SourceVersionNotFoundError(Exception):
+    """The source version does not exist, or does not belong to the given song."""
+
+    def __init__(self, version_id: str) -> None:
+        super().__init__(f"No source version {version_id!r} in this song")
+        self.version_id = version_id
+
+
+class SourceAudioUnavailableError(Exception):
+    """The source version has no usable audio (never completed, or its file is gone)."""
+
+
+class InvalidOperationError(ValueError):
+    """The operation's parameters are invalid (message is safe to show a user)."""

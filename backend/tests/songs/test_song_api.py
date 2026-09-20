@@ -110,8 +110,9 @@ def test_a_failed_newest_version_does_not_hide_or_replace_the_playable_latest(cl
 
     versions = client.get(f"/api/songs/{v1['song_id']}").json()["versions"]
     assert [v["version_number"] for v in versions] == [2, 1]
-    assert versions[0]["status"] == "FAILED" and versions[0]["audio"] is None and versions[0]["is_latest"] is True
-    assert versions[1]["audio"] is not None and versions[1]["is_latest"] is False
+    # Phase 5B: a failed version is never marked Latest; the newest version WITH audio is.
+    assert versions[0]["status"] == "FAILED" and versions[0]["audio"] is None and versions[0]["is_latest"] is False
+    assert versions[1]["audio"] is not None and versions[1]["is_latest"] is True
 
 
 # -- Song Details ---------------------------------------------------------------------------------
@@ -133,7 +134,7 @@ def test_song_details_list_versions_newest_first_with_one_latest_and_their_own_a
     assert all(v["audio"]["size_bytes"] == len(b) for v, b in zip(versions, bytes_by_version))
     assert versions[2]["prompt"] == "rise up" and versions[0]["prompt"] == "rise highest"
     assert set(versions[0]) == {
-        "id", "version_number", "is_latest", "status", "created_at", "duration", "audio",
+        "id", "version_number", "is_latest", "operation", "source_version_number", "status", "created_at", "duration", "audio",
         "prompt", "lyrics", "language", "instrumental", "seed",
     }
     assert set(versions[0]["audio"]) == {"filename", "media_type", "size_bytes", "audio_url"}

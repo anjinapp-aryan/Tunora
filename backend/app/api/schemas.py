@@ -133,6 +133,10 @@ class VersionResponse(BaseModel):
     id: str
     version_number: int
     is_latest: bool
+    # How this version was made (ORIGINAL / EXTEND / REMIX / REPAINT) and, for the creative
+    # operations, which version of the SAME song it was made from (a number, never an id).
+    operation: str = "ORIGINAL"
+    source_version_number: Optional[int] = None
     status: str
     created_at: str
     duration: Optional[float] = None
@@ -172,7 +176,10 @@ def song_summary_response(summary: SongSummary) -> SongSummaryResponse:
 def song_details_response(song: Song, entries: list[VersionEntry]) -> SongDetailsResponse:
     """Built field by field: no storage key, absolute path, provider name or task id can leak."""
 
-    latest_number = max((e.version.version_number for e in entries), default=None)
+    # "Latest" is the newest version that has audio: a failed or still-generating version is not.
+    playable = [e.version.version_number for e in entries if e.version.audio is not None]
+    latest_number = max(playable) if playable else max((e.version.version_number for e in entries), default=None)
+    number_by_id = {e.version.id: e.version.version_number for e in entries}
     versions = []
     for entry in entries:
         v = entry.version
@@ -189,6 +196,8 @@ def song_details_response(song: Song, entries: list[VersionEntry]) -> SongDetail
                 id=v.id,
                 version_number=v.version_number,
                 is_latest=v.version_number == latest_number,
+                operation=v.operation,
+                source_version_number=number_by_id.get(v.source_version_id) if v.source_version_id else None,
                 status=entry.job_status or "CREATED",
                 created_at=v.created_at.isoformat(),
                 duration=v.audio.duration if v.audio else None,
@@ -207,3 +216,18 @@ def song_details_response(song: Song, entries: list[VersionEntry]) -> SongDetail
         updated_at=song.updated_at.isoformat(),
         versions=versions,
     )
+
+
+class VersionOperationRequest(BaseModel):
+    """Body of POST /api/songs/{song_id}/versions/{version_id}/{operation}.
+
+    Which fields apply depends on the operation (extend: extend_seconds; remix: prompt,
+    remix_strength; repaint: prompt, repaint_start, repaint_end); the service validates them.
+    """
+
+    prompt: Optional[str] = Field(default=None, max_length=1000)
+    lyrics: Optional[str] = Field(default=None, max_length=5000)
+    extend_seconds: Optional[float] = Field(default=None, allow_inf_nan=False)
+    repaint_start: Optional[float] = Field(default=None, allow_inf_nan=False)
+    repaint_end: Optional[float] = Field(default=None, allow_inf_nan=False)
+    remix_strength: Optional[float] = Field(default=None, allow_inf_nan=False)
