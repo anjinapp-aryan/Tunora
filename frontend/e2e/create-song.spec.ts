@@ -102,7 +102,7 @@ function trackAudioRequests(page: Page) {
 async function generateRealSong(page: Page, prompt = SONG_PROMPT, title?: string): Promise<Job> {
   await page.goto("/create");
   await expect(page.getByRole("heading", { name: /create a song/i })).toBeVisible();
-  await page.getByLabel(/describe your song/i).fill(prompt);
+  await page.getByLabel("Describe your song", { exact: true }).fill(prompt);
   if (title) {
     await page.getByText("Advanced options").click();
     await page.getByLabel(/song title/i).fill(title);
@@ -307,7 +307,7 @@ test("Create -> real generation -> play/seek/download -> Library -> search -> op
   // ---- Create + real ACE-Step generation ----
   await page.goto("/create");
   await expect(page.getByRole("heading", { name: /create a song/i })).toBeVisible();
-  await page.getByLabel(/describe your song/i).fill(SONG_PROMPT);
+  await page.getByLabel("Describe your song", { exact: true }).fill(SONG_PROMPT);
   await page.getByRole("radio", { name: /instrumental/i }).check();
 
   const created = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
@@ -784,4 +784,69 @@ test("Projects: create, add an existing song, remove it, delete the project -- t
   expect(finalSong.versions).toEqual(versionsBefore);
   expect(sha(songFile)).toBe(songHash);
   await expectNoInternalLeak(page, finalSong);
+});
+
+test("AI Song Director: natural language -> reviewable plan -> real generation -> Library/player", async ({ page, request }) => {
+  test.skip(!STORAGE_ROOT, "Needs E2E_STORAGE_ROOT to compare stored files");
+  test.setTimeout(GENERATION_TIMEOUT_MS + 180_000);
+  await trackMediaElement(page);
+
+  await page.goto("/create");
+  await expect(page.getByRole("form", { name: /ai song director/i })).toBeVisible();
+
+  // ---- Natural language -> a real AI-produced plan (real ACE-Step 5Hz-LM call) ----
+  await page.getByLabel(/describe your song idea/i).fill("a short upbeat instrumental synth loop for a video game menu");
+  await page.getByLabel(/instrumental \(no vocals\)/i).check();
+  const planRequest = page.waitForResponse((r) => r.url().endsWith("/api/songs/plan") && r.request().method() === "POST");
+  await page.getByRole("button", { name: /create song plan/i }).click();
+  const plan = await (await planRequest).json();
+  expect(plan.instrumental).toBe(true);
+  expect(plan.prompt.length).toBeGreaterThan(10);
+
+  // ---- The plan is reviewable: it prefilled the EXISTING Create Song fields ----
+  const mainForm = page.getByRole("form", { name: /^create song$/i });
+  await expect(page.getByTestId("song-plan-applied")).toBeVisible();
+  await expect(mainForm.getByLabel(/^describe your song$/i)).toHaveValue(plan.prompt);
+  await expect(page.getByRole("radio", { name: /instrumental/i })).toBeChecked();
+  await expectFitsViewport(page, 375, [page.getByRole("form", { name: /ai song director/i })]);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  // ---- The user can still edit before generating: force a short duration for this test ----
+  await mainForm.getByLabel(/^duration$/i).selectOption("30");
+  const editedPrompt = "short upbeat instrumental synth loop, edited by the user";
+  await mainForm.getByLabel(/^describe your song$/i).fill(editedPrompt);
+  // A unique title (put through Advanced options, already open from the plan's own title)
+  // avoids colliding with a song from an earlier run of this same test.
+  const UNIQUE_TITLE = `AI Director Test ${Date.now()}`;
+  await mainForm.getByLabel(/song title/i).fill(UNIQUE_TITLE);
+
+  // ---- Generate Song reuses the EXISTING, unchanged job-creation path ----
+  const created = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
+  await page.getByRole("button", { name: /generate song/i }).click();
+  const job = (await (await created).json()) as Job;
+  expect(job.id).toMatch(/^tunora-/);
+  await expect(page).toHaveURL(new RegExp(`/jobs/${job.id}$`));
+  await expect(page.getByRole("heading", { name: /generation complete|generation failed/i })).toBeVisible({ timeout: GENERATION_TIMEOUT_MS });
+  await expect(page.getByRole("heading", { name: /generation complete/i })).toBeVisible();
+
+  const completed = await fetchCompletedJob(request, job.id);
+  const version = (await (await request.get(`${NEXT}/api/songs/${completed.song_id}`)).json()).versions[0];
+  expect(version.prompt).toBe(editedPrompt); // the USER's edit won, not the raw AI plan
+  expect(version.instrumental).toBe(true);
+  expect(version.operation).toBe("ORIGINAL");
+
+  // ---- Library / Song Details / player -- all the EXISTING generation UI, untouched ----
+  await page.goto("/library");
+  await page.getByLabel("Search songs").fill(UNIQUE_TITLE);
+  expect(completed.title).toBe(UNIQUE_TITLE);
+  const row = page.getByTestId("library-item").filter({ hasText: completed.title });
+  await expect(row).toHaveCount(1);
+  await row.getByRole("link", { name: /open song/i }).click();
+  await expect(page.getByTestId("version-option")).toHaveCount(1);
+  await expectPlayableAudio(page, completed.id);
+  await expectDownloadMatchesStoredAudio(page, request, completed);
+
+  const jobsAfter = (await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[];
+  expect(jobsAfter.filter((j) => j.id === job.id)).toHaveLength(1); // exactly one job, no duplicates
+  await expectNoInternalLeak(page, { plan, job: completed });
 });

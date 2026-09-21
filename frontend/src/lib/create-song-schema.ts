@@ -22,11 +22,19 @@ export const DURATIONS = [
 ] as const;
 
 // Client-side limits are a convenience only; the backend stays authoritative.
-export const PROMPT_MAX = 1000;
+// 2000 (not 1000) because the AI Song Director's descriptions can run longer
+// than a hand-typed prompt (see backend/app/director/validation.py PROMPT_MAX).
+export const PROMPT_MAX = 2000;
 export const LYRICS_MAX = 5000;
 
 const languageValues = LANGUAGES.map((l) => l.value) as [string, ...string[]];
 const durationValues = DURATIONS.map((d) => d.value) as [string, ...string[]];
+
+/** The closest of the fixed Duration options to an arbitrary number of seconds
+ * (e.g. an AI Song Director suggestion) -- Create Song only offers these four. */
+export function nearestDuration(seconds: number): (typeof DURATIONS)[number]["value"] {
+  return DURATIONS.reduce((best, d) => (Math.abs(Number(d.value) - seconds) < Math.abs(Number(best.value) - seconds) ? d : best)).value;
+}
 
 export const TITLE_MAX = 80;
 

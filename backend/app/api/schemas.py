@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.jobs.models import Job, JobStatus
 from app.jobs.titles import derive_title
+from app.director.spec import SongSpec
 from app.projects.models import Project, ProjectSongEntry, ProjectSummary
 from app.songs.models import Song, SongSummary, Version, VersionEntry
 from app.storage.filenames import safe_audio_filename
@@ -336,3 +337,50 @@ def project_details_response(project: Project, entries: list[ProjectSongEntry]) 
         for e in entries
     ]
     return ProjectDetailsResponse(**project_response(project).model_dump(), songs=songs)
+
+
+# -- AI Song Director (Phase 7) -----------------------------------------------------------------
+#
+# The Director never generates audio; it only turns natural language into a SongSpec the
+# user reviews. `SongPlanResponse` is built field by field from a validated `SongSpec`, so it
+# can never carry an ACE-Step task id, internal path, or any other provider-owned detail.
+
+
+class CreateSongPlanRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=1000)
+    # The user's own explicit choices, if any -- the Director must never override these.
+    instrumental: bool = False
+    language: Optional[str] = Field(default=None, max_length=10)
+    duration: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    title: Optional[str] = Field(default=None, max_length=80)
+
+
+class SongPlanResponse(BaseModel):
+    title: str
+    prompt: str
+    lyrics: str
+    language: str
+    duration: Optional[float] = None
+    instrumental: bool
+    # Informational hints only -- never sent to generation, never guaranteed (see
+    # docs/PHASE-7-AI-SONG-DIRECTOR.md, "No fake capabilities").
+    bpm: Optional[int] = None
+    key_scale: Optional[str] = None
+    time_signature: Optional[str] = None
+    # Which fields above are the user's OWN explicit choice rather than an AI guess.
+    requested_fields: list[str] = Field(default_factory=list)
+
+
+def song_plan_response(spec: SongSpec) -> SongPlanResponse:
+    return SongPlanResponse(
+        title=spec.title,
+        prompt=spec.prompt,
+        lyrics=spec.lyrics,
+        language=spec.language,
+        duration=spec.duration,
+        instrumental=spec.instrumental,
+        bpm=spec.bpm,
+        key_scale=spec.key_scale,
+        time_signature=spec.time_signature,
+        requested_fields=sorted(spec.requested_fields),
+    )

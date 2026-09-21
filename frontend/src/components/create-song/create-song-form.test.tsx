@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -28,8 +28,12 @@ function jobResponse(overrides: Record<string, unknown> = {}, status = 200) {
   );
 }
 
+function mainForm() {
+  return screen.getByRole("form", { name: /^create song$/i });
+}
+
 async function fillPrompt(text = "an upbeat synth pop song") {
-  await userEvent.type(screen.getByLabelText(/describe your song/i), text);
+  await userEvent.type(screen.getByLabelText(/^describe your song$/i), text);
 }
 
 // The form also loads GET /api/projects (Phase 6, for the optional Project field); these
@@ -49,9 +53,9 @@ describe("CreateSongForm", () => {
   it("renders every supported field with accessible labels", () => {
     render(<CreateSongForm />);
     expect(screen.getByRole("form", { name: /create song/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/describe your song/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^describe your song$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/lyrics/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/language/i)).toBeInTheDocument();
+    expect(within(mainForm()).getByLabelText(/^language$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/duration/i)).toBeInTheDocument();
     expect(screen.getByRole("group", { name: /vocals/i })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /^vocal$/i })).toBeChecked();
@@ -112,11 +116,13 @@ describe("CreateSongForm", () => {
   });
 
   it("rejects an over-long prompt", async () => {
+    // Phase 7: the limit is 2000, not 1000, so the AI Song Director's longer
+    // AI-produced descriptions are never rejected by the client-side check.
     render(<CreateSongForm />);
-    await userEvent.click(screen.getByLabelText(/describe your song/i));
-    await userEvent.paste("x".repeat(1001));
+    await userEvent.click(screen.getByLabelText(/^describe your song$/i));
+    await userEvent.paste("x".repeat(2001));
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
-    expect(await screen.findByText(/under 1000 characters/i)).toBeInTheDocument();
+    expect(await screen.findByText(/under 2000 characters/i)).toBeInTheDocument();
     expect(jobCalls()).toHaveLength(0);
   });
 
@@ -132,7 +138,7 @@ describe("CreateSongForm", () => {
     await fillPrompt();
     await userEvent.click(screen.getByLabelText(/lyrics/i));
     await userEvent.paste("[Verse] la la");
-    await userEvent.selectOptions(screen.getByLabelText(/language/i), "kn");
+    await userEvent.selectOptions(within(mainForm()).getByLabelText(/^language$/i), "kn");
     await userEvent.selectOptions(screen.getByLabelText(/duration/i), "60");
     await userEvent.type(screen.getByLabelText(/seed/i), "42");
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
@@ -240,5 +246,92 @@ describe("CreateSongForm", () => {
     await fillPrompt();
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
     await waitFor(() => expect(push).toHaveBeenCalled());
+  });
+});
+
+describe("CreateSongForm + AI Song Director", () => {
+  function planResponse(overrides: Record<string, unknown> = {}) {
+    return new Response(
+      JSON.stringify({
+        title: "Amma", prompt: "An emotional cinematic ballad with soft piano.", lyrics: "[Verse]\nline one",
+        language: "kn", duration: 143, instrumental: false, bpm: 92, key_scale: "D minor",
+        time_signature: "4", requested_fields: ["instrumental"],
+        ...overrides,
+      }),
+      { status: 200 },
+    );
+  }
+
+  function routeFetch(plan: Response) {
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/songs/plan") return Promise.resolve(plan);
+      if (url.startsWith("/api/projects")) return Promise.resolve(new Response(JSON.stringify({ items: [] })));
+      return Promise.resolve(jobResponse());
+    });
+  }
+
+  it("prefills the existing fields from the AI plan and lets the user edit them before generating", async () => {
+    routeFetch(planResponse());
+    render(<CreateSongForm />);
+
+    await userEvent.type(screen.getByLabelText(/describe your song idea/i), "an emotional song about a mother");
+    await userEvent.click(screen.getByRole("button", { name: /create song plan/i }));
+
+    await screen.findByTestId("song-plan-applied");
+    expect(within(mainForm()).getByLabelText(/^describe your song$/i)).toHaveValue("An emotional cinematic ballad with soft piano.");
+    expect(within(mainForm()).getByLabelText(/lyrics/i)).toHaveValue("[Verse]\nline one");
+    expect(within(mainForm()).getByLabelText(/^language$/i)).toHaveValue("kn");
+    expect(within(mainForm()).getByLabelText(/^duration$/i)).toHaveValue("120"); // 143s -> nearest of 30/60/120/180
+    expect(screen.getByRole("radio", { name: /^vocal$/i })).toBeChecked();
+    expect(screen.getByText("Advanced options").closest("details")).toHaveAttribute("open"); // title lives there
+    expect(within(mainForm()).getByLabelText(/song title/i)).toHaveValue("Amma");
+    expect(screen.getByTestId("song-plan-applied")).toHaveTextContent("92 BPM");
+    expect(screen.getByTestId("song-plan-applied")).toHaveTextContent("D minor");
+
+    // The user can still edit every field before generating -- nothing is locked.
+    await userEvent.clear(within(mainForm()).getByLabelText(/^describe your song$/i));
+    await userEvent.type(within(mainForm()).getByLabelText(/^describe your song$/i), "edited description");
+    await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
+
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    const body = JSON.parse(jobCalls()[0][1].body);
+    expect(body).toMatchObject({ title: "Amma", prompt: "edited description", language: "kn", duration: 120 });
+  });
+
+  it("marks an instrumental plan and forces vocals to Instrumental, disabling lyrics", async () => {
+    routeFetch(planResponse({ instrumental: true, lyrics: "" }));
+    render(<CreateSongForm />);
+    await userEvent.type(screen.getByLabelText(/describe your song idea/i), "a calm piano piece");
+    await userEvent.click(screen.getByLabelText(/instrumental \(no vocals\)/i));
+    await userEvent.click(screen.getByRole("button", { name: /create song plan/i }));
+
+    await screen.findByTestId("song-plan-applied");
+    expect(screen.getByRole("radio", { name: /instrumental/i })).toBeChecked();
+    expect(within(mainForm()).getByLabelText(/lyrics/i)).toBeDisabled();
+  });
+
+  it("ignores an unsupported language from the plan rather than corrupting the field", async () => {
+    routeFetch(planResponse({ language: "xx-not-a-real-code" }));
+    render(<CreateSongForm />);
+    await userEvent.type(screen.getByLabelText(/describe your song idea/i), "a song");
+    await userEvent.click(screen.getByRole("button", { name: /create song plan/i }));
+    await screen.findByTestId("song-plan-applied");
+    expect(within(mainForm()).getByLabelText(/^language$/i)).toHaveValue("en"); // default, unchanged
+  });
+
+  it("a Song Plan failure leaves the main form untouched and creates no job", async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/songs/plan") return Promise.resolve(new Response("unavailable", { status: 503 }));
+      if (url.startsWith("/api/projects")) return Promise.resolve(new Response(JSON.stringify({ items: [] })));
+      return Promise.resolve(jobResponse());
+    });
+    render(<CreateSongForm />);
+    await userEvent.type(screen.getByLabelText(/describe your song idea/i), "a song");
+    await userEvent.click(screen.getByRole("button", { name: /create song plan/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/unavailable right now/i);
+    expect(screen.queryByTestId("song-plan-applied")).not.toBeInTheDocument();
+    expect(within(mainForm()).getByLabelText(/^describe your song$/i)).toHaveValue("");
+    expect(jobCalls()).toHaveLength(0);
   });
 });

@@ -46,6 +46,7 @@ from app.providers.base import (
     JobState,
     MusicGenerationProvider,
 )
+from app.providers.ace_step_http import unwrap_envelope
 from app.providers.errors import (
     ProviderResponseError,
     ProviderTimeoutError,
@@ -305,30 +306,7 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
         return self._unwrap(response, path)
 
     def _unwrap(self, response: httpx.Response, path: str) -> Any:
-        if response.status_code >= 500:
-            raise ProviderUnavailableError(
-                f"ACE-Step API returned {response.status_code} for {path}"
-            )
-        if response.status_code >= 400:
-            raise ProviderResponseError(
-                f"ACE-Step API returned {response.status_code} for {path}: {response.text}"
-            )
-
-        try:
-            body = response.json()
-        except ValueError as exc:
-            raise ProviderResponseError(
-                f"ACE-Step API returned a non-JSON response for {path}"
-            ) from exc
-
-        if not isinstance(body, dict) or "data" not in body:
-            raise ProviderResponseError(
-                f"ACE-Step API response for {path} is missing the 'data' envelope"
-            )
-        if body.get("error"):
-            raise ProviderResponseError(f"ACE-Step API returned an error for {path}: {body['error']}")
-
-        return body["data"]
+        return unwrap_envelope(response, path)
 
     async def _post_with_source_audio(self, path: str, fields: dict[str, Any], request: GenerationRequest) -> Any:
         """Submit a creative operation as multipart, uploading the source audio bytes.
