@@ -7,7 +7,9 @@ import { ArrowRightIcon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { listSongSummaries, type LibrarySort, type SongSummary } from "@/lib/api/songs";
+import { ApiError } from "@/lib/api/jobs";
+import { listProjects, type ProjectSummary } from "@/lib/api/projects";
+import { listSongSummaries, PROJECT_FILTER_NONE, type LibrarySort, type SongSummary } from "@/lib/api/songs";
 import { formatTime } from "@/lib/audio/format-time";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
@@ -22,6 +24,8 @@ export function LibraryList() {
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<LibrarySort>("newest");
+  const [project, setProject] = useState(""); // "" = all, PROJECT_FILTER_NONE = unassigned, or a project id
+  const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [attempt, setAttempt] = useState(0);
 
@@ -30,18 +34,28 @@ export function LibraryList() {
     return () => clearTimeout(timer);
   }, [input]);
 
-  const key = `${query}|${sort}|${attempt}`;
   useEffect(() => {
     const controller = new AbortController();
-    listSongSummaries({ query, sort, signal: controller.signal })
+    listProjects({ sort: "title", signal: controller.signal })
+      .then(setProjects)
+      .catch(() => {
+        /* the project filter just stays hidden/empty; it never blocks the Library */
+      });
+    return () => controller.abort();
+  }, []);
+
+  const key = `${query}|${sort}|${project}|${attempt}`;
+  useEffect(() => {
+    const controller = new AbortController();
+    listSongSummaries({ query, sort, project: project || undefined, signal: controller.signal })
       .then((songs) => setResult({ key, songs }))
       .catch((error) => {
         if (controller.signal.aborted) return;
         console.error("library load failed", error);
-        setResult({ key, error: LOAD_ERROR });
+        setResult({ key, error: error instanceof ApiError ? error.message : LOAD_ERROR });
       });
     return () => controller.abort();
-  }, [key, query, sort]);
+  }, [key, query, sort, project]);
 
   const loading = result?.key !== key;
   const songs = result?.key === key ? result.songs : undefined;
@@ -49,7 +63,7 @@ export function LibraryList() {
 
   return (
     <section aria-label="Song library" className="flex flex-col gap-6">
-      <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+      <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto]">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="library-search" className="text-sm font-medium">
             Search songs
@@ -73,6 +87,22 @@ export function LibraryList() {
             <NativeSelectOption value="title">Title (A–Z)</NativeSelectOption>
           </NativeSelect>
         </div>
+        {projects && projects.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="library-project" className="text-sm font-medium">
+              Project
+            </label>
+            <NativeSelect id="library-project" className="w-full sm:w-44" value={project} onChange={(event) => setProject(event.target.value)}>
+              <NativeSelectOption value="">All Projects</NativeSelectOption>
+              <NativeSelectOption value={PROJECT_FILTER_NONE}>No Project</NativeSelectOption>
+              {projects.map((p) => (
+                <NativeSelectOption key={p.id} value={p.id}>
+                  {p.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+        )}
       </div>
 
       <div role="status" aria-live="polite" className="min-h-5 text-sm text-muted-foreground" data-testid="library-status">
@@ -110,6 +140,11 @@ export function LibraryList() {
             return (
               <li key={song.id} className="rounded-xl border border-border/60 p-4" data-testid="library-item">
                 <h2 className="text-base font-medium [overflow-wrap:anywhere]">{song.title}</h2>
+                {song.project && (
+                  <p className="mt-1 text-sm text-muted-foreground" data-testid="song-project">
+                    Project: {song.project.name}
+                  </p>
+                )}
                 <p className="mt-1 text-sm text-muted-foreground" data-testid="version-count">
                   {song.version_count} {song.version_count === 1 ? "version" : "versions"}
                 </p>

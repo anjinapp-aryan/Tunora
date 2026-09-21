@@ -20,6 +20,10 @@ def new_version_id() -> str:
     return f"ver-{uuid.uuid4()}"
 
 
+def new_project_id() -> str:
+    return f"proj-{uuid.uuid4()}"
+
+
 def is_valid_id(value: object) -> bool:
     """True for ids made of letters, digits and hyphens only (no separators, dots or spaces)."""
 

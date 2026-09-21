@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, createJob } from "@/lib/api/jobs";
+import { listProjects, type ProjectSummary } from "@/lib/api/projects";
 import { rememberJobPrompt } from "@/lib/jobs/job-summary";
 import {
   createSongSchema,
@@ -34,6 +35,17 @@ export function CreateSongForm() {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    listProjects({ sort: "title", signal: controller.signal })
+      .then(setProjects)
+      .catch(() => {
+        /* the Project field just stays empty; creating a song must still work without it */
+      });
+    return () => controller.abort();
+  }, []);
 
   const {
     register,
@@ -54,6 +66,7 @@ export function CreateSongForm() {
       const isInstrumental = values.vocals === "instrumental";
       const job = await createJob({
         title: values.title || null,
+        project_id: values.projectId || null,
         prompt: values.prompt.trim(),
         lyrics: isInstrumental ? "" : values.lyrics,
         language: values.language,
@@ -161,6 +174,20 @@ export function CreateSongForm() {
             Advanced options
           </summary>
           <div className="mt-4 grid gap-6 sm:grid-cols-2">
+            {projects.length > 0 && (
+              <Field className="sm:col-span-2">
+                <FieldLabel htmlFor="projectId">Project</FieldLabel>
+                <NativeSelect id="projectId" className="w-full" disabled={isSubmitting} {...register("projectId")}>
+                  <NativeSelectOption value="">No Project</NativeSelectOption>
+                  {projects.map((p) => (
+                    <NativeSelectOption key={p.id} value={p.id}>
+                      {p.name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+                <FieldDescription>Group this song under one of your Projects, or leave it out of any project.</FieldDescription>
+              </Field>
+            )}
             <Field data-invalid={!!errors.title}>
               <FieldLabel htmlFor="title">Song title (optional)</FieldLabel>
               <Input

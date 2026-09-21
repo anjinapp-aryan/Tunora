@@ -31,6 +31,8 @@ from app.jobs.models import TERMINAL_STATUSES, Job, JobStatus, utcnow
 from app.jobs.repository import JobRepository
 from app.jobs.state_machine import validate_transition
 from app.jobs.titles import derive_title
+from app.projects.errors import InvalidProjectError, ProjectNotFoundError
+from app.projects.models import Project, ProjectSongEntry, ProjectSummary
 from app.providers.base import GenerationRequest, JobState, MusicGenerationProvider
 from app.providers.errors import ProviderError, UnsupportedOperationError
 from app.songs import operations as ops
@@ -41,8 +43,9 @@ from app.songs.errors import (
     SourceAudioUnavailableError,
     SourceVersionNotFoundError,
 )
-from app.songs.ids import is_valid_id, new_song_id, new_version_id
+from app.songs.ids import is_valid_id, new_project_id, new_song_id, new_version_id
 from app.songs.models import Song, SongSummary, Version, VersionAudio, VersionEntry
+from app.songs.repository import PROJECT_FILTER_NONE
 from app.storage.base import AudioStorage
 from app.storage.errors import StorageError
 from app.storage.filenames import safe_audio_filename
@@ -147,14 +150,17 @@ class JobService:
         *,
         source_version_id: Optional[str] = None,
         operation_params: Optional[dict] = None,
+        project_id: Optional[str] = None,
     ) -> Job:
         """Create a Job (and its Version, and a new Song unless `song_id` names an
         existing one) atomically, then submit it to the provider.
 
-        The database transaction commits BEFORE the provider is called, so no
-        transaction is ever held open across ACE-Step. Never raises for provider
-        failures: the returned Job's status/error reflect the outcome. Raises
-        SongNotFoundError / InvalidIdError for a bad `song_id`.
+        `project_id` only applies to a brand-new Song (organizational metadata,
+        Phase 6); it is ignored when `song_id` names an existing one. The database
+        transaction commits BEFORE the provider is called, so no transaction is
+        ever held open across ACE-Step. Never raises for provider failures: the
+        returned Job's status/error reflect the outcome. Raises SongNotFoundError /
+        InvalidIdError for a bad `song_id`, ProjectNotFoundError for a bad `project_id`.
         """
 
         if request.operation not in self._provider.supported_operations:
@@ -169,8 +175,10 @@ class JobService:
             new_song = None
             display_title = song.title
         else:
+            if project_id is not None:
+                self.get_project(project_id)  # 404s a bad/unknown project before anything is created
             display_title = derive_title(request.prompt, title)
-            new_song = Song(id=new_song_id(), title=display_title)
+            new_song = Song(id=new_song_id(), title=display_title, project_id=project_id)
             song_id = new_song.id
 
         job = Job(
@@ -444,8 +452,12 @@ class JobService:
 
     # -- song-oriented reads (Library, Song Details) ----------------------------------------------
 
-    def list_songs(self, *, query: str = "", sort: str = "newest", limit: int = 50) -> list[SongSummary]:
-        return self._repository.list_song_summaries(query=query, sort=sort, limit=limit)
+    def list_songs(
+        self, *, query: str = "", sort: str = "newest", limit: int = 50, project: Optional[str] = None
+    ) -> list[SongSummary]:
+        if project is not None and project != PROJECT_FILTER_NONE and not is_valid_id(project):
+            raise InvalidIdError("Malformed project id.")
+        return self._repository.list_song_summaries(query=query, sort=sort, limit=limit, project=project)
 
     def song_details(self, song_id: str) -> tuple[Song, list[VersionEntry]]:
         """A song and all of its versions (newest first). Versions are loaded by the
@@ -552,3 +564,76 @@ class JobService:
         return await self.create_and_submit(
             request, song_id=song_id, source_version_id=source.id, operation_params=params
         )
+
+    # -- projects (Phase 6): organizational metadata over Songs, no audio/Version involved ---------
+
+    _PROJECT_NAME_MAX = 200
+    _PROJECT_DESCRIPTION_MAX = 2000
+
+    def _clean_project_fields(self, name: Optional[str], description: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+        if name is not None:
+            name = name.strip()
+            if not name:
+                raise InvalidProjectError("Project name is required.")
+            if len(name) > self._PROJECT_NAME_MAX:
+                raise InvalidProjectError(f"Project name must be {self._PROJECT_NAME_MAX} characters or fewer.")
+        if description is not None:
+            description = description.strip()
+            if len(description) > self._PROJECT_DESCRIPTION_MAX:
+                raise InvalidProjectError(f"Project description must be {self._PROJECT_DESCRIPTION_MAX} characters or fewer.")
+        return name, description
+
+    def create_project(self, name: str, description: str = "") -> Project:
+        clean_name, clean_description = self._clean_project_fields(name, description or "")
+        project = Project(id=new_project_id(), name=clean_name, description=clean_description or "")
+        self._repository.create_project(project)
+        return project
+
+    def list_projects(self, *, query: str = "", sort: str = "newest", limit: int = 50) -> list[ProjectSummary]:
+        return self._repository.list_project_summaries(query=query, sort=sort, limit=limit)
+
+    def get_projects(self, project_ids: set[str]) -> dict[str, Project]:
+        """Batched lookup (one query) -- used by Library/Song responses so showing a
+        song's Project never costs one query per song."""
+
+        return self._repository.get_projects(list(project_ids))
+
+    def get_project(self, project_id: str) -> Project:
+        if not is_valid_id(project_id):
+            raise InvalidIdError("Malformed project id.")
+        project = self._repository.get_project(project_id)
+        if project is None:
+            raise ProjectNotFoundError(project_id)
+        return project
+
+    def project_details(self, project_id: str) -> tuple[Project, list[ProjectSongEntry]]:
+        project = self.get_project(project_id)
+        return project, self._repository.list_project_songs(project.id)
+
+    def update_project(self, project_id: str, *, name: Optional[str] = None, description: Optional[str] = None) -> Project:
+        self.get_project(project_id)  # validates id shape and existence
+        clean_name, clean_description = self._clean_project_fields(name, description)
+        return self._repository.update_project(project_id, name=clean_name, description=clean_description)
+
+    def delete_project(self, project_id: str) -> None:
+        """Deletes only the Project row. Its Songs are never deleted; the database's
+        ON DELETE SET NULL unassigns them (see app.jobs.migrations._to_v4)."""
+
+        self.get_project(project_id)
+        self._repository.delete_project(project_id)
+
+    def add_song_to_project(self, project_id: str, song_id: str) -> Song:
+        """Assigns an EXISTING Song to a Project. Creates nothing: no Song, Version,
+        Job or audio file -- only `Song.project_id` changes."""
+
+        self.get_project(project_id)
+        self.get_song(song_id)
+        self._repository.assign_song_to_project(project_id, song_id)
+        return self._repository.get_song(song_id)
+
+    def remove_song_from_project(self, project_id: str, song_id: str) -> None:
+        """Unassigns a Song. The Song, its Versions and its audio are untouched."""
+
+        self.get_project(project_id)
+        self.get_song(song_id)
+        self._repository.remove_song_from_project(project_id, song_id)

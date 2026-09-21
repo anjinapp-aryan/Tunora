@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.routes_jobs import router as jobs_router
+from app.api.routes_projects import router as projects_router
 from app.api.routes_songs import router as songs_router
 from app.jobs.repository import SqliteJobRepository
 from app.jobs.service import JobService
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Tunora Backend", lifespan=lifespan)
     app.include_router(jobs_router)
     app.include_router(songs_router)
+    app.include_router(projects_router)
     return app
 
 

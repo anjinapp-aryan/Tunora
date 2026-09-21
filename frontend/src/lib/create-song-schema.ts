@@ -41,6 +41,8 @@ export const createSongSchema = z.object({
   language: z.enum(languageValues, { message: "Choose a language." }),
   duration: z.enum(durationValues, { message: "Choose a duration." }),
   vocals: z.enum(["vocal", "instrumental"]),
+  // "" means no Project (unchanged existing behavior); otherwise a Tunora project id.
+  projectId: z.string(),
   seed: z
     .string()
     .trim()
@@ -56,5 +58,6 @@ export const DEFAULT_VALUES: CreateSongValues = {
   language: "en",
   duration: "30",
   vocals: "vocal",
+  projectId: "",
   seed: "",
 };

@@ -8,7 +8,7 @@ only ever returned under the song that owns them.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Path, Query, Request
 
@@ -44,9 +44,18 @@ async def list_songs(
     limit: int = Query(50, ge=1, le=200),
     q: str = Query("", max_length=100, description="Case-insensitive search in song title and prompts"),
     sort: Literal["newest", "oldest", "title"] = "newest",
+    project: Optional[str] = Query(
+        None, max_length=80, description="Filter by Project id, or the literal 'none' for unassigned songs"
+    ),
 ):
-    summaries = _get_service(request).list_songs(query=q, sort=sort, limit=limit)
-    return SongListResponse(items=[song_summary_response(s) for s in summaries])
+    service = _get_service(request)
+    try:
+        summaries = service.list_songs(query=q, sort=sort, limit=limit, project=project)
+    except InvalidIdError:
+        raise HTTPException(status_code=422, detail="Malformed project id.")
+    project_ids = {s.song.project_id for s in summaries if s.song.project_id}
+    projects = service.get_projects(project_ids) if project_ids else {}
+    return SongListResponse(items=[song_summary_response(s, projects) for s in summaries])
 
 
 @router.get("/{song_id}", response_model=SongDetailsResponse)
@@ -54,11 +63,13 @@ async def get_song(
     request: Request,
     song_id: str = Path(max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$"),
 ):
+    service = _get_service(request)
     try:
-        song, entries = _get_service(request).song_details(song_id)
+        song, entries = service.song_details(song_id)
     except (SongNotFoundError, InvalidIdError):
         raise HTTPException(status_code=404, detail="Song not found.")
-    return song_details_response(song, entries)
+    project = service.get_project(song.project_id) if song.project_id else None
+    return song_details_response(song, entries, project)
 
 
 _ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9-]*$"

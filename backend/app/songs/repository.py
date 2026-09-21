@@ -13,6 +13,10 @@ from app.songs.models import Song, SongSummary, Version, VersionEntry
 
 SORT_ORDERS = ("newest", "oldest", "title")
 
+# Sentinel for `list_song_summaries(project=...)`: songs with no Project (never a
+# valid Tunora id, so it can never collide with a real project id).
+PROJECT_FILTER_NONE = "none"
+
 
 class SongRepository(ABC):
     @abstractmethod
@@ -29,13 +33,17 @@ class SongRepository(ABC):
         """A song's versions, oldest first (version_number ascending)."""
 
     @abstractmethod
-    def list_song_summaries(self, *, query: str, sort: str, limit: int) -> list[SongSummary]:
+    def list_song_summaries(
+        self, *, query: str, sort: str, limit: int, project: Optional[str] = None
+    ) -> list[SongSummary]:
         """Library rows: songs with at least one playable version (audio attached).
 
         `version_count` counts playable versions; `latest` is the highest
         playable version_number. `query` is a case-insensitive substring match
         on the song title or any version's prompt. Ordering (`sort`):
         newest/oldest by the latest playable version's created_at, title A-Z.
+        `project`: None = every song, `PROJECT_FILTER_NONE` = only songs with no
+        Project, any other value = only songs in that Project.
         """
 
     @abstractmethod

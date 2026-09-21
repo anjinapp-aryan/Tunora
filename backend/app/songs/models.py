@@ -19,12 +19,17 @@ def utcnow() -> datetime:
 
 @dataclass(frozen=True)
 class Song:
-    """A song's durable identity. Only title/updated_at may ever change."""
+    """A song's durable identity. Only title/updated_at/project_id may ever change.
+
+    `project_id` is purely organizational (Phase 6): which Project this song is
+    grouped under, or None. Changing it never touches Versions or audio.
+    """
 
     id: str
     title: str
     created_at: datetime = field(default_factory=utcnow)
     updated_at: datetime = field(default_factory=utcnow)
+    project_id: Optional[str] = None
 
 
 @dataclass(frozen=True)

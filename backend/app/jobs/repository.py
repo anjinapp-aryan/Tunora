@@ -25,16 +25,19 @@ from typing import Any, Optional, Sequence
 
 from app.jobs.migrations import migrate
 from app.jobs.models import Job, JobStatus
+from app.projects.errors import ProjectNotFoundError
+from app.projects.models import Project, ProjectSongEntry, ProjectSummary
+from app.projects.repository import ProjectRepository
 from app.providers.base import GenerationRequest
 from app.songs.errors import ImmutableVersionError, SongNotFoundError, VersionNotFoundError
-from app.songs.models import Song, SongSummary, Version, VersionAudio, VersionEntry
-from app.songs.repository import SongRepository
+from app.songs.models import Song, SongSummary, Version, VersionAudio, VersionEntry, utcnow
+from app.songs.repository import PROJECT_FILTER_NONE, SongRepository
 
 _MAX_IN_QUERY = 500
 
 
-class JobRepository(SongRepository):
-    """Persistence interface for generation jobs and the Song/Version domain."""
+class JobRepository(SongRepository, ProjectRepository):
+    """Persistence interface for generation jobs and the Song/Version/Project domain."""
 
     @abstractmethod
     def create(self, job: Job) -> None:
@@ -74,6 +77,7 @@ class InMemoryJobRepository(JobRepository):
         self._jobs: dict[str, Job] = {}
         self._songs: dict[str, Song] = {}
         self._versions: dict[str, Version] = {}
+        self._projects: dict[str, Project] = {}
         self._lock = threading.Lock()
 
     def create(self, job: Job) -> None:
@@ -122,10 +126,14 @@ class InMemoryJobRepository(JobRepository):
     def list_versions(self, song_id: str) -> list[Version]:
         return sorted((v for v in self._versions.values() if v.song_id == song_id), key=lambda v: v.version_number)
 
-    def list_song_summaries(self, *, query: str, sort: str, limit: int) -> list[SongSummary]:
+    def list_song_summaries(self, *, query: str, sort: str, limit: int, project: Optional[str] = None) -> list[SongSummary]:
         needle = query.strip().lower()
         rows: list[SongSummary] = []
         for song in self._songs.values():
+            if project == PROJECT_FILTER_NONE and song.project_id is not None:
+                continue
+            if project not in (None, PROJECT_FILTER_NONE) and song.project_id != project:
+                continue
             playable = [v for v in self._versions.values() if v.song_id == song.id and v.audio is not None]
             if not playable:
                 continue
@@ -144,6 +152,88 @@ class InMemoryJobRepository(JobRepository):
             jobs = sorted((j for j in self._jobs.values() if j.version_id == v.id), key=lambda j: j.created_at, reverse=True)
             entries.append(VersionEntry(version=v, job_id=jobs[0].id if jobs else None, job_status=jobs[0].status.value if jobs else None))
         return entries
+
+    # -- projects (Phase 6) ---------------------------------------------------------
+
+    def create_project(self, project: Project) -> None:
+        with self._lock:
+            self._projects[project.id] = project
+
+    def get_project(self, project_id: str) -> Optional[Project]:
+        return self._projects.get(project_id)
+
+    def get_projects(self, project_ids: Sequence[str]) -> dict[str, Project]:
+        return {pid: self._projects[pid] for pid in project_ids if pid in self._projects}
+
+    def list_project_summaries(self, *, query: str, sort: str, limit: int) -> list[ProjectSummary]:
+        needle = query.strip().lower()
+        rows = []
+        for project in self._projects.values():
+            if needle and needle not in project.name.lower():
+                continue
+            count = sum(1 for s in self._songs.values() if s.project_id == project.id)
+            rows.append(ProjectSummary(project=project, song_count=count))
+        if sort == "title":
+            rows.sort(key=lambda r: (r.project.name.lower(), r.project.id))
+        else:
+            rows.sort(key=lambda r: (r.project.updated_at, r.project.id), reverse=(sort != "oldest"))
+        return rows[:limit]
+
+    def update_project(self, project_id: str, *, name: Optional[str], description: Optional[str]) -> Project:
+        with self._lock:
+            current = self._projects.get(project_id)
+            if current is None:
+                raise ProjectNotFoundError(project_id)
+            updated = replace(
+                current,
+                name=current.name if name is None else name,
+                description=current.description if description is None else description,
+                updated_at=utcnow(),
+            )
+            self._projects[project_id] = updated
+            return updated
+
+    def delete_project(self, project_id: str) -> None:
+        with self._lock:
+            if project_id not in self._projects:
+                raise ProjectNotFoundError(project_id)
+            del self._projects[project_id]
+            for sid, song in list(self._songs.items()):
+                if song.project_id == project_id:
+                    self._songs[sid] = replace(song, project_id=None)
+
+    def list_project_songs(self, project_id: str) -> list[ProjectSongEntry]:
+        entries = []
+        for song in self._songs.values():
+            if song.project_id != project_id:
+                continue
+            versions = [v for v in self._versions.values() if v.song_id == song.id]
+            entries.append(
+                ProjectSongEntry(
+                    song=song,
+                    version_count=len(versions),
+                    latest_version_number=max((v.version_number for v in versions), default=None),
+                )
+            )
+        entries.sort(key=lambda e: (e.song.updated_at, e.song.id), reverse=True)
+        return entries
+
+    def assign_song_to_project(self, project_id: str, song_id: str) -> None:
+        with self._lock:
+            if project_id not in self._projects:
+                raise ProjectNotFoundError(project_id)
+            song = self._songs.get(song_id)
+            if song is None:
+                raise SongNotFoundError(song_id)
+            self._songs[song_id] = replace(song, project_id=project_id, updated_at=utcnow())
+
+    def remove_song_from_project(self, project_id: str, song_id: str) -> None:
+        with self._lock:
+            song = self._songs.get(song_id)
+            if song is None:
+                raise SongNotFoundError(song_id)
+            if song.project_id == project_id:
+                self._songs[song_id] = replace(song, project_id=None, updated_at=utcnow())
 
 
 # -- sqlite ---------------------------------------------------------------------------
@@ -299,8 +389,8 @@ class SqliteJobRepository(JobRepository):
             conn.execute("BEGIN IMMEDIATE")
             if new_song is not None:
                 conn.execute(
-                    "INSERT INTO songs (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                    (new_song.id, new_song.title, _dt_to_str(new_song.created_at), _dt_to_str(new_song.updated_at)),
+                    "INSERT INTO songs (id, title, created_at, updated_at, project_id) VALUES (?, ?, ?, ?, ?)",
+                    (new_song.id, new_song.title, _dt_to_str(new_song.created_at), _dt_to_str(new_song.updated_at), new_song.project_id),
                 )
             elif conn.execute("SELECT 1 FROM songs WHERE id = ?", (version.song_id,)).fetchone() is None:
                 raise SongNotFoundError(version.song_id)
@@ -355,17 +445,20 @@ class SqliteJobRepository(JobRepository):
 
     # -- songs / versions (read) ---------------------------------------------------------
 
-    def get_song(self, song_id: str) -> Optional[Song]:
-        with self._connect() as conn:
-            row = conn.execute("SELECT * FROM songs WHERE id = ?", (song_id,)).fetchone()
-        if row is None:
-            return None
+    @staticmethod
+    def _row_to_song(row: sqlite3.Row) -> Song:
         return Song(
             id=row["id"],
             title=row["title"],
             created_at=_str_to_dt(row["created_at"]),
             updated_at=_str_to_dt(row["updated_at"]),
+            project_id=row["project_id"],
         )
+
+    def get_song(self, song_id: str) -> Optional[Song]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM songs WHERE id = ?", (song_id,)).fetchone()
+        return self._row_to_song(row) if row else None
 
     def get_version(self, version_id: str) -> Optional[Version]:
         with self._connect() as conn:
@@ -394,32 +487,39 @@ class SqliteJobRepository(JobRepository):
         "title": "lower(s.title), s.id",
     }
 
-    def list_song_summaries(self, *, query: str, sort: str, limit: int) -> list[SongSummary]:
+    def list_song_summaries(
+        self, *, query: str, sort: str, limit: int, project: Optional[str] = None
+    ) -> list[SongSummary]:
         # One query: playable-version count and the latest playable version id per song
         # (no per-song follow-up queries); a second bulk lookup loads those versions.
         order_by = self._SORT_CLAUSES.get(sort, self._SORT_CLAUSES["newest"])  # whitelist, never user text
         needle = query.strip().lower()
         # '!' is the LIKE escape character, so user text cannot act as a wildcard.
         pattern = "%" + needle.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+        params: list[Any] = [needle, pattern, pattern]
+        project_clause = ""
+        if project == PROJECT_FILTER_NONE:
+            project_clause = "AND s.project_id IS NULL "
+        elif project is not None:
+            project_clause = "AND s.project_id = ? "
+            params.append(project)
+        params.append(limit)
         sql = (
-            "SELECT s.id, s.title, s.created_at, s.updated_at, lv.id AS latest_id, "
+            "SELECT s.id, s.title, s.created_at, s.updated_at, s.project_id, lv.id AS latest_id, "
             "  (SELECT COUNT(*) FROM versions c WHERE c.song_id = s.id AND c.audio_key IS NOT NULL) AS version_count "
             "FROM songs s JOIN versions lv ON lv.song_id = s.id AND lv.audio_key IS NOT NULL "
             "  AND lv.version_number = (SELECT MAX(m.version_number) FROM versions m "
             "                           WHERE m.song_id = s.id AND m.audio_key IS NOT NULL) "
             "WHERE (? = '' OR lower(s.title) LIKE ? ESCAPE '!' "
             "       OR EXISTS (SELECT 1 FROM versions p WHERE p.song_id = s.id AND lower(p.prompt) LIKE ? ESCAPE '!')) "
-            f"ORDER BY {order_by} LIMIT ?"  # noqa: S608 - order_by comes from the fixed mapping above
+            f"{project_clause}"
+            f"ORDER BY {order_by} LIMIT ?"  # noqa: S608 - order_by/project_clause come from fixed, non-user-text mappings
         )
         with self._connect() as conn:
-            rows = conn.execute(sql, (needle, pattern, pattern, limit)).fetchall()
+            rows = conn.execute(sql, params).fetchall()
         latest = self.get_versions([r["latest_id"] for r in rows])
         return [
-            SongSummary(
-                song=Song(id=r["id"], title=r["title"], created_at=_str_to_dt(r["created_at"]), updated_at=_str_to_dt(r["updated_at"])),
-                version_count=r["version_count"],
-                latest=latest[r["latest_id"]],
-            )
+            SongSummary(song=self._row_to_song(r), version_count=r["version_count"], latest=latest[r["latest_id"]])
             for r in rows
         ]
 
@@ -435,3 +535,139 @@ class SqliteJobRepository(JobRepository):
         for row in rows:  # one entry per version; if it ever has several jobs the newest wins
             entries.setdefault(row["id"], VersionEntry(self._row_to_version(row), row["job_id"], row["job_status"]))
         return list(entries.values())
+
+    # -- projects (Phase 6) ---------------------------------------------------------
+
+    @staticmethod
+    def _row_to_project(row: sqlite3.Row) -> Project:
+        return Project(
+            id=row["id"],
+            name=row["name"],
+            description=row["description"] or "",
+            created_at=_str_to_dt(row["created_at"]),
+            updated_at=_str_to_dt(row["updated_at"]),
+        )
+
+    def create_project(self, project: Project) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO projects (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (project.id, project.name, project.description, _dt_to_str(project.created_at), _dt_to_str(project.updated_at)),
+            )
+
+    def get_project(self, project_id: str) -> Optional[Project]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        return self._row_to_project(row) if row else None
+
+    def get_projects(self, project_ids: Sequence[str]) -> dict[str, Project]:
+        ids = list(dict.fromkeys(project_ids))[:_MAX_IN_QUERY]
+        if not ids:
+            return {}
+        placeholders = ",".join("?" * len(ids))
+        with self._connect() as conn:
+            rows = conn.execute(f"SELECT * FROM projects WHERE id IN ({placeholders})", ids).fetchall()  # noqa: S608
+        return {row["id"]: self._row_to_project(row) for row in rows}
+
+    _PROJECT_SORT_CLAUSES = {
+        "newest": "p.updated_at DESC, p.id",
+        "oldest": "p.updated_at ASC, p.id",
+        "title": "lower(p.name), p.id",
+    }
+
+    def list_project_summaries(self, *, query: str, sort: str, limit: int) -> list[ProjectSummary]:
+        # One query with a grouped song count -- never one COUNT(*) per project.
+        order_by = self._PROJECT_SORT_CLAUSES.get(sort, self._PROJECT_SORT_CLAUSES["newest"])
+        needle = query.strip().lower()
+        pattern = "%" + needle.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+        sql = (
+            "SELECT p.*, (SELECT COUNT(*) FROM songs s WHERE s.project_id = p.id) AS song_count "
+            "FROM projects p WHERE (? = '' OR lower(p.name) LIKE ? ESCAPE '!') "
+            f"ORDER BY {order_by} LIMIT ?"  # noqa: S608 - order_by comes from the fixed mapping above
+        )
+        with self._connect() as conn:
+            rows = conn.execute(sql, (needle, pattern, limit)).fetchall()
+        return [ProjectSummary(project=self._row_to_project(r), song_count=r["song_count"]) for r in rows]
+
+    def update_project(self, project_id: str, *, name: Optional[str], description: Optional[str]) -> Project:
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+            if row is None:
+                raise ProjectNotFoundError(project_id)
+            current = self._row_to_project(row)
+            new_name = current.name if name is None else name
+            new_description = current.description if description is None else description
+            now = _dt_to_str(utcnow())
+            conn.execute(
+                "UPDATE projects SET name = ?, description = ?, updated_at = ? WHERE id = ?",
+                (new_name, new_description, now, project_id),
+            )
+            conn.commit()
+            return replace(current, name=new_name, description=new_description, updated_at=_str_to_dt(now))
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def delete_project(self, project_id: str) -> None:
+        # ON DELETE SET NULL (see migrations._to_v4) unassigns every Song of this
+        # Project as part of this one statement; no Song/Version/audio row is touched.
+        with self._connect() as conn:
+            cursor = conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        if cursor.rowcount != 1:
+            raise ProjectNotFoundError(project_id)
+
+    def list_project_songs(self, project_id: str) -> list[ProjectSongEntry]:
+        sql = (
+            "SELECT s.id, s.title, s.created_at, s.updated_at, s.project_id, "
+            "  COUNT(v.id) AS version_count, MAX(v.version_number) AS latest_version_number "
+            "FROM songs s LEFT JOIN versions v ON v.song_id = s.id "
+            "WHERE s.project_id = ? GROUP BY s.id ORDER BY s.updated_at DESC, s.id"
+        )
+        with self._connect() as conn:
+            rows = conn.execute(sql, (project_id,)).fetchall()
+        return [
+            ProjectSongEntry(song=self._row_to_song(r), version_count=r["version_count"], latest_version_number=r["latest_version_number"])
+            for r in rows
+        ]
+
+    def assign_song_to_project(self, project_id: str, song_id: str) -> None:
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,)).fetchone() is None:
+                raise ProjectNotFoundError(project_id)
+            cursor = conn.execute(
+                "UPDATE songs SET project_id = ?, updated_at = ? WHERE id = ?",
+                (project_id, _dt_to_str(utcnow()), song_id),
+            )
+            if cursor.rowcount != 1:
+                raise SongNotFoundError(song_id)
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def remove_song_from_project(self, project_id: str, song_id: str) -> None:
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT project_id FROM songs WHERE id = ?", (song_id,)).fetchone()
+            if row is None:
+                raise SongNotFoundError(song_id)
+            if row["project_id"] == project_id:
+                conn.execute(
+                    "UPDATE songs SET project_id = NULL, updated_at = ? WHERE id = ?",
+                    (_dt_to_str(utcnow()), song_id),
+                )
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()

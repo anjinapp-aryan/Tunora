@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.jobs.models import Job, JobStatus
 from app.jobs.titles import derive_title
+from app.projects.models import Project, ProjectSongEntry, ProjectSummary
 from app.songs.models import Song, SongSummary, Version, VersionEntry
 from app.storage.filenames import safe_audio_filename
 
@@ -23,6 +24,8 @@ class CreateJobRequest(BaseModel):
     title: Optional[str] = None
     # Generate another Version of an existing Song instead of a new Song.
     song_id: Optional[str] = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$")
+    # Optional: put a brand-new Song in this Project (Phase 6). Ignored when song_id is set.
+    project_id: Optional[str] = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$")
     prompt: str
     lyrics: str = ""
     language: str = "en"
@@ -109,6 +112,13 @@ class LatestVersionSummary(BaseModel):
     created_at: str
 
 
+class ProjectRef(BaseModel):
+    """The minimum needed to link to a Project from a Song: never its description or song list."""
+
+    id: str
+    name: str
+
+
 class SongSummaryResponse(BaseModel):
     id: str
     title: str
@@ -116,6 +126,8 @@ class SongSummaryResponse(BaseModel):
     latest_version: LatestVersionSummary
     created_at: str
     updated_at: str
+    # None when the song is not in any Project (Phase 6).
+    project: Optional[ProjectRef] = None
 
 
 class SongListResponse(BaseModel):
@@ -155,9 +167,15 @@ class SongDetailsResponse(BaseModel):
     created_at: str
     updated_at: str
     versions: list[VersionResponse]
+    project: Optional[ProjectRef] = None
 
 
-def song_summary_response(summary: SongSummary) -> SongSummaryResponse:
+def _project_ref(project_id: Optional[str], projects: dict[str, Project]) -> Optional[ProjectRef]:
+    project = projects.get(project_id) if project_id else None
+    return ProjectRef(id=project.id, name=project.name) if project else None
+
+
+def song_summary_response(summary: SongSummary, projects: Optional[dict[str, Project]] = None) -> SongSummaryResponse:
     latest = summary.latest
     return SongSummaryResponse(
         id=summary.song.id,
@@ -170,10 +188,13 @@ def song_summary_response(summary: SongSummary) -> SongSummaryResponse:
         ),
         created_at=summary.song.created_at.isoformat(),
         updated_at=summary.song.updated_at.isoformat(),
+        project=_project_ref(summary.song.project_id, projects or {}),
     )
 
 
-def song_details_response(song: Song, entries: list[VersionEntry]) -> SongDetailsResponse:
+def song_details_response(
+    song: Song, entries: list[VersionEntry], project: Optional[Project] = None
+) -> SongDetailsResponse:
     """Built field by field: no storage key, absolute path, provider name or task id can leak."""
 
     # "Latest" is the newest version that has audio: a failed or still-generating version is not.
@@ -215,6 +236,7 @@ def song_details_response(song: Song, entries: list[VersionEntry]) -> SongDetail
         created_at=song.created_at.isoformat(),
         updated_at=song.updated_at.isoformat(),
         versions=versions,
+        project=ProjectRef(id=project.id, name=project.name) if project else None,
     )
 
 
@@ -231,3 +253,86 @@ class VersionOperationRequest(BaseModel):
     repaint_start: Optional[float] = Field(default=None, allow_inf_nan=False)
     repaint_end: Optional[float] = Field(default=None, allow_inf_nan=False)
     remix_strength: Optional[float] = Field(default=None, allow_inf_nan=False)
+
+
+# -- Projects (Phase 6) ---------------------------------------------------------------------------
+#
+# A Project is organizational metadata only: it never carries audio, a Version or a storage
+# path, so none of that can leak through these responses by construction.
+
+
+class CreateProjectRequest(BaseModel):
+    name: str = Field(max_length=200)
+    description: str = Field(default="", max_length=2000)
+
+
+class UpdateProjectRequest(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
+
+
+class AssignSongRequest(BaseModel):
+    """Body of POST /api/projects/{project_id}/songs: add an EXISTING song by id."""
+
+    song_id: str = Field(max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$")
+
+
+class ProjectResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    created_at: str
+    updated_at: str
+
+
+class ProjectSummaryResponse(ProjectResponse):
+    song_count: int
+
+
+class ProjectListResponse(BaseModel):
+    items: list[ProjectSummaryResponse]
+
+
+class ProjectSongResponse(BaseModel):
+    """One Song inside a Project: enough to link to Song Details, no Version/audio detail
+    (Song Details already owns that)."""
+
+    id: str
+    title: str
+    version_count: int
+    latest_version_number: Optional[int] = None
+    created_at: str
+    updated_at: str
+
+
+class ProjectDetailsResponse(ProjectResponse):
+    songs: list[ProjectSongResponse]
+
+
+def project_response(project: Project) -> ProjectResponse:
+    return ProjectResponse(
+        id=project.id,
+        name=project.name,
+        description=project.description,
+        created_at=project.created_at.isoformat(),
+        updated_at=project.updated_at.isoformat(),
+    )
+
+
+def project_summary_response(summary: ProjectSummary) -> ProjectSummaryResponse:
+    return ProjectSummaryResponse(**project_response(summary.project).model_dump(), song_count=summary.song_count)
+
+
+def project_details_response(project: Project, entries: list[ProjectSongEntry]) -> ProjectDetailsResponse:
+    songs = [
+        ProjectSongResponse(
+            id=e.song.id,
+            title=e.song.title,
+            version_count=e.version_count,
+            latest_version_number=e.latest_version_number,
+            created_at=e.song.created_at.isoformat(),
+            updated_at=e.song.updated_at.isoformat(),
+        )
+        for e in entries
+    ]
+    return ProjectDetailsResponse(**project_response(project).model_dump(), songs=songs)

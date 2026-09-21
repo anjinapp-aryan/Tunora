@@ -67,6 +67,7 @@ function details(versions: ReturnType<typeof version>[], overrides: Record<strin
     created_at: "2026-09-11T10:00:00+00:00",
     updated_at: "2026-09-13T10:00:00+00:00",
     versions: newestFirst.map((v, i) => ({ ...v, is_latest: i === 0 })),
+    project: null,
     ...overrides,
   };
 }
@@ -113,6 +114,17 @@ describe("SongDetailsView", () => {
     expect(options[0]).toHaveTextContent("01:30");
     expect(options[2]).toHaveTextContent("00:30");
     expect(screen.getByRole("link", { name: /library/i })).toHaveAttribute("href", "/library");
+    expect(screen.queryByTestId("song-project")).not.toBeInTheDocument();
+  });
+
+  it("links to the song's Project when it has one", async () => {
+    await renderSong(three()); // three() has no project by default
+    expect(screen.queryByTestId("song-project")).not.toBeInTheDocument();
+
+    await renderSong(details([version(1)], { project: { id: "proj-1", name: "My Movie Album" } }));
+    const link = screen.getByTestId("song-project").querySelector("a")!;
+    expect(link).toHaveTextContent("My Movie Album");
+    expect(link).toHaveAttribute("href", "/projects/proj-1");
   });
 
   it("selects the latest version by default and plays ITS audio through the existing player", async () => {

@@ -13,6 +13,8 @@ export type JobStatus =
 
 export interface CreateJobPayload {
   title?: string | null;
+  /** Puts a brand-new song in this Project (Phase 6). Ignored if a song_id is given. */
+  project_id?: string | null;
   prompt: string;
   lyrics: string;
   language: string;

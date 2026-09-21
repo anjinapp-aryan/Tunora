@@ -32,6 +32,12 @@ async function fillPrompt(text = "an upbeat synth pop song") {
   await userEvent.type(screen.getByLabelText(/describe your song/i), text);
 }
 
+// The form also loads GET /api/projects (Phase 6, for the optional Project field); these
+// helpers isolate the actual submission call so index/count assertions stay exact.
+function jobCalls() {
+  return fetchMock.mock.calls.filter((call: unknown[]) => call[0] === "/api/jobs");
+}
+
 beforeEach(() => {
   push.mockReset();
   fetchMock.mockReset();
@@ -66,13 +72,13 @@ describe("CreateSongForm", () => {
   });
 
   it("sends the optional title when given", async () => {
-    fetchMock.mockResolvedValue(jobResponse());
+    fetchMock.mockImplementation(() => Promise.resolve(jobResponse()));
     render(<CreateSongForm />);
     await fillPrompt();
     await userEvent.type(screen.getByLabelText(/song title/i), "Evening Rain");
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).title).toBe("Evening Rain");
+    expect(JSON.parse(jobCalls()[0][1].body).title).toBe("Evening Rain");
   });
 
   it("opens Advanced options to show a seed error", async () => {
@@ -93,7 +99,7 @@ describe("CreateSongForm", () => {
     render(<CreateSongForm />);
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
     expect(await screen.findByText(/describe the song you want/i)).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(jobCalls()).toHaveLength(0);
   });
 
   it("rejects a non-numeric seed", async () => {
@@ -102,7 +108,7 @@ describe("CreateSongForm", () => {
     await userEvent.type(screen.getByLabelText(/seed/i), "abc");
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
     expect(await screen.findByText(/seed must be a whole number/i)).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(jobCalls()).toHaveLength(0);
   });
 
   it("rejects an over-long prompt", async () => {
@@ -111,7 +117,7 @@ describe("CreateSongForm", () => {
     await userEvent.paste("x".repeat(1001));
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
     expect(await screen.findByText(/under 1000 characters/i)).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(jobCalls()).toHaveLength(0);
   });
 
   it("disables lyrics when instrumental is on", async () => {
@@ -121,7 +127,7 @@ describe("CreateSongForm", () => {
   });
 
   it("POSTs the real Tunora contract to /api/jobs and navigates to the job", async () => {
-    fetchMock.mockResolvedValue(jobResponse());
+    fetchMock.mockImplementation(() => Promise.resolve(jobResponse()));
     render(<CreateSongForm />);
     await fillPrompt();
     await userEvent.click(screen.getByLabelText(/lyrics/i));
@@ -132,12 +138,13 @@ describe("CreateSongForm", () => {
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/jobs/tunora-abc-123"));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0];
+    expect(jobCalls()).toHaveLength(1);
+    const [url, init] = jobCalls()[0];
     expect(url).toBe("/api/jobs");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({
       title: null,
+      project_id: null, // Phase 6: no Project was selected (none exist in this test)
       prompt: "an upbeat synth pop song",
       lyrics: "[Verse] la la",
       language: "kn",
@@ -148,21 +155,24 @@ describe("CreateSongForm", () => {
   });
 
   it("sends empty lyrics and null seed for an instrumental with no seed", async () => {
-    fetchMock.mockResolvedValue(jobResponse());
+    fetchMock.mockImplementation(() => Promise.resolve(jobResponse()));
     render(<CreateSongForm />);
     await fillPrompt();
     await userEvent.type(screen.getByLabelText(/lyrics/i), "will be dropped");
     await userEvent.click(screen.getByRole("radio", { name: /instrumental/i }));
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    await waitFor(() => expect(jobCalls().length).toBeGreaterThan(0));
+    const body = JSON.parse(jobCalls()[0][1].body);
     expect(body).toMatchObject({ instrumental: true, lyrics: "", seed: null, duration: 30, language: "en" });
   });
 
   it("shows a loading state and prevents duplicate submission", async () => {
     let resolve!: (r: Response) => void;
-    fetchMock.mockReturnValue(new Promise<Response>((r) => (resolve = r)));
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/projects") return Promise.resolve(new Response(JSON.stringify({ items: [] })));
+      return new Promise<Response>((r) => (resolve = r));
+    });
     render(<CreateSongForm />);
     await fillPrompt();
     const button = screen.getByRole("button", { name: /generate song/i });
@@ -172,11 +182,11 @@ describe("CreateSongForm", () => {
     const busy = await screen.findByRole("button", { name: /starting/i });
     expect(busy).toBeDisabled();
     expect(busy).toHaveAttribute("aria-busy", "true");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(jobCalls()).toHaveLength(1);
 
     resolve(jobResponse());
     await waitFor(() => expect(push).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(jobCalls()).toHaveLength(1);
   });
 
   it.each([
@@ -184,11 +194,11 @@ describe("CreateSongForm", () => {
     [400, /details look invalid/i],
     [500, /unable to start the song generation/i],
   ])("shows a safe message for HTTP %i without leaking detail", async (status, message) => {
-    fetchMock.mockResolvedValue(
+    fetchMock.mockImplementation(() => Promise.resolve(
       new Response(JSON.stringify({ detail: "Traceback ProviderResponseError /query_result C:\\secret" }), {
         status,
       }),
-    );
+    ));
     render(<CreateSongForm />);
     await fillPrompt();
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
@@ -211,7 +221,7 @@ describe("CreateSongForm", () => {
   });
 
   it("treats a 200 response with status FAILED as a submission failure", async () => {
-    fetchMock.mockResolvedValue(jobResponse({ status: "FAILED", error: "ProviderUnavailableError: C:\\x" }));
+    fetchMock.mockImplementation(() => Promise.resolve(jobResponse({ status: "FAILED", error: "ProviderUnavailableError: C:\\x" })));
     render(<CreateSongForm />);
     await fillPrompt();
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
@@ -225,7 +235,7 @@ describe("CreateSongForm", () => {
   it("stays usable at a mobile-width viewport", async () => {
     vi.stubGlobal("innerWidth", 375);
     window.dispatchEvent(new Event("resize"));
-    fetchMock.mockResolvedValue(jobResponse());
+    fetchMock.mockImplementation(() => Promise.resolve(jobResponse()));
     render(<CreateSongForm />);
     await fillPrompt();
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));

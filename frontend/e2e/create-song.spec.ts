@@ -696,3 +696,92 @@ test("Extend, Remix and Repaint from the UI each create a NEW version of the sam
   await expectNoInternalLeak(page);
   expect([sha(v1File), fs.statSync(v1File).size]).toEqual([v1Hash, v1Size]);
 });
+
+test("Projects: create, add an existing song, remove it, delete the project -- the song and its audio always survive", async ({ page, request }) => {
+  test.skip(!STORAGE_ROOT, "Needs E2E_STORAGE_ROOT to verify the audio file is untouched");
+  test.setTimeout(GENERATION_TIMEOUT_MS + 120_000);
+  await trackMediaElement(page);
+
+  // One real generation, reused for the whole scenario (Projects are organizational only).
+  // A unique title avoids colliding with songs left over from earlier runs of this same test
+  // (the throwaway E2E database accumulates rows across runs; see docs/PHASE-5A known limitations).
+  const SONG_TITLE = `Project Test Song ${Date.now()}`;
+  const PROJECT_NAME = `My Movie Album ${Date.now()}`;
+  const created = await generateRealSong(page, "short mellow instrumental piano loop", SONG_TITLE);
+  const song = await fetchCompletedJob(request, created.id);
+  const songFile = storedAudioPath(song);
+  const songHash = sha(songFile);
+  const songSize = fs.statSync(songFile).size;
+  const versionsBefore = (await (await request.get(`${NEXT}/api/songs/${song.song_id}`)).json()).versions;
+
+  // ---- 1/2. Open Projects, create a Project ----
+  await page.goto("/projects");
+  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await page.getByRole("button", { name: "Create Project" }).click();
+  await page.getByLabel("Project name").fill(PROJECT_NAME);
+  await page.getByLabel("Description (optional)").fill("Songs for the film");
+  await page.getByTestId("create-project-form").getByRole("button", { name: "Create" }).click();
+  const card = page.getByTestId("project-item").filter({ hasText: PROJECT_NAME });
+  await expect(card).toBeVisible();
+  await expectFitsViewport(page, 375, [card]);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  // ---- 3. Open the Project ----
+  await card.getByRole("link", { name: /open project/i }).click();
+  await expect(page.getByTestId("project-title")).toHaveText(PROJECT_NAME);
+  await expect(page.getByTestId("project-songs-empty")).toBeVisible();
+  const projectUrl = page.url();
+
+  // ---- 4/5. Add the existing song; it appears with no new generation ----
+  const jobsBefore = ((await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[]).length;
+  await page.getByRole("button", { name: "Add Existing Song" }).click();
+  await page.getByLabel("Search your songs").fill(SONG_TITLE);
+  const candidate = page.getByTestId("add-song-candidate").filter({ hasText: SONG_TITLE });
+  await expect(candidate).toBeVisible();
+  await candidate.getByRole("button", { name: "Add" }).click();
+  await expect(page.getByTestId("project-song-item").filter({ hasText: SONG_TITLE })).toBeVisible();
+  expect(((await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[]).length).toBe(jobsBefore); // no new job
+
+  // ---- 6/7. Open the Song from the Project; its versions and audio still work ----
+  await page.getByTestId("project-song-item").getByRole("link", { name: /open song/i }).click();
+  await expect(page).toHaveURL(new RegExp(`/songs/${song.song_id}$`));
+  await expect(page.getByTestId("song-project")).toContainText(PROJECT_NAME);
+  await expect(page.getByTestId("version-option")).toHaveCount(1);
+  await expectPlayableAudio(page, song.id);
+
+  // ---- 8/9/10. Back to the Project, remove the song, it disappears from the Project ----
+  await page.getByTestId("song-project").getByRole("link").click();
+  await expect(page).toHaveURL(projectUrl);
+  await page.getByRole("button", { name: /remove.*from this project/i }).click();
+  await expect(page.getByTestId("project-songs-empty")).toBeVisible();
+
+  // ---- 11/12/13/14. Library and Song Details: the song, its versions and its audio are untouched ----
+  await page.goto("/library");
+  await page.getByLabel("Search songs").fill(SONG_TITLE);
+  const row = page.getByTestId("library-item").filter({ hasText: SONG_TITLE });
+  await expect(row).toBeVisible();
+  await expect(row.getByTestId("song-project")).toHaveCount(0); // no longer shows a Project
+  await row.getByRole("link", { name: /open song/i }).click();
+  await expect(page.getByTestId("song-title")).toHaveText(SONG_TITLE);
+  expect(await page.getByTestId("song-project").count()).toBe(0);
+  const versionsAfterRemove = (await (await request.get(`${NEXT}/api/songs/${song.song_id}`)).json()).versions;
+  expect(versionsAfterRemove).toEqual(versionsBefore);
+  await expectPlayableAudio(page, song.id);
+  expect(sha(songFile)).toBe(songHash);
+  expect(fs.statSync(songFile).size).toBe(songSize);
+
+  // ---- 15/16/17. Delete the Project: it disappears, the Song still exists everywhere ----
+  await page.goto(projectUrl);
+  await page.getByRole("button", { name: "Delete Project" }).click();
+  const confirm = page.getByTestId("delete-project-confirm");
+  await expect(confirm).toContainText(/will not delete its songs or audio/i);
+  await confirm.getByRole("button", { name: /yes, delete project/i }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page.getByTestId("project-item").filter({ hasText: PROJECT_NAME })).toHaveCount(0);
+
+  const finalSong = await (await request.get(`${NEXT}/api/songs/${song.song_id}`)).json();
+  expect(finalSong.project).toBeNull();
+  expect(finalSong.versions).toEqual(versionsBefore);
+  expect(sha(songFile)).toBe(songHash);
+  await expectNoInternalLeak(page, finalSong);
+});

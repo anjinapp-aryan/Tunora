@@ -146,6 +146,14 @@ export function SongDetailsView({ songId }: { songId: string }) {
         <p className="mt-1 text-sm text-muted-foreground">
           {details.versions.length} {details.versions.length === 1 ? "version" : "versions"} · Created {formatDate(details.created_at)}
         </p>
+        {details.project && (
+          <p className="mt-1 text-sm text-muted-foreground" data-testid="song-project">
+            Project:{" "}
+            <Link href={`/projects/${encodeURIComponent(details.project.id)}`} className="underline underline-offset-4">
+              {details.project.name}
+            </Link>
+          </p>
+        )}
       </div>
 
       {active ? (

@@ -18,6 +18,7 @@ from app.api.schemas import CreateJobRequest, JobResponse
 from app.jobs.models import JobStatus
 from app.jobs.errors import AudioIntegrityError, AudioNotAvailableError, JobNotFoundError
 from app.jobs.service import JobService
+from app.projects.errors import ProjectNotFoundError
 from app.songs.errors import InvalidIdError, SongNotFoundError
 from app.providers.base import GenerationRequest
 
@@ -43,9 +44,11 @@ async def create_job(payload: CreateJobRequest, request: Request, background_tas
         batch_size=payload.batch_size,
     )
     try:
-        job = await service.create_and_submit(generation_request, title=payload.title, song_id=payload.song_id)
-    except (SongNotFoundError, InvalidIdError):
-        raise HTTPException(status_code=404, detail="Song not found.")
+        job = await service.create_and_submit(
+            generation_request, title=payload.title, song_id=payload.song_id, project_id=payload.project_id
+        )
+    except (SongNotFoundError, ProjectNotFoundError, InvalidIdError):
+        raise HTTPException(status_code=404, detail="Song or project not found.")
     if job.status.value not in ("FAILED",):
         background_tasks.add_task(service.run_until_terminal, job.id)
     return _respond(service, [job])[0]

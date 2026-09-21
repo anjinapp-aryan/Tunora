@@ -16,7 +16,12 @@ export interface SongSummary {
   latest_version: { version_number: number; duration: number | null; created_at: string };
   created_at: string;
   updated_at: string;
+  /** null when the song is not in any Project (Phase 6). */
+  project: { id: string; name: string } | null;
 }
+
+/** `list_song_summaries(project=...)` value that means "songs with no Project". */
+export const PROJECT_FILTER_NONE = "none";
 
 export type VersionOperation = "ORIGINAL" | "EXTEND" | "REMIX" | "REPAINT";
 export type CreativeOperation = Exclude<VersionOperation, "ORIGINAL">;
@@ -48,6 +53,8 @@ export interface SongDetails {
   updated_at: string;
   /** Newest version first. */
   versions: SongVersion[];
+  /** null when the song is not in any Project (Phase 6). */
+  project: { id: string; name: string } | null;
 }
 
 const LOAD_SONGS_ERROR = "Could not load your songs. Please try again.";
@@ -77,13 +84,15 @@ async function getJson<T>(url: string, signal: AbortSignal | undefined, failure:
   }
 }
 
-/** Library rows: one per song, grouped by the backend. */
+/** Library rows: one per song, grouped by the backend. `project`: a Project id,
+ * `PROJECT_FILTER_NONE` for unassigned songs, or omitted for every song. */
 export async function listSongSummaries(
-  options: { query?: string; sort?: LibrarySort; signal?: AbortSignal } = {},
+  options: { query?: string; sort?: LibrarySort; project?: string; signal?: AbortSignal } = {},
 ): Promise<SongSummary[]> {
   const params = new URLSearchParams({ sort: options.sort ?? "newest" });
   const query = (options.query ?? "").trim();
   if (query) params.set("q", query.slice(0, 100));
+  if (options.project) params.set("project", options.project);
   const body = await getJson<{ items: SongSummary[] }>(`/api/songs?${params.toString()}`, options.signal, LOAD_SONGS_ERROR);
   return body.items;
 }

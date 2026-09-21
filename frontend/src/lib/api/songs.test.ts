@@ -101,7 +101,7 @@ describe("versionAudioResource / defaultVersion", () => {
   });
 
   it("defaults to the newest version that has audio, else the newest", () => {
-    const base = { id: "s", title: "t", created_at: "", updated_at: "" };
+    const base = { id: "s", title: "t", created_at: "", updated_at: "", project: null };
     expect(defaultVersion({ ...base, versions: [v(3, true), v(2, true)] } as SongDetails)?.version_number).toBe(3);
     expect(defaultVersion({ ...base, versions: [v(3, false), v(2, true)] } as SongDetails)?.version_number).toBe(2);
     expect(defaultVersion({ ...base, versions: [v(3, false), v(2, false)] } as SongDetails)?.version_number).toBe(3);
