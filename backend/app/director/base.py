@@ -36,3 +36,15 @@ class SongDirector(ABC):
         raises for "the AI didn't do a great job" -- that's a normal SongSpec the
         user can edit.
         """
+
+    @abstractmethod
+    async def refine(self, spec: SongSpec, instruction: str, *, temperature: float = 0.85) -> SongSpec:
+        """Apply a natural-language change request to an existing SongSpec (Phase 8).
+
+        This modifies the given plan -- it is not a new independent request. `title`,
+        `language`, `duration` and `instrumental` are the user's existing explicit
+        choices and are carried over unchanged (refinement only touches the
+        description/lyrics side, since ACE-Step's own formatting capability has no
+        way to be asked to change them). Raises the same errors as `create_plan`.
+        Never called for "Generate": it creates nothing (no Song, Version or Job).
+        """

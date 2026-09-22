@@ -22,8 +22,9 @@ import {
 } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { SongDirectorPanel } from "@/components/create-song/song-director-panel";
+import { SongRefinePanel } from "@/components/create-song/song-refine-panel";
 import { ApiError, createJob } from "@/lib/api/jobs";
-import type { SongPlan } from "@/lib/api/director";
+import type { SongPlan, SongSpecPayload } from "@/lib/api/director";
 import { listProjects, type ProjectSummary } from "@/lib/api/projects";
 import { rememberJobPrompt } from "@/lib/jobs/job-summary";
 import {
@@ -43,6 +44,22 @@ const FAILED_MESSAGE = "Unable to start the song generation. Please try again.";
 const RADIO_CLASS =
   "size-4 cursor-pointer accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
+/** Which reviewable fields actually changed between two plans (a simple field-level
+ * indicator, not a text diff -- see docs/PHASE-8, "Change visibility"). */
+function diffPlanFields(before: SongPlan, after: SongPlan): string[] {
+  const fields: Array<[string, keyof SongPlan]> = [
+    ["title", "title"],
+    ["prompt", "prompt"],
+    ["lyrics", "lyrics"],
+    ["language", "language"],
+    ["duration", "duration"],
+    ["vocals", "instrumental"],
+  ];
+  return fields
+    .filter(([, key]) => before[key] !== after[key])
+    .map(([label]) => label);
+}
+
 export function CreateSongForm() {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -60,12 +77,14 @@ export function CreateSongForm() {
   }, []);
 
   const [appliedPlan, setAppliedPlan] = useState<SongPlan | null>(null);
+  const [changedFields, setChangedFields] = useState<string[]>([]);
 
   const {
     register,
     control,
     handleSubmit,
     setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<CreateSongValues>({
     resolver: zodResolver(createSongSchema),
@@ -75,7 +94,7 @@ export function CreateSongForm() {
   const instrumental = useWatch({ control, name: "vocals" }) === "instrumental";
   const promptLength = useWatch({ control, name: "prompt" }).length;
 
-  function applyPlan(plan: SongPlan) {
+  function applyPlan(plan: SongPlan, previous: SongPlan | null = null) {
     setValue("prompt", plan.prompt, { shouldValidate: true });
     setValue("lyrics", plan.lyrics);
     setValue("vocals", plan.instrumental ? "instrumental" : "vocal");
@@ -87,6 +106,24 @@ export function CreateSongForm() {
       setAdvancedOpen(true); // the title field lives under Advanced options
     }
     setAppliedPlan(plan);
+    setChangedFields(previous ? diffPlanFields(previous, plan) : []);
+  }
+
+  /** The plan as it currently stands on screen (including any manual edits), for refinement. */
+  function currentSpec(): SongSpecPayload {
+    const values = getValues();
+    return {
+      title: values.title,
+      prompt: values.prompt,
+      lyrics: values.vocals === "instrumental" ? "" : values.lyrics,
+      language: values.language,
+      duration: Number(values.duration),
+      instrumental: values.vocals === "instrumental",
+      bpm: appliedPlan?.bpm ?? null,
+      key_scale: appliedPlan?.key_scale ?? null,
+      time_signature: appliedPlan?.time_signature ?? null,
+      requested_fields: appliedPlan?.requested_fields ?? [],
+    };
   }
 
   async function onSubmit(values: CreateSongValues) {
@@ -143,7 +180,21 @@ export function CreateSongForm() {
               .
             </>
           )}
+          {changedFields.length > 0 && (
+            <span data-testid="plan-changed-fields">
+              {" "}
+              Changed: {changedFields.join(", ")}.
+            </span>
+          )}
         </p>
+      )}
+
+      {appliedPlan && (
+        <SongRefinePanel
+          disabled={isSubmitting}
+          getCurrentSpec={currentSpec}
+          onRefined={(plan) => applyPlan(plan, appliedPlan)}
+        />
       )}
 
       <form

@@ -335,3 +335,141 @@ describe("CreateSongForm + AI Song Director", () => {
     expect(jobCalls()).toHaveLength(0);
   });
 });
+
+describe("CreateSongForm + Refine Plan (Phase 8)", () => {
+  function planResponse(overrides: Record<string, unknown> = {}) {
+    return new Response(
+      JSON.stringify({
+        title: "Amma", prompt: "An emotional cinematic ballad with soft piano.", lyrics: "[Verse]\nline one",
+        language: "kn", duration: 143, instrumental: false, bpm: 92, key_scale: "D minor",
+        time_signature: "4", requested_fields: ["instrumental"],
+        ...overrides,
+      }),
+      { status: 200 },
+    );
+  }
+
+  function refinedResponse(overrides: Record<string, unknown> = {}) {
+    return new Response(
+      JSON.stringify({
+        title: "Amma", prompt: "A more powerful cinematic ballad with soaring vocals.", lyrics: "[Verse]\nnew line",
+        language: "kn", duration: 143, instrumental: false, bpm: 100, key_scale: "D minor",
+        time_signature: "4", requested_fields: ["instrumental"],
+        ...overrides,
+      }),
+      { status: 200 },
+    );
+  }
+
+  async function setupWithPlan(planOverrides: Record<string, unknown> = {}) {
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/songs/plan") return Promise.resolve(planResponse(planOverrides));
+      if (url.startsWith("/api/projects")) return Promise.resolve(new Response(JSON.stringify({ items: [] })));
+      return Promise.resolve(jobResponse());
+    });
+    render(<CreateSongForm />);
+    await userEvent.type(screen.getByLabelText(/describe your song idea/i), "an emotional song about a mother");
+    await userEvent.click(screen.getByRole("button", { name: /create song plan/i }));
+    await screen.findByTestId("song-plan-applied");
+  }
+
+  it("shows the Refine Plan panel only once a plan exists", async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url.startsWith("/api/projects")) return Promise.resolve(new Response(JSON.stringify({ items: [] })));
+      return Promise.resolve(jobResponse());
+    });
+    render(<CreateSongForm />);
+    expect(screen.queryByRole("form", { name: /refine song plan/i })).not.toBeInTheDocument();
+  });
+
+  it("refines the plan with a natural-language instruction and updates the reviewable fields", async () => {
+    await setupWithPlan();
+
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/songs/refine-plan") return Promise.resolve(refinedResponse());
+      return Promise.resolve(jobResponse());
+    });
+    await userEvent.type(screen.getByLabelText(/refine this plan/i), "Make the chorus more powerful.");
+    await userEvent.click(screen.getByRole("button", { name: /refine plan/i }));
+
+    await waitFor(() => expect(within(mainForm()).getByLabelText(/^describe your song$/i)).toHaveValue("A more powerful cinematic ballad with soaring vocals."));
+    expect(within(mainForm()).getByLabelText(/lyrics/i)).toHaveValue("[Verse]\nnew line");
+    expect(screen.getByTestId("plan-changed-fields")).toHaveTextContent("prompt, lyrics");
+    expect(screen.getByTestId("song-plan-applied")).toHaveTextContent("100 BPM");
+  });
+
+  it("sends the CURRENT (possibly edited) form values as the spec to refine, not the original plan", async () => {
+    await setupWithPlan();
+    await userEvent.clear(within(mainForm()).getByLabelText(/^describe your song$/i));
+    await userEvent.type(within(mainForm()).getByLabelText(/^describe your song$/i), "a manually edited description");
+
+    let sentBody: Record<string, unknown> | undefined;
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === "/api/songs/refine-plan") {
+        sentBody = JSON.parse(init!.body as string);
+        return Promise.resolve(refinedResponse());
+      }
+      return Promise.resolve(jobResponse());
+    });
+    await userEvent.type(screen.getByLabelText(/refine this plan/i), "Make it darker.");
+    await userEvent.click(screen.getByRole("button", { name: /refine plan/i }));
+
+    await waitFor(() => expect(sentBody).toBeDefined());
+    expect((sentBody!.song_spec as Record<string, unknown>).prompt).toBe("a manually edited description");
+    expect(sentBody!.instruction).toBe("Make it darker.");
+  });
+
+  it("does not create a Job/Version merely by refining the plan", async () => {
+    await setupWithPlan();
+    const jobsBefore = jobCalls().length;
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/songs/refine-plan") return Promise.resolve(refinedResponse());
+      return Promise.resolve(jobResponse());
+    });
+    await userEvent.type(screen.getByLabelText(/refine this plan/i), "Make it darker.");
+    await userEvent.click(screen.getByRole("button", { name: /refine plan/i }));
+    await waitFor(() => expect(within(mainForm()).getByLabelText(/lyrics/i)).toHaveValue("[Verse]\nnew line"));
+    expect(jobCalls()).toHaveLength(jobsBefore);
+  });
+
+  it("a failed refinement leaves the current plan on screen untouched", async () => {
+    await setupWithPlan();
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/songs/refine-plan") return Promise.resolve(new Response("bad", { status: 502 }));
+      return Promise.resolve(jobResponse());
+    });
+    await userEvent.type(screen.getByLabelText(/refine this plan/i), "Make it darker.");
+    await userEvent.click(screen.getByRole("button", { name: /refine plan/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not apply that change/i);
+    expect(within(mainForm()).getByLabelText(/^describe your song$/i)).toHaveValue("An emotional cinematic ballad with soft piano.");
+    expect(within(mainForm()).getByLabelText(/lyrics/i)).toHaveValue("[Verse]\nline one");
+    expect(screen.queryByTestId("plan-changed-fields")).not.toBeInTheDocument();
+  });
+
+  it("Generate after a refinement uses the final reviewed plan, still with no extra job from refining", async () => {
+    await setupWithPlan();
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/songs/refine-plan") return Promise.resolve(refinedResponse());
+      return Promise.resolve(jobResponse());
+    });
+    await userEvent.type(screen.getByLabelText(/refine this plan/i), "Make the chorus more powerful.");
+    await userEvent.click(screen.getByRole("button", { name: /refine plan/i }));
+    await waitFor(() => expect(within(mainForm()).getByLabelText(/lyrics/i)).toHaveValue("[Verse]\nnew line"));
+
+    fetchMock.mockImplementation(() => Promise.resolve(jobResponse()));
+    await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    const body = JSON.parse(jobCalls()[0][1].body);
+    expect(body.prompt).toBe("A more powerful cinematic ballad with soaring vocals.");
+    expect(body.lyrics).toBe("[Verse]\nnew line");
+    expect(jobCalls()).toHaveLength(1); // only the actual Generate created a job
+  });
+
+  it("stays usable at a mobile-width viewport with a plan and refine panel visible", async () => {
+    vi.stubGlobal("innerWidth", 375);
+    window.dispatchEvent(new Event("resize"));
+    await setupWithPlan();
+    expect(screen.getByRole("form", { name: /refine song plan/i })).toBeVisible();
+  });
+});

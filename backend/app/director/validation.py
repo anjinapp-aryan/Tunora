@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from typing import Optional
 
-from app.director.errors import InvalidSongPlanError
+from app.director.errors import InvalidDirectorRequestError, InvalidSongPlanError
 
 PROMPT_MAX = 2000  # the LM's "caption" can run longer than a hand-typed prompt
 LYRICS_MAX = 5000  # matches the existing Create Song limit (lib/create-song-schema.ts)
@@ -106,3 +106,19 @@ def validate_short_text(value: object, max_length: int) -> Optional[str]:
         return None
     value = value.strip()
     return value[:max_length] if len(value) > max_length else value
+
+
+INSTRUCTION_MAX = 500
+
+
+def validate_instruction(instruction: object) -> str:
+    """The user's own refinement request -- checked as ordinary user input (not AI
+    output): non-empty, bounded length. Free text; no shell/URL/path semantics are
+    ever attached to it (see docs/PHASE-8, "Security")."""
+
+    if not isinstance(instruction, str) or not instruction.strip():
+        raise InvalidDirectorRequestError("Describe the change you want first.")
+    instruction = instruction.strip()
+    if len(instruction) > INSTRUCTION_MAX:
+        raise InvalidDirectorRequestError(f"Keep the refinement instruction under {INSTRUCTION_MAX} characters.")
+    return instruction

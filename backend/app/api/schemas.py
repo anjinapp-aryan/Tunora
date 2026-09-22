@@ -384,3 +384,43 @@ def song_plan_response(spec: SongSpec) -> SongPlanResponse:
         time_signature=spec.time_signature,
         requested_fields=sorted(spec.requested_fields),
     )
+
+
+# -- AI Song Director: plan refinement (Phase 8) ---------------------------------------------
+#
+# Refinement is stateless, like planning: it creates no Song, Version or Job. The incoming
+# `SongSpecPayload` is the plan the user currently has on screen (possibly already edited),
+# never a stored/trusted record -- so it is bounded exactly like `SongPlanResponse`'s own
+# fields, not treated as safe just because it round-tripped through the client once.
+
+
+class SongSpecPayload(BaseModel):
+    title: str = Field(default="", max_length=80)
+    prompt: str = Field(min_length=1, max_length=2000)
+    lyrics: str = Field(default="", max_length=5000)
+    language: str = Field(default="", max_length=10)
+    duration: Optional[float] = Field(default=None, gt=0, allow_inf_nan=False)
+    instrumental: bool = False
+    bpm: Optional[int] = Field(default=None, ge=0, le=1000)
+    key_scale: Optional[str] = Field(default=None, max_length=40)
+    time_signature: Optional[str] = Field(default=None, max_length=10)
+    requested_fields: list[str] = Field(default_factory=list)
+
+    def to_spec(self) -> SongSpec:
+        return SongSpec(
+            title=self.title,
+            prompt=self.prompt,
+            lyrics=self.lyrics,
+            language=self.language,
+            duration=self.duration,
+            instrumental=self.instrumental,
+            bpm=self.bpm,
+            key_scale=self.key_scale,
+            time_signature=self.time_signature,
+            requested_fields=frozenset(self.requested_fields),
+        )
+
+
+class RefineSongPlanRequest(BaseModel):
+    song_spec: SongSpecPayload
+    instruction: str = Field(min_length=1, max_length=500)

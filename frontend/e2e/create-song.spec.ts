@@ -850,3 +850,70 @@ test("AI Song Director: natural language -> reviewable plan -> real generation -
   expect(jobsAfter.filter((j) => j.id === job.id)).toHaveLength(1); // exactly one job, no duplicates
   await expectNoInternalLeak(page, { plan, job: completed });
 });
+
+test("AI Song Director refinement: plan -> refine (no Job/Version) -> review -> real generation -> real audio", async ({ page, request }) => {
+  test.skip(!STORAGE_ROOT, "Needs E2E_STORAGE_ROOT to compare stored files");
+  test.setTimeout(GENERATION_TIMEOUT_MS + 180_000);
+  await trackMediaElement(page);
+
+  const jobsBefore = ((await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[]).length;
+
+  // ---- 1/2/3. Open Create Song, build a plan with the Phase 7 Director ----
+  await page.goto("/create");
+  await page.getByLabel(/describe your song idea/i).fill("a short upbeat instrumental synth loop for a video game menu");
+  await page.getByLabel(/instrumental \(no vocals\)/i).check();
+  await page.getByRole("button", { name: /create song plan/i }).click();
+  await expect(page.getByTestId("song-plan-applied")).toBeVisible({ timeout: GENERATION_TIMEOUT_MS });
+  const mainForm = page.getByRole("form", { name: /^create song$/i });
+  const promptAfterPlan = await mainForm.getByLabel(/^describe your song$/i).inputValue();
+  expect(promptAfterPlan.length).toBeGreaterThan(10);
+  expect(((await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[]).length).toBe(jobsBefore); // planning creates no job
+
+  // ---- 4/5. Enter a refinement instruction and refine the plan (real /format_input call) ----
+  await expect(page.getByRole("form", { name: /refine song plan/i })).toBeVisible();
+  await expectFitsViewport(page, 375, [page.getByRole("form", { name: /refine song plan/i })]);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.getByLabel(/refine this plan/i).fill("Add more percussion and a driving bassline.");
+  await page.getByRole("button", { name: /refine plan/i }).click();
+  await expect(page.getByRole("button", { name: /^refine plan$/i })).toBeVisible({ timeout: GENERATION_TIMEOUT_MS }); // busy state cleared
+
+  // ---- 6/7. Verify the plan actually changed, and that refining created nothing ----
+  const promptAfterRefine = await mainForm.getByLabel(/^describe your song$/i).inputValue();
+  expect(promptAfterRefine).not.toBe(promptAfterPlan); // a real, different AI description
+  expect(page.getByRole("radio", { name: /instrumental/i })).toBeChecked();
+  expect(((await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[]).length).toBe(jobsBefore); // still no job
+  const songsBefore = (await (await request.get(`${NEXT}/api/songs?limit=200`)).json()).items.length;
+
+  // ---- 8. Review/edit: force a short duration and a unique title for this test ----
+  await mainForm.getByLabel(/^duration$/i).selectOption("30");
+  const UNIQUE_TITLE = `Refine Test ${Date.now()}`;
+  await mainForm.getByLabel(/song title/i).fill(UNIQUE_TITLE);
+
+  // ---- 9/10. Generate: the existing, unchanged pipeline; a real GPU generation ----
+  const created = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
+  await page.getByRole("button", { name: /generate song/i }).click();
+  const job = (await (await created).json()) as Job;
+  await expect(page).toHaveURL(new RegExp(`/jobs/${job.id}$`));
+  await expect(page.getByRole("heading", { name: /generation complete|generation failed/i })).toBeVisible({ timeout: GENERATION_TIMEOUT_MS });
+  await expect(page.getByRole("heading", { name: /generation complete/i })).toBeVisible();
+
+  const completed = await fetchCompletedJob(request, job.id);
+  expect(completed.title).toBe(UNIQUE_TITLE);
+
+  // ---- 12. The Version/Song exist only now, after Generate -- not after Plan or Refine ----
+  const songsAfter = (await (await request.get(`${NEXT}/api/songs?limit=200`)).json()).items.length;
+  expect(songsAfter).toBe(songsBefore + 1);
+  const jobsAfter = (await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[];
+  expect(jobsAfter.length).toBe(jobsBefore + 1); // exactly one job, from Generate alone
+
+  // ---- 11. Real playable audio, through the existing, unchanged player/download ----
+  await page.goto("/library");
+  await page.getByLabel("Search songs").fill(UNIQUE_TITLE);
+  const row = page.getByTestId("library-item").filter({ hasText: UNIQUE_TITLE });
+  await expect(row).toHaveCount(1);
+  await row.getByRole("link", { name: /open song/i }).click();
+  await expect(page.getByTestId("version-option")).toHaveCount(1);
+  await expectPlayableAudio(page, completed.id);
+  await expectDownloadMatchesStoredAudio(page, request, completed);
+  await expectNoInternalLeak(page, completed);
+});

@@ -27,6 +27,7 @@ from app.director.spec import REQUESTABLE_FIELDS, SongSpec
 from app.director.validation import (
     validate_bpm,
     validate_duration,
+    validate_instruction,
     validate_language,
     validate_lyrics,
     validate_prompt,
@@ -121,6 +122,78 @@ class AceStepSongDirector(SongDirector):
             key_scale=key_scale,
             time_signature=time_signature,
             requested_fields=frozenset(requested_fields) & REQUESTABLE_FIELDS,
+        )
+
+    async def refine(self, spec: SongSpec, instruction: str, *, temperature: float = 0.85) -> SongSpec:
+        """Apply `instruction` to `spec` via ACE-Step's own `/format_input` (Phase 8).
+
+        Reuse decision (docs/PHASE-8-REUSE-AUDIT.md): `/format_input` has no concept
+        of a separate "change request" -- it only reformats the caption/lyrics it is
+        given. Verified live that appending the instruction to the existing caption
+        as "<caption> Additional direction: <instruction>" DOES get incorporated into
+        the enhanced caption (and, loosely, the lyrics); `duration`/`language` are
+        honoured exactly via its existing constrained decoding (same mechanism Phase 7
+        already relies on). It has NO way to be told to keep or drop vocals -- a probe
+        with a non-instrumental source produced literal "[Instrumental]" lyrics with no
+        request to do so -- so an unexpected vocals-to-instrumental collapse is treated
+        as invalid output, not silently accepted (see `InvalidSongPlanError` below).
+        """
+
+        instruction = validate_instruction(instruction)
+        param_obj: dict[str, Any] = {}
+        if spec.duration is not None:
+            param_obj["duration"] = spec.duration
+        if spec.language:
+            param_obj["language"] = spec.language
+        if spec.bpm is not None:
+            param_obj["bpm"] = spec.bpm
+        if spec.key_scale:
+            param_obj["key_scale"] = spec.key_scale
+        if spec.time_signature:
+            param_obj["time_signature"] = spec.time_signature
+
+        payload = {
+            "prompt": f"{spec.prompt} Additional direction: {instruction}",
+            "lyrics": spec.lyrics,
+            "temperature": temperature,
+            "param_obj": param_obj,
+        }
+        data = await self._post("/format_input", payload)
+        if not isinstance(data, dict):
+            raise InvalidSongPlanError("The AI director returned an unusable response.")
+
+        prompt = validate_prompt(data.get("caption"))
+        bpm = validate_bpm(data.get("bpm"))
+        key_scale = validate_short_text(data.get("key_scale") or data.get("keyscale"), 40)
+        time_signature = validate_short_text(data.get("time_signature") or data.get("timesignature"), 10)
+
+        if spec.instrumental:
+            lyrics = ""  # the user's explicit choice -- /format_input has no way to be told this
+        else:
+            candidate = validate_lyrics(data.get("lyrics"), instrumental=False)
+            if spec.lyrics.strip() and candidate.strip().strip("[]").lower() == "instrumental":
+                # A provider limitation, not a Tunora bug: /format_input dropped real
+                # lyrics to "[Instrumental]" unprompted (observed in a real probe --
+                # see docs/PHASE-8-REUSE-AUDIT.md). Reject rather than silently accept.
+                raise InvalidSongPlanError(
+                    "The AI director's refinement unexpectedly removed the lyrics. Please try rephrasing your request."
+                )
+            lyrics = candidate
+
+        # `title`, `language`, `duration` and `instrumental` are the user's existing,
+        # already-explicit choices; /format_input cannot be asked to change them, so
+        # Tunora carries them over unchanged rather than trusting whatever it echoes back.
+        return SongSpec(
+            title=spec.title,
+            prompt=prompt,
+            lyrics=lyrics,
+            language=spec.language,
+            duration=spec.duration,
+            instrumental=spec.instrumental,
+            bpm=bpm if bpm is not None else spec.bpm,
+            key_scale=key_scale or spec.key_scale,
+            time_signature=time_signature or spec.time_signature,
+            requested_fields=spec.requested_fields,
         )
 
     async def _post(self, path: str, json_body: dict[str, Any]) -> Any:
