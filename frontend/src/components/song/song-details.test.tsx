@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SongDetailsView } from "./song-details";
 
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 // jsdom cannot decode audio: WaveSurfer is replaced by a recorder so the tests can see WHICH
 // audio URL each player instance was created with, and when instances are destroyed.
 const fake = vi.hoisted(() => {
@@ -68,6 +71,7 @@ function details(versions: ReturnType<typeof version>[], overrides: Record<strin
     updated_at: "2026-09-13T10:00:00+00:00",
     versions: newestFirst.map((v, i) => ({ ...v, is_latest: i === 0 })),
     project: null,
+    is_favorite: false,
     ...overrides,
   };
 }
@@ -305,5 +309,136 @@ describe("SongDetailsView", () => {
     await act(async () => {});
     unmount();
     expect(signal?.aborted).toBe(true);
+  });
+});
+
+describe("Song management (Phase 9): rename, favorite, delete", () => {
+  function mockDetails(overrides: Record<string, unknown> = {}) {
+    let current = details([version(1)], overrides);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (init?.method === "PATCH" && u === "/api/songs/song-1") {
+        const body = JSON.parse(String(init.body));
+        current = { ...current, ...body };
+        return Promise.resolve(json(current));
+      }
+      if (init?.method === "DELETE" && u === "/api/songs/song-1") return Promise.resolve(new Response(null, { status: 204 }));
+      if (u.startsWith("/api/songs/")) return Promise.resolve(json(current));
+      return Promise.resolve(audioBytes());
+    });
+    return {
+      get current() {
+        return current;
+      },
+    };
+  }
+
+  it("renames the song through an inline edit control, no modal, no new version", async () => {
+    mockDetails();
+    render(<SongDetailsView songId="song-1" />);
+    await screen.findByTestId("song-title");
+
+    await userEvent.click(screen.getByTestId("song-rename-button"));
+    const input = screen.getByLabelText("Song title");
+    await userEvent.clear(input);
+    await userEvent.type(input, "New Title");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(screen.getByTestId("song-title")).toHaveTextContent("New Title"));
+    const patchCall = fetchMock.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === "PATCH");
+    expect(JSON.parse(String((patchCall![1] as RequestInit).body))).toEqual({ title: "New Title" });
+    expect(screen.getAllByTestId("version-option")).toHaveLength(1); // no new version created
+  });
+
+  it("rejects an empty rename locally, without sending a request", async () => {
+    mockDetails();
+    render(<SongDetailsView songId="song-1" />);
+    await screen.findByTestId("song-title");
+
+    await userEvent.click(screen.getByTestId("song-rename-button"));
+    const input = screen.getByLabelText("Song title");
+    await userEvent.clear(input);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Title is required.")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "PATCH")).toBe(false);
+  });
+
+  it("Escape cancels the rename and restores the original title", async () => {
+    mockDetails();
+    render(<SongDetailsView songId="song-1" />);
+    await screen.findByTestId("song-title");
+
+    await userEvent.click(screen.getByTestId("song-rename-button"));
+    const input = screen.getByLabelText("Song title");
+    await userEvent.clear(input);
+    await userEvent.type(input, "Discarded");
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.getByTestId("song-title")).toHaveTextContent("I Will Rise");
+    expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "PATCH")).toBe(false);
+  });
+
+  it("toggles favorite on the song title bar via PATCH", async () => {
+    mockDetails();
+    render(<SongDetailsView songId="song-1" />);
+    await screen.findByTestId("song-title");
+
+    const star = screen.getByTestId("song-favorite-toggle");
+    expect(star).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(star);
+
+    await waitFor(() => expect(screen.getByTestId("song-favorite-toggle")).toHaveAttribute("aria-pressed", "true"));
+    const patchCall = fetchMock.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === "PATCH");
+    expect(JSON.parse(String((patchCall![1] as RequestInit).body))).toEqual({ is_favorite: true });
+  });
+
+  it("deletes the song after explicit confirmation and navigates to the Library", async () => {
+    mockDetails();
+    render(<SongDetailsView songId="song-1" />);
+    await screen.findByTestId("song-title");
+
+    await userEvent.click(screen.getByTestId("delete-song-button"));
+    const dialog = screen.getByTestId("delete-song-confirm");
+    expect(dialog).toHaveTextContent("I Will Rise");
+    expect(dialog).toHaveTextContent("permanently delete");
+
+    await userEvent.click(screen.getByTestId("confirm-delete-song"));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/library"));
+    expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "DELETE")).toBe(true);
+  });
+
+  it("on a failed delete, shows a safe error, stays on the page, and never navigates", async () => {
+    const current = details([version(1)]);
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (init?.method === "DELETE") return Promise.resolve(new Response("Traceback C:\\secret", { status: 500 }));
+      if (u.startsWith("/api/songs/")) return Promise.resolve(json(current));
+      return Promise.resolve(audioBytes());
+    });
+    render(<SongDetailsView songId="song-1" />);
+    await screen.findByTestId("song-title");
+
+    await userEvent.click(screen.getByTestId("delete-song-button"));
+    await userEvent.click(screen.getByTestId("confirm-delete-song"));
+
+    const error = await within(screen.getByTestId("delete-song-confirm")).findByRole("alert");
+    expect(error).toHaveTextContent("Could not delete this song. Please try again.");
+    expect(document.body.textContent).not.toMatch(/Traceback|secret/);
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByTestId("song-title")).toHaveTextContent("I Will Rise"); // still here
+  });
+
+  it("cancelling the delete confirmation sends no request", async () => {
+    mockDetails();
+    render(<SongDetailsView songId="song-1" />);
+    await screen.findByTestId("song-title");
+
+    await userEvent.click(screen.getByTestId("delete-song-button"));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByTestId("delete-song-confirm")).toBeNull();
+    expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "DELETE")).toBe(false);
   });
 });

@@ -17,6 +17,7 @@ from app.api.schemas import (
     JobResponse,
     SongDetailsResponse,
     SongListResponse,
+    UpdateSongRequest,
     VersionOperationRequest,
     song_details_response,
     song_summary_response,
@@ -26,6 +27,7 @@ from app.providers.errors import UnsupportedOperationError
 from app.songs.errors import (
     InvalidIdError,
     InvalidOperationError,
+    InvalidSongUpdateError,
     SongNotFoundError,
     SourceAudioUnavailableError,
     SourceVersionNotFoundError,
@@ -47,10 +49,11 @@ async def list_songs(
     project: Optional[str] = Query(
         None, max_length=80, description="Filter by Project id, or the literal 'none' for unassigned songs"
     ),
+    favorite: Optional[bool] = Query(None, description="true = only favorites, false = only non-favorites"),
 ):
     service = _get_service(request)
     try:
-        summaries = service.list_songs(query=q, sort=sort, limit=limit, project=project)
+        summaries = service.list_songs(query=q, sort=sort, limit=limit, project=project, favorite=favorite)
     except InvalidIdError:
         raise HTTPException(status_code=422, detail="Malformed project id.")
     project_ids = {s.song.project_id for s in summaries if s.song.project_id}
@@ -73,6 +76,43 @@ async def get_song(
 
 
 _ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9-]*$"
+
+
+@router.patch("/{song_id}", response_model=SongDetailsResponse)
+async def update_song(
+    payload: UpdateSongRequest,
+    request: Request,
+    song_id: str = Path(max_length=80, pattern=_ID_PATTERN),
+):
+    """Rename and/or (un)favorite a Song (Phase 9). Never creates a Version or Job,
+    never touches audio -- see JobService.update_song."""
+
+    service = _get_service(request)
+    try:
+        service.update_song(song_id, title=payload.title, is_favorite=payload.is_favorite)
+        song, entries = service.song_details(song_id)
+    except (SongNotFoundError, InvalidIdError):
+        raise HTTPException(status_code=404, detail="Song not found.")
+    except InvalidSongUpdateError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    project = service.get_project(song.project_id) if song.project_id else None
+    return song_details_response(song, entries, project)
+
+
+@router.delete("/{song_id}", status_code=204)
+async def delete_song(
+    request: Request,
+    song_id: str = Path(max_length=80, pattern=_ID_PATTERN),
+):
+    """Permanently delete a Song, all its Versions, their Jobs, and their audio
+    (Phase 9). Irreversible; see docs/PHASE-9-SONG-MANAGEMENT.md for the exact
+    deletion strategy and failure semantics."""
+
+    service = _get_service(request)
+    try:
+        service.delete_song(song_id)
+    except (SongNotFoundError, InvalidIdError):
+        raise HTTPException(status_code=404, detail="Song not found.")
 
 
 @router.post("/{song_id}/versions/{version_id}/{operation}", response_model=JobResponse)

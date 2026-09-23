@@ -18,6 +18,8 @@ export interface SongSummary {
   updated_at: string;
   /** null when the song is not in any Project (Phase 6). */
   project: { id: string; name: string } | null;
+  /** Phase 9: a plain user-set flag, no effect on generation. */
+  is_favorite: boolean;
 }
 
 /** `list_song_summaries(project=...)` value that means "songs with no Project". */
@@ -55,11 +57,15 @@ export interface SongDetails {
   versions: SongVersion[];
   /** null when the song is not in any Project (Phase 6). */
   project: { id: string; name: string } | null;
+  /** Phase 9: a plain user-set flag, no effect on generation. */
+  is_favorite: boolean;
 }
 
 const LOAD_SONGS_ERROR = "Could not load your songs. Please try again.";
 const LOAD_SONG_ERROR = "Could not load this song. Please try again.";
 const NETWORK_ERROR = "Can't reach the Tunora service. Check that it is running and try again.";
+const UPDATE_SONG_ERROR = "Could not save this song. Please try again.";
+const DELETE_SONG_ERROR = "Could not delete this song. Please try again.";
 
 async function getJson<T>(url: string, signal: AbortSignal | undefined, failure: string): Promise<T> {
   let response: Response;
@@ -85,20 +91,83 @@ async function getJson<T>(url: string, signal: AbortSignal | undefined, failure:
 }
 
 /** Library rows: one per song, grouped by the backend. `project`: a Project id,
- * `PROJECT_FILTER_NONE` for unassigned songs, or omitted for every song. */
+ * `PROJECT_FILTER_NONE` for unassigned songs, or omitted for every song.
+ * `favorite`: true/false to filter, or omitted for every song (Phase 9). */
 export async function listSongSummaries(
-  options: { query?: string; sort?: LibrarySort; project?: string; signal?: AbortSignal } = {},
+  options: { query?: string; sort?: LibrarySort; project?: string; favorite?: boolean; signal?: AbortSignal } = {},
 ): Promise<SongSummary[]> {
   const params = new URLSearchParams({ sort: options.sort ?? "newest" });
   const query = (options.query ?? "").trim();
   if (query) params.set("q", query.slice(0, 100));
   if (options.project) params.set("project", options.project);
+  if (options.favorite !== undefined) params.set("favorite", String(options.favorite));
   const body = await getJson<{ items: SongSummary[] }>(`/api/songs?${params.toString()}`, options.signal, LOAD_SONGS_ERROR);
   return body.items;
 }
 
 export function getSongDetails(songId: string, options: { signal?: AbortSignal } = {}): Promise<SongDetails> {
   return getJson<SongDetails>(`/api/songs/${encodeURIComponent(songId)}`, options.signal, LOAD_SONG_ERROR);
+}
+
+/**
+ * Rename and/or (un)favorite a Song (Phase 9). Never creates a Version or Job,
+ * never touches audio. Pass only the field(s) you want to change.
+ */
+export async function updateSong(
+  songId: string,
+  changes: { title?: string; is_favorite?: boolean },
+): Promise<SongDetails> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/songs/${encodeURIComponent(songId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(changes),
+    });
+  } catch (error) {
+    console.error("song update network failure", error);
+    throw new ApiError("network", NETWORK_ERROR);
+  }
+  if (response.status === 404) throw new ApiError("not_found", "We couldn't find that song.");
+  if (response.status === 422) {
+    let detail = "Some details look invalid. Please check them and try again.";
+    try {
+      const body = (await response.json()) as { detail?: string };
+      if (body.detail) detail = body.detail; // e.g. "Title is required."
+    } catch {
+      /* keep the default message */
+    }
+    throw new ApiError("validation", detail);
+  }
+  if (!response.ok) {
+    console.error("song update failed", response.status);
+    throw new ApiError("server", UPDATE_SONG_ERROR);
+  }
+  try {
+    return (await response.json()) as SongDetails;
+  } catch (error) {
+    console.error("song update returned unreadable body", error);
+    throw new ApiError("server", UPDATE_SONG_ERROR);
+  }
+}
+
+/**
+ * Permanently delete a Song, all of its Versions, their Jobs, and their audio
+ * (Phase 9). Irreversible.
+ */
+export async function deleteSong(songId: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/songs/${encodeURIComponent(songId)}`, { method: "DELETE" });
+  } catch (error) {
+    console.error("song delete network failure", error);
+    throw new ApiError("network", NETWORK_ERROR);
+  }
+  if (response.status === 404) throw new ApiError("not_found", "We couldn't find that song.");
+  if (!response.ok) {
+    console.error("song delete failed", response.status);
+    throw new ApiError("server", DELETE_SONG_ERROR);
+  }
 }
 
 /** The safe audio resource of a version, or null when it has none. */

@@ -66,6 +66,24 @@ class JobRepository(SongRepository, ProjectRepository):
     def complete_job(self, job: Job, audio: VersionAudio) -> None:
         """Atomically persist a COMPLETED job and attach `audio` to its Version (write-once)."""
 
+    @abstractmethod
+    def update_song(self, song_id: str, *, title: Optional[str] = None, is_favorite: Optional[bool] = None) -> Song:
+        """Rename and/or (un)favorite a Song. Only the given fields change; `updated_at`
+        always advances. Never touches a Version, a Job, or any audio. Raises
+        SongNotFoundError if the Song does not exist."""
+
+    @abstractmethod
+    def delete_song(self, song_id: str) -> list[str]:
+        """Delete a Song, all of its Versions, and their Jobs, in one transaction.
+
+        Returns the (possibly empty) list of distinct audio storage keys that were
+        attached to those Versions -- the caller deletes the actual files afterwards
+        (see JobService.delete_song for why: a database transaction and a filesystem
+        delete cannot be one atomic operation, so the DB is committed first and is
+        the source of truth; the audio files are then best-effort cleaned up).
+        Raises SongNotFoundError if the Song does not exist.
+        """
+
 
 # -- in memory ------------------------------------------------------------------------
 
@@ -114,6 +132,34 @@ class InMemoryJobRepository(JobRepository):
                 self._versions[version.id] = replace(version, audio=audio)
             self._jobs[job.id] = job
 
+    def update_song(self, song_id: str, *, title: Optional[str] = None, is_favorite: Optional[bool] = None) -> Song:
+        with self._lock:
+            song = self._songs.get(song_id)
+            if song is None:
+                raise SongNotFoundError(song_id)
+            updated = replace(
+                song,
+                title=song.title if title is None else title,
+                is_favorite=song.is_favorite if is_favorite is None else is_favorite,
+                updated_at=utcnow(),
+            )
+            self._songs[song_id] = updated
+            return updated
+
+    def delete_song(self, song_id: str) -> list[str]:
+        with self._lock:
+            if song_id not in self._songs:
+                raise SongNotFoundError(song_id)
+            version_ids = [v.id for v in self._versions.values() if v.song_id == song_id]
+            keys = [v.audio.key for v in self._versions.values() if v.song_id == song_id and v.audio is not None]
+            for job_id, job in list(self._jobs.items()):
+                if job.version_id in version_ids:
+                    del self._jobs[job_id]
+            for version_id in version_ids:
+                del self._versions[version_id]
+            del self._songs[song_id]
+            return keys
+
     def get_song(self, song_id: str) -> Optional[Song]:
         return self._songs.get(song_id)
 
@@ -126,13 +172,17 @@ class InMemoryJobRepository(JobRepository):
     def list_versions(self, song_id: str) -> list[Version]:
         return sorted((v for v in self._versions.values() if v.song_id == song_id), key=lambda v: v.version_number)
 
-    def list_song_summaries(self, *, query: str, sort: str, limit: int, project: Optional[str] = None) -> list[SongSummary]:
+    def list_song_summaries(
+        self, *, query: str, sort: str, limit: int, project: Optional[str] = None, favorite: Optional[bool] = None
+    ) -> list[SongSummary]:
         needle = query.strip().lower()
         rows: list[SongSummary] = []
         for song in self._songs.values():
             if project == PROJECT_FILTER_NONE and song.project_id is not None:
                 continue
             if project not in (None, PROJECT_FILTER_NONE) and song.project_id != project:
+                continue
+            if favorite is not None and song.is_favorite != favorite:
                 continue
             playable = [v for v in self._versions.values() if v.song_id == song.id and v.audio is not None]
             if not playable:
@@ -453,12 +503,66 @@ class SqliteJobRepository(JobRepository):
             created_at=_str_to_dt(row["created_at"]),
             updated_at=_str_to_dt(row["updated_at"]),
             project_id=row["project_id"],
+            is_favorite=bool(row["is_favorite"]),
         )
 
     def get_song(self, song_id: str) -> Optional[Song]:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM songs WHERE id = ?", (song_id,)).fetchone()
         return self._row_to_song(row) if row else None
+
+    def update_song(self, song_id: str, *, title: Optional[str] = None, is_favorite: Optional[bool] = None) -> Song:
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT * FROM songs WHERE id = ?", (song_id,)).fetchone()
+            if row is None:
+                raise SongNotFoundError(song_id)
+            current = self._row_to_song(row)
+            new_title = current.title if title is None else title
+            new_favorite = current.is_favorite if is_favorite is None else is_favorite
+            now = _dt_to_str(utcnow())
+            conn.execute(
+                "UPDATE songs SET title = ?, is_favorite = ?, updated_at = ? WHERE id = ?",
+                (new_title, 1 if new_favorite else 0, now, song_id),
+            )
+            conn.commit()
+            return replace(current, title=new_title, is_favorite=new_favorite, updated_at=_str_to_dt(now))
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def delete_song(self, song_id: str) -> list[str]:
+        # DB-first, then best-effort file cleanup (see JobRepository.delete_song's
+        # docstring and docs/PHASE-9-SONG-MANAGEMENT.md "Filesystem deletion strategy"):
+        # a DB transaction and a filesystem delete can't be one atomic operation, and
+        # rolling back an already-deleted file is not possible, so the transaction that
+        # CAN be made safe (the DB one) goes first and is the source of truth.
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute("SELECT 1 FROM songs WHERE id = ?", (song_id,)).fetchone() is None:
+                raise SongNotFoundError(song_id)
+            keys = [
+                r["audio_key"]
+                for r in conn.execute(
+                    "SELECT audio_key FROM versions WHERE song_id = ? AND audio_key IS NOT NULL", (song_id,)
+                ).fetchall()
+            ]
+            conn.execute(
+                "DELETE FROM jobs WHERE version_id IN (SELECT id FROM versions WHERE song_id = ?)", (song_id,)
+            )
+            conn.execute("DELETE FROM versions WHERE song_id = ?", (song_id,))
+            conn.execute("DELETE FROM songs WHERE id = ?", (song_id,))
+            conn.commit()
+            return keys
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def get_version(self, version_id: str) -> Optional[Version]:
         with self._connect() as conn:
@@ -488,7 +592,7 @@ class SqliteJobRepository(JobRepository):
     }
 
     def list_song_summaries(
-        self, *, query: str, sort: str, limit: int, project: Optional[str] = None
+        self, *, query: str, sort: str, limit: int, project: Optional[str] = None, favorite: Optional[bool] = None
     ) -> list[SongSummary]:
         # One query: playable-version count and the latest playable version id per song
         # (no per-song follow-up queries); a second bulk lookup loads those versions.
@@ -503,17 +607,21 @@ class SqliteJobRepository(JobRepository):
         elif project is not None:
             project_clause = "AND s.project_id = ? "
             params.append(project)
+        favorite_clause = ""
+        if favorite is not None:
+            favorite_clause = "AND s.is_favorite = ? "
+            params.append(1 if favorite else 0)
         params.append(limit)
         sql = (
-            "SELECT s.id, s.title, s.created_at, s.updated_at, s.project_id, lv.id AS latest_id, "
+            "SELECT s.id, s.title, s.created_at, s.updated_at, s.project_id, s.is_favorite, lv.id AS latest_id, "
             "  (SELECT COUNT(*) FROM versions c WHERE c.song_id = s.id AND c.audio_key IS NOT NULL) AS version_count "
             "FROM songs s JOIN versions lv ON lv.song_id = s.id AND lv.audio_key IS NOT NULL "
             "  AND lv.version_number = (SELECT MAX(m.version_number) FROM versions m "
             "                           WHERE m.song_id = s.id AND m.audio_key IS NOT NULL) "
             "WHERE (? = '' OR lower(s.title) LIKE ? ESCAPE '!' "
             "       OR EXISTS (SELECT 1 FROM versions p WHERE p.song_id = s.id AND lower(p.prompt) LIKE ? ESCAPE '!')) "
-            f"{project_clause}"
-            f"ORDER BY {order_by} LIMIT ?"  # noqa: S608 - order_by/project_clause come from fixed, non-user-text mappings
+            f"{project_clause}{favorite_clause}"
+            f"ORDER BY {order_by} LIMIT ?"  # noqa: S608 - order_by/project_clause/favorite_clause are fixed, non-user-text
         )
         with self._connect() as conn:
             rows = conn.execute(sql, params).fetchall()
@@ -622,7 +730,7 @@ class SqliteJobRepository(JobRepository):
 
     def list_project_songs(self, project_id: str) -> list[ProjectSongEntry]:
         sql = (
-            "SELECT s.id, s.title, s.created_at, s.updated_at, s.project_id, "
+            "SELECT s.id, s.title, s.created_at, s.updated_at, s.project_id, s.is_favorite, "
             "  COUNT(v.id) AS version_count, MAX(v.version_number) AS latest_version_number "
             "FROM songs s LEFT JOIN versions v ON v.song_id = s.id "
             "WHERE s.project_id = ? GROUP BY s.id ORDER BY s.updated_at DESC, s.id"

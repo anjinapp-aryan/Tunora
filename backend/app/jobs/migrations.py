@@ -13,6 +13,8 @@ cannot both apply it. Steps never drop or rewrite existing user data.
           (existing versions become ORIGINAL with no source)
   3 -> 4  Projects (Phase 6): a `projects` table and `songs.project_id`
           (existing songs become unassigned: project_id = NULL)
+  4 -> 5  Song management (Phase 9): `songs.is_favorite`
+          (existing songs become is_favorite = 0)
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ from app.providers.base import GenerationRequest
 
 logger = logging.getLogger(__name__)
 
-LATEST_VERSION = 4
+LATEST_VERSION = 5
 
 _JOB_ID = re.compile(r"^tunora-([0-9a-fA-F-]{36})$")
 _SPEC_FIELDS = tuple(GenerationRequest.__dataclass_fields__)
@@ -43,7 +45,7 @@ def migrate(conn: sqlite3.Connection) -> None:
         raise RuntimeError(
             f"Database schema version {current} is newer than this Tunora build supports ({LATEST_VERSION})."
         )
-    for target, step in ((1, _to_v1), (2, _to_v2), (3, _to_v3), (4, _to_v4)):
+    for target, step in ((1, _to_v1), (2, _to_v2), (3, _to_v3), (4, _to_v4), (5, _to_v5)):
         if current >= target:
             continue
         _run_step(conn, target, step)
@@ -211,6 +213,17 @@ def _to_v4(conn: sqlite3.Connection) -> None:
         # skipped, and no Song/Version/audio row is ever touched.
         conn.execute("ALTER TABLE songs ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_songs_project_id ON songs(project_id)")
+
+
+def _to_v5(conn: sqlite3.Connection) -> None:
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(songs)")}
+    if "is_favorite" not in columns:
+        conn.execute("ALTER TABLE songs ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0")
+    # Supports `GET /api/songs?favorite=true`: without this, filtering by favorite
+    # would be a full table scan on every request (fine at today's scale, but the
+    # Library's own query already groups/orders by other indexed columns, so this
+    # keeps the same "no accidental full scan" property the Phase 6 project index has).
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_songs_is_favorite ON songs(is_favorite)")
 
 
 def legacy_ids(job_id: str) -> tuple[str, str]:

@@ -30,7 +30,7 @@ from app.jobs.errors import (
 from app.jobs.models import TERMINAL_STATUSES, Job, JobStatus, utcnow
 from app.jobs.repository import JobRepository
 from app.jobs.state_machine import validate_transition
-from app.jobs.titles import derive_title
+from app.jobs.titles import clean_title, derive_title
 from app.projects.errors import InvalidProjectError, ProjectNotFoundError
 from app.projects.models import Project, ProjectSongEntry, ProjectSummary
 from app.providers.base import GenerationRequest, JobState, MusicGenerationProvider
@@ -39,6 +39,7 @@ from app.songs import operations as ops
 from app.songs.errors import (
     InvalidIdError,
     InvalidOperationError,
+    InvalidSongUpdateError,
     SongNotFoundError,
     SourceAudioUnavailableError,
     SourceVersionNotFoundError,
@@ -453,11 +454,19 @@ class JobService:
     # -- song-oriented reads (Library, Song Details) ----------------------------------------------
 
     def list_songs(
-        self, *, query: str = "", sort: str = "newest", limit: int = 50, project: Optional[str] = None
+        self,
+        *,
+        query: str = "",
+        sort: str = "newest",
+        limit: int = 50,
+        project: Optional[str] = None,
+        favorite: Optional[bool] = None,
     ) -> list[SongSummary]:
         if project is not None and project != PROJECT_FILTER_NONE and not is_valid_id(project):
             raise InvalidIdError("Malformed project id.")
-        return self._repository.list_song_summaries(query=query, sort=sort, limit=limit, project=project)
+        return self._repository.list_song_summaries(
+            query=query, sort=sort, limit=limit, project=project, favorite=favorite
+        )
 
     def song_details(self, song_id: str) -> tuple[Song, list[VersionEntry]]:
         """A song and all of its versions (newest first). Versions are loaded by the
@@ -465,6 +474,55 @@ class JobService:
 
         song = self.get_song(song_id)
         return song, self._repository.list_version_entries(song.id)
+
+    # -- song management (Phase 9): rename, favorite, delete -------------------------------------
+
+    _SONG_TITLE_MAX = 80  # matches app.jobs.titles.MAX_TITLE_LENGTH (the derived-title cap)
+
+    def update_song(
+        self, song_id: str, *, title: Optional[str] = None, is_favorite: Optional[bool] = None
+    ) -> Song:
+        """Rename and/or (un)favorite a Song. Neither ever touches a Version, a Job,
+        or any audio -- both are plain Song metadata (see docs/PHASE-9-SONG-MANAGEMENT.md).
+
+        Unlike the automatic title Tunora derives from a prompt (which is silently
+        truncated), an explicit rename is rejected outright if it is empty or too
+        long -- the same "reject, don't silently mutate" rule Project rename already
+        uses (JobService._clean_project_fields).
+        """
+
+        self.get_song(song_id)  # validates id shape and existence
+        clean = None
+        if title is not None:
+            clean = clean_title(title)  # strips control chars/collapses whitespace only
+            if not clean:
+                raise InvalidSongUpdateError("Title is required.")
+            if len(title.strip()) > self._SONG_TITLE_MAX:
+                raise InvalidSongUpdateError(f"Title must be {self._SONG_TITLE_MAX} characters or fewer.")
+        if is_favorite is not None and not isinstance(is_favorite, bool):
+            raise InvalidSongUpdateError("is_favorite must be true or false.")
+        return self._repository.update_song(song_id, title=clean, is_favorite=is_favorite)
+
+    def delete_song(self, song_id: str) -> None:
+        """Permanently delete a Song, all of its Versions, their Jobs, and their audio.
+
+        The database rows are removed first, in one transaction (see
+        JobRepository.delete_song); the audio files are only deleted afterwards,
+        best-effort, since a DB transaction and a filesystem delete cannot be one
+        atomic operation. A file that fails to delete is logged, not retried, and
+        never turns a successful deletion into a reported failure -- the Song is
+        already gone from Tunora's own data by the time any file is touched, which
+        is the only thing Tunora's own consistency guarantees are about.
+        """
+
+        if not is_valid_id(song_id):
+            raise InvalidIdError("Malformed song id.")
+        audio_keys = self._repository.delete_song(song_id)
+        for key in audio_keys:
+            try:
+                self._storage.delete(key)
+            except StorageError as exc:
+                logger.warning("could not delete audio for a deleted song: key=%s error=%s", key, exc)
 
     # -- creative operations (Phase 5B) ----------------------------------------------------------
 

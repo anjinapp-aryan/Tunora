@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, StarIcon } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { ApiError } from "@/lib/api/jobs";
 import { listProjects, type ProjectSummary } from "@/lib/api/projects";
-import { listSongSummaries, PROJECT_FILTER_NONE, type LibrarySort, type SongSummary } from "@/lib/api/songs";
+import { listSongSummaries, updateSong, PROJECT_FILTER_NONE, type LibrarySort, type SongSummary } from "@/lib/api/songs";
 import { formatTime } from "@/lib/audio/format-time";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
@@ -25,9 +25,11 @@ export function LibraryList() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<LibrarySort>("newest");
   const [project, setProject] = useState(""); // "" = all, PROJECT_FILTER_NONE = unassigned, or a project id
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [pendingFavorite, setPendingFavorite] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setQuery(input), SEARCH_DEBOUNCE_MS);
@@ -44,10 +46,16 @@ export function LibraryList() {
     return () => controller.abort();
   }, []);
 
-  const key = `${query}|${sort}|${project}|${attempt}`;
+  const key = `${query}|${sort}|${project}|${favoriteOnly}|${attempt}`;
   useEffect(() => {
     const controller = new AbortController();
-    listSongSummaries({ query, sort, project: project || undefined, signal: controller.signal })
+    listSongSummaries({
+      query,
+      sort,
+      project: project || undefined,
+      favorite: favoriteOnly ? true : undefined,
+      signal: controller.signal,
+    })
       .then((songs) => setResult({ key, songs }))
       .catch((error) => {
         if (controller.signal.aborted) return;
@@ -55,11 +63,32 @@ export function LibraryList() {
         setResult({ key, error: error instanceof ApiError ? error.message : LOAD_ERROR });
       });
     return () => controller.abort();
-  }, [key, query, sort, project]);
+  }, [key, query, sort, project, favoriteOnly]);
 
   const loading = result?.key !== key;
   const songs = result?.key === key ? result.songs : undefined;
   const error = result?.key === key ? result.error : undefined;
+
+  async function toggleFavorite(song: SongSummary) {
+    if (pendingFavorite) return;
+    setPendingFavorite(song.id);
+    const next = !song.is_favorite;
+    // Optimistic update; a failure below re-fetches to correct it.
+    setResult((prev) =>
+      prev && prev.songs
+        ? { ...prev, songs: prev.songs.map((s) => (s.id === song.id ? { ...s, is_favorite: next } : s)) }
+        : prev,
+    );
+    try {
+      await updateSong(song.id, { is_favorite: next });
+      if (favoriteOnly && !next) setAttempt((n) => n + 1); // it just fell out of the favorites filter
+    } catch (error) {
+      console.error("favorite toggle failed", error);
+      setAttempt((n) => n + 1); // reload to correct the optimistic update
+    } finally {
+      setPendingFavorite(null);
+    }
+  }
 
   return (
     <section aria-label="Song library" className="flex flex-col gap-6">
@@ -105,6 +134,16 @@ export function LibraryList() {
         )}
       </div>
 
+      <label className="flex w-fit items-center gap-2 text-sm font-medium">
+        <input
+          type="checkbox"
+          checked={favoriteOnly}
+          onChange={(event) => setFavoriteOnly(event.target.checked)}
+          data-testid="library-favorites-filter"
+        />
+        Favorites only
+      </label>
+
       <div role="status" aria-live="polite" className="min-h-5 text-sm text-muted-foreground" data-testid="library-status">
         {loading ? "Loading songs…" : songs ? `${songs.length} ${songs.length === 1 ? "song" : "songs"}` : ""}
       </div>
@@ -139,7 +178,20 @@ export function LibraryList() {
             ].filter(Boolean);
             return (
               <li key={song.id} className="rounded-xl border border-border/60 p-4" data-testid="library-item">
-                <h2 className="text-base font-medium [overflow-wrap:anywhere]">{song.title}</h2>
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="text-base font-medium [overflow-wrap:anywhere]">{song.title}</h2>
+                  <button
+                    type="button"
+                    onClick={() => toggleFavorite(song)}
+                    disabled={pendingFavorite === song.id}
+                    aria-pressed={song.is_favorite}
+                    aria-label={song.is_favorite ? `Unfavorite ${song.title}` : `Favorite ${song.title}`}
+                    data-testid="favorite-toggle"
+                    className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  >
+                    <StarIcon aria-hidden="true" className={song.is_favorite ? "fill-current text-foreground" : ""} />
+                  </button>
+                </div>
                 {song.project && (
                   <p className="mt-1 text-sm text-muted-foreground" data-testid="song-project">
                     Project: {song.project.name}

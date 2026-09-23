@@ -917,3 +917,97 @@ test("AI Song Director refinement: plan -> refine (no Job/Version) -> review -> 
   await expectDownloadMatchesStoredAudio(page, request, completed);
   await expectNoInternalLeak(page, completed);
 });
+
+// -- Phase 9: Song management (rename, favorite, delete) ------------------------------------------
+
+test("Song management A -- rename: renamed title persists across refresh, and the Library reflects it", async ({ page, request }) => {
+  test.setTimeout(GENERATION_TIMEOUT_MS + 60_000);
+  const ORIGINAL_TITLE = `Rename Test ${Date.now()}`;
+  const RENAMED_TITLE = `Renamed ${Date.now()}`;
+
+  const job = await generateRealSong(page, SONG_PROMPT, ORIGINAL_TITLE);
+  await page.goto(`/songs/${job.song_id}`);
+  await expect(page.getByTestId("song-title")).toHaveText(ORIGINAL_TITLE);
+
+  await page.getByTestId("song-rename-button").click();
+  const input = page.getByLabel("Song title");
+  await input.fill(RENAMED_TITLE);
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByTestId("song-title")).toHaveText(RENAMED_TITLE);
+
+  // ---- Renamed title survives a real page refresh (comes from the backend, not React memory) ----
+  await page.reload();
+  await expect(page.getByTestId("song-title")).toHaveText(RENAMED_TITLE);
+  expect((await (await request.get(`${NEXT}/api/songs/${job.song_id}`)).json()).title).toBe(RENAMED_TITLE);
+
+  // ---- Library reflects the new title, and search finds it by the new title ----
+  await page.goto("/library");
+  await page.getByLabel("Search songs").fill(RENAMED_TITLE);
+  const row = page.getByTestId("library-item").filter({ has: page.locator(`a[href="/songs/${job.song_id}"]`) });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText(RENAMED_TITLE);
+  await expectNoInternalLeak(page);
+});
+
+test("Song management B -- favorite: toggling favorite is reflected by the Library's Favorites filter", async ({ page, request }) => {
+  test.setTimeout(GENERATION_TIMEOUT_MS + 60_000);
+  const TITLE = `Favorite Test ${Date.now()}`;
+  const job = await generateRealSong(page, SONG_PROMPT, TITLE);
+
+  await page.goto(`/songs/${job.song_id}`);
+  const star = page.getByTestId("song-favorite-toggle");
+  await expect(star).toHaveAttribute("aria-pressed", "false");
+  await star.click();
+  await expect(star).toHaveAttribute("aria-pressed", "true");
+  expect((await (await request.get(`${NEXT}/api/songs/${job.song_id}`)).json()).is_favorite).toBe(true);
+
+  // ---- Library: with Favorites only checked, the song appears ----
+  await page.goto("/library");
+  await page.getByLabel("Search songs").fill(TITLE);
+  await page.getByTestId("library-favorites-filter").check();
+  const row = page.getByTestId("library-item").filter({ has: page.locator(`a[href="/songs/${job.song_id}"]`) });
+  await expect(row).toBeVisible();
+
+  // ---- Unfavorite from the Library row itself; it drops out of the Favorites filter ----
+  await row.getByTestId("favorite-toggle").click();
+  await expect(row).toHaveCount(0);
+  expect((await (await request.get(`${NEXT}/api/songs/${job.song_id}`)).json()).is_favorite).toBe(false);
+
+  await page.getByTestId("library-favorites-filter").uncheck();
+  await expect(page.getByTestId("library-item").filter({ has: page.locator(`a[href="/songs/${job.song_id}"]`) })).toBeVisible();
+  await expectNoInternalLeak(page);
+});
+
+test("Song management C -- delete: a real Song with real audio is permanently removed, DB and file both", async ({ page, request }) => {
+  test.setTimeout(GENERATION_TIMEOUT_MS + 60_000);
+  const TITLE = `Delete Test ${Date.now()}`;
+  const submitted = await generateRealSong(page, SONG_PROMPT, TITLE);
+  const job = await fetchCompletedJob(request, submitted.id);
+  const audioPath = STORAGE_ROOT ? storedAudioPath(job) : null;
+  if (audioPath) expect(fs.existsSync(audioPath)).toBe(true);
+
+  await page.goto(`/songs/${job.song_id}`);
+  await expect(page.getByTestId("song-title")).toHaveText(TITLE);
+
+  await page.getByTestId("delete-song-button").click();
+  const confirm = page.getByTestId("delete-song-confirm");
+  await expect(confirm).toContainText(TITLE);
+  await expect(confirm).toContainText(/permanently delete/i);
+  await confirm.getByTestId("confirm-delete-song").click();
+
+  // ---- Navigates to the Library, and the deleted Song is absent from it ----
+  await expect(page).toHaveURL(/\/library$/);
+  await page.getByLabel("Search songs").fill(TITLE);
+  await expect(page.getByTestId("library-empty")).toBeVisible();
+
+  // ---- The database records are gone ----
+  expect((await request.get(`${NEXT}/api/songs/${job.song_id}`)).status()).toBe(404);
+  expect((await request.get(`${NEXT}/api/jobs/${job.id}`)).status()).toBe(404);
+  expect((await request.get(`${NEXT}/api/jobs/${job.id}/audio`)).status()).toBe(404);
+
+  // ---- The real audio file is physically gone from disk ----
+  if (audioPath) {
+    expect(fs.existsSync(audioPath)).toBe(false);
+    expect(fs.existsSync(path.dirname(audioPath))).toBe(false);
+  }
+});

@@ -84,7 +84,7 @@ def test_versions_of_the_same_song_are_one_library_row_with_a_count_and_latest(c
     assert rise["latest_version"]["version_number"] == 3
     assert rise["latest_version"]["duration"] is not None
     assert next(i for i in items if i["id"] == other["song_id"])["version_count"] == 1
-    assert set(rise) == {"id", "title", "version_count", "latest_version", "created_at", "updated_at", "project"}  # Phase 6: project field added
+    assert set(rise) == {"id", "title", "version_count", "latest_version", "created_at", "updated_at", "project", "is_favorite"}  # Phase 6/9: project, is_favorite added
     assert set(rise["latest_version"]) == {"version_number", "duration", "created_at"}
 
 

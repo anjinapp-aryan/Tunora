@@ -37,3 +37,7 @@ class SourceAudioUnavailableError(Exception):
 
 class InvalidOperationError(ValueError):
     """The operation's parameters are invalid (message is safe to show a user)."""
+
+
+class InvalidSongUpdateError(ValueError):
+    """A rename/favorite request is malformed (message is safe to show a user)."""

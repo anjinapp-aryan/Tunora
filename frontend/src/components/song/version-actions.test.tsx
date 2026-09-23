@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SongDetailsView } from "./song-details";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 vi.mock("wavesurfer.js", () => ({
   default: {
     create: () => ({ on: () => () => {}, destroy() {}, setTime() {}, setVolume() {}, playPause: async () => {} }),
@@ -49,6 +51,8 @@ function song(world: World) {
     created_at: "",
     updated_at: "",
     versions: newestFirst.map((v) => ({ ...v, is_latest: v.version_number === latest })),
+    project: null,
+    is_favorite: false,
   };
 }
 

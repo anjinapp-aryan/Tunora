@@ -1,20 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, StarIcon } from "lucide-react";
 
 import { AudioPlayer } from "@/components/audio/audio-player";
 import { DownloadButton } from "@/components/audio/download-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { VersionActions } from "@/components/song/version-actions";
 import { ApiError, type GenerationJob } from "@/lib/api/jobs";
 import { useJobStatus } from "@/lib/jobs/use-job-status";
 import {
   defaultVersion,
+  deleteSong,
   getSongDetails,
   operationLabel,
+  updateSong,
   versionAudioResource,
   type CreativeOperation,
   type SongDetails,
@@ -140,9 +144,12 @@ export function SongDetailsView({ songId }: { songId: string }) {
     <div className="flex flex-col gap-8">
       <div>
         <BackToLibrary />
-        <h1 data-testid="song-title" className="mt-4 text-2xl font-semibold tracking-tight [overflow-wrap:anywhere] sm:text-3xl">
-          {details.title}
-        </h1>
+        <SongTitle
+          songId={details.id}
+          title={details.title}
+          isFavorite={details.is_favorite}
+          onChanged={() => setAttempt((n) => n + 1)}
+        />
         <p className="mt-1 text-sm text-muted-foreground">
           {details.versions.length} {details.versions.length === 1 ? "version" : "versions"} · Created {formatDate(details.created_at)}
         </p>
@@ -154,6 +161,9 @@ export function SongDetailsView({ songId }: { songId: string }) {
             </Link>
           </p>
         )}
+        <div className="mt-4">
+          <DeleteSongButton songId={details.id} songTitle={details.title} />
+        </div>
       </div>
 
       {active ? (
@@ -251,5 +261,178 @@ function BackToLibrary() {
     <Link href="/library" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-4")}>
       <ArrowLeftIcon aria-hidden="true" /> Library
     </Link>
+  );
+}
+
+/** Song title with an inline rename control and a favorite toggle (Phase 9). No modal,
+ * no regeneration, no new version — both only ever change Song metadata. */
+function SongTitle({
+  songId,
+  title,
+  isFavorite,
+  onChanged,
+}: {
+  songId: string;
+  title: string;
+  isFavorite: boolean;
+  onChanged: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(title);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
+
+  async function save() {
+    if (busy) return;
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setError("Title is required.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await updateSong(songId, { title: trimmed });
+      setEditing(false);
+      onChanged();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Could not save this title. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleFavorite() {
+    if (favoriteBusy) return;
+    setFavoriteBusy(true);
+    try {
+      await updateSong(songId, { is_favorite: !isFavorite });
+      onChanged();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Could not update favorite. Please try again.");
+    } finally {
+      setFavoriteBusy(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div
+        className="mt-4 flex flex-col gap-2"
+        onKeyDown={(e) => e.key === "Escape" && (setEditing(false), setValue(title), setError(null))}
+      >
+        <label className="flex flex-col gap-1 text-sm" htmlFor="song-title-input">
+          Song title
+          <Input
+            id="song-title-input"
+            value={value}
+            maxLength={80}
+            autoFocus
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && save()}
+          />
+        </label>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <Button type="button" size="sm" onClick={save} disabled={busy}>
+            {busy ? "Saving…" : "Save"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => (setEditing(false), setValue(title), setError(null))}
+            disabled={busy}
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      <h1 data-testid="song-title" className="text-2xl font-semibold tracking-tight [overflow-wrap:anywhere] sm:text-3xl">
+        {title}
+      </h1>
+      <button
+        type="button"
+        onClick={toggleFavorite}
+        disabled={favoriteBusy}
+        aria-pressed={isFavorite}
+        aria-label={isFavorite ? "Unfavorite this song" : "Favorite this song"}
+        data-testid="song-favorite-toggle"
+        className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+      >
+        <StarIcon aria-hidden="true" className={isFavorite ? "fill-current text-foreground" : ""} />
+      </button>
+      <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)} data-testid="song-rename-button">
+        Edit Title
+      </Button>
+      {error && (
+        <p role="alert" className="basis-full text-sm text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DeleteSongButton({ songId, songTitle }: { songId: string; songTitle: string }) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onConfirm() {
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteSong(songId);
+      router.push("/library");
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Could not delete this song. Please try again.");
+      setBusy(false);
+    }
+  }
+
+  if (!confirming) {
+    return (
+      <Button type="button" size="sm" variant="destructive" onClick={() => setConfirming(true)} data-testid="delete-song-button">
+        Delete Song
+      </Button>
+    );
+  }
+
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border border-destructive/40 p-3 text-sm"
+      role="alertdialog"
+      aria-label={`Delete ${songTitle}?`}
+      data-testid="delete-song-confirm"
+    >
+      <p>
+        Delete <strong>{songTitle}</strong>? This will permanently delete: the song, all versions, generated audio.
+      </p>
+      {error && (
+        <p role="alert" className="text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <Button type="button" size="sm" variant="destructive" onClick={onConfirm} disabled={busy} data-testid="confirm-delete-song">
+          {busy ? "Deleting…" : "Delete Song"}
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => setConfirming(false)} disabled={busy}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }

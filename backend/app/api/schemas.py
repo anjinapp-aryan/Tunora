@@ -129,6 +129,7 @@ class SongSummaryResponse(BaseModel):
     updated_at: str
     # None when the song is not in any Project (Phase 6).
     project: Optional[ProjectRef] = None
+    is_favorite: bool = False
 
 
 class SongListResponse(BaseModel):
@@ -169,6 +170,7 @@ class SongDetailsResponse(BaseModel):
     updated_at: str
     versions: list[VersionResponse]
     project: Optional[ProjectRef] = None
+    is_favorite: bool = False
 
 
 def _project_ref(project_id: Optional[str], projects: dict[str, Project]) -> Optional[ProjectRef]:
@@ -190,6 +192,7 @@ def song_summary_response(summary: SongSummary, projects: Optional[dict[str, Pro
         created_at=summary.song.created_at.isoformat(),
         updated_at=summary.song.updated_at.isoformat(),
         project=_project_ref(summary.song.project_id, projects or {}),
+        is_favorite=summary.song.is_favorite,
     )
 
 
@@ -238,7 +241,22 @@ def song_details_response(
         updated_at=song.updated_at.isoformat(),
         versions=versions,
         project=ProjectRef(id=project.id, name=project.name) if project else None,
+        is_favorite=song.is_favorite,
     )
+
+
+class UpdateSongRequest(BaseModel):
+    """Body of PATCH /api/songs/{song_id} (Phase 9): rename and/or (un)favorite.
+
+    Both fields are optional so a client can send just one; sending neither is a
+    no-op change (still validated, still returns the current Song). `title` is
+    checked against the same shape Tunora already derives titles with
+    (app.jobs.titles.clean_title/MAX_TITLE_LENGTH) -- an empty or whitespace-only
+    title is rejected by the service layer, not silently replaced with a default.
+    """
+
+    title: Optional[str] = Field(default=None, max_length=80)
+    is_favorite: Optional[bool] = None
 
 
 class VersionOperationRequest(BaseModel):

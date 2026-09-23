@@ -34,7 +34,7 @@ class SongRepository(ABC):
 
     @abstractmethod
     def list_song_summaries(
-        self, *, query: str, sort: str, limit: int, project: Optional[str] = None
+        self, *, query: str, sort: str, limit: int, project: Optional[str] = None, favorite: Optional[bool] = None
     ) -> list[SongSummary]:
         """Library rows: songs with at least one playable version (audio attached).
 
@@ -43,7 +43,9 @@ class SongRepository(ABC):
         on the song title or any version's prompt. Ordering (`sort`):
         newest/oldest by the latest playable version's created_at, title A-Z.
         `project`: None = every song, `PROJECT_FILTER_NONE` = only songs with no
-        Project, any other value = only songs in that Project.
+        Project, any other value = only songs in that Project. `favorite`: None =
+        every song, True/False = only favorited/unfavorited songs. Filters compose
+        (e.g. project + favorite + query all apply together).
         """
 
     @abstractmethod

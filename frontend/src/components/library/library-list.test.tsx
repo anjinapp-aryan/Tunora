@@ -15,6 +15,7 @@ function song(id: string, title: string, versions = 1, latestDuration: number | 
     created_at: "2026-09-19T10:00:00+00:00",
     updated_at: "2026-09-20T10:00:00+00:00",
     project: null,
+    is_favorite: false,
   };
 }
 
@@ -186,5 +187,61 @@ describe("LibraryList", () => {
     mockSongs(respond([{ ...song("song-1", "In Album"), project: { id: "proj-1", name: "My Movie Album" } }]));
     render(<LibraryList />);
     expect(await screen.findByTestId("song-project")).toHaveTextContent("Project: My Movie Album");
+  });
+
+  it("filters by Favorites through the backend, composed with search", async () => {
+    mockSongs(respond([song("song-1", "Rainy Day")]));
+    render(<LibraryList />);
+    await screen.findByRole("heading", { name: "Rainy Day" });
+
+    await userEvent.click(screen.getByTestId("library-favorites-filter"));
+    await waitFor(() => expect(songCalls().at(-1)).toBe("/api/songs?sort=newest&favorite=true"));
+
+    await userEvent.type(screen.getByLabelText("Search songs"), "rain");
+    await waitFor(() => expect(songCalls().at(-1)).toBe("/api/songs?sort=newest&q=rain&favorite=true"));
+
+    await userEvent.click(screen.getByTestId("library-favorites-filter"));
+    await waitFor(() => expect(songCalls().at(-1)).toBe("/api/songs?sort=newest&q=rain"));
+  });
+
+  it("toggles favorite on a row via PATCH and reflects the pressed state", async () => {
+    mockSongs(respond([song("song-1", "Rainy Day")]));
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.startsWith("/api/projects")) return Promise.resolve(respond([]));
+      if (init?.method === "PATCH") {
+        const body = JSON.parse(String(init.body));
+        return Promise.resolve(new Response(JSON.stringify({ ...song("song-1", "Rainy Day"), ...body }), { status: 200 }));
+      }
+      return Promise.resolve(songsQueue.length ? songsQueue.shift()! : songsDefault);
+    });
+    render(<LibraryList />);
+    await screen.findByRole("heading", { name: "Rainy Day" });
+
+    const star = screen.getByTestId("favorite-toggle");
+    expect(star).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(star);
+    await waitFor(() => expect(star).toHaveAttribute("aria-pressed", "true"));
+
+    const patchCall = fetchMock.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === "PATCH");
+    expect(patchCall![0]).toBe("/api/songs/song-1");
+    expect(JSON.parse(String((patchCall![1] as RequestInit).body))).toEqual({ is_favorite: true });
+  });
+
+  it("reverts the optimistic favorite toggle on a failed request", async () => {
+    // A fresh Response per call (not the shared songsDefault): this test causes a SECOND
+    // GET after the failed PATCH (the reload that corrects the optimistic update), and a
+    // Response body can only be read once.
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.startsWith("/api/projects")) return Promise.resolve(respond([]));
+      if (init?.method === "PATCH") return Promise.resolve(new Response("error", { status: 500 }));
+      return Promise.resolve(respond([song("song-1", "Rainy Day")]));
+    });
+    render(<LibraryList />);
+    await screen.findByRole("heading", { name: "Rainy Day" });
+
+    await userEvent.click(screen.getByTestId("favorite-toggle"));
+    await waitFor(() => expect(screen.getByTestId("favorite-toggle")).toHaveAttribute("aria-pressed", "false"));
   });
 });
