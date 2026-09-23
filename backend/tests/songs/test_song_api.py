@@ -136,6 +136,7 @@ def test_song_details_list_versions_newest_first_with_one_latest_and_their_own_a
     assert set(versions[0]) == {
         "id", "version_number", "is_latest", "operation", "source_version_number", "status", "created_at", "duration", "audio",
         "prompt", "lyrics", "language", "instrumental", "seed",
+        "metadata",  # Phase 10: provider-reported bpm/genres/key_scale/time_signature, null here (fake provider has none)
     }
     assert set(versions[0]["audio"]) == {"filename", "media_type", "size_bytes", "audio_url"}
 

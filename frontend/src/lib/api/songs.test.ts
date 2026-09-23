@@ -34,6 +34,7 @@ const v = (n: number, audio: boolean, overrides: Partial<SongVersion> = {}): Son
   language: "en",
   instrumental: false,
   seed: null,
+  metadata: null,
   ...overrides,
 });
 

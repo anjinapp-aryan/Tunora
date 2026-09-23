@@ -45,12 +45,12 @@ class Harness:
         path.write_bytes(content)
         return str(path)
 
-    async def generate_to_completion(self, prompt="a song", *, song_id=None, content=b"ID3-audio-bytes", **spec):
+    async def generate_to_completion(self, prompt="a song", *, song_id=None, content=b"ID3-audio-bytes", metadata=None, **spec):
         job = await self.service.create_and_submit(GenerationRequest(prompt=prompt, **spec), song_id=song_id)
         self.provider.status_responses = [GenerationStatus(job_id=ACE_ID, status=JobState.SUCCEEDED)]
         self.provider.result_response = GenerationResult(
             job_id=ACE_ID, audio_path=self.source_audio(f"out-{job.id}.mp3", content), duration=12.5,
-            metadata={"bpm": 100},
+            metadata={"bpm": 100} if metadata is None else metadata,
         )
         return await self.service.poll_once(job.id)
 

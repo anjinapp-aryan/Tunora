@@ -143,6 +143,18 @@ class VersionAudioResponse(BaseModel):
     audio_url: str
 
 
+class VersionMetadataResponse(BaseModel):
+    """Music metadata the generation provider itself reported (Phase 10) --
+    provider-reported, never independently verified or recomputed by Tunora.
+    Any field the provider didn't report is null, never a fabricated default."""
+
+    bpm: Optional[float] = None
+    genres: Optional[str] = None
+    key_scale: Optional[str] = None
+    time_signature: Optional[str] = None
+    source: str = "provider"
+
+
 class VersionResponse(BaseModel):
     id: str
     version_number: int
@@ -161,6 +173,8 @@ class VersionResponse(BaseModel):
     language: str
     instrumental: bool
     seed: Optional[int] = None
+    # Null when the provider reported nothing for this version (Phase 10).
+    metadata: Optional[VersionMetadataResponse] = None
 
 
 class SongDetailsResponse(BaseModel):
@@ -216,6 +230,14 @@ def song_details_response(
                 size_bytes=v.audio.size_bytes,
                 audio_url=audio_url_for(entry.job_id),
             )
+        metadata = None
+        if entry.metadata is not None:
+            metadata = VersionMetadataResponse(
+                bpm=entry.metadata.bpm,
+                genres=entry.metadata.genres,
+                key_scale=entry.metadata.key_scale,
+                time_signature=entry.metadata.time_signature,
+            )
         versions.append(
             VersionResponse(
                 id=v.id,
@@ -232,6 +254,7 @@ def song_details_response(
                 language=v.spec.language,
                 instrumental=v.spec.instrumental,
                 seed=v.spec.seed,
+                metadata=metadata,
             )
         )
     return SongDetailsResponse(

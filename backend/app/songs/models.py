@@ -70,12 +70,32 @@ class Version:
 
 
 @dataclass(frozen=True)
+class VersionMetadata:
+    """Music metadata the generation provider itself reported when this Version's
+    audio was created (Phase 10) -- carried on `GenerationResult.metadata`
+    (provider-neutral; see `app/providers/base.py`). Provider-reported only,
+    never independently verified or recomputed by Tunora -- see
+    docs/PHASE-10-IMPLEMENTATION.md.
+
+    Every field is `None` when the provider didn't report it; a missing value is
+    never turned into `0`, `""`, or a fabricated default.
+    """
+
+    bpm: Optional[float] = None
+    genres: Optional[str] = None
+    key_scale: Optional[str] = None
+    time_signature: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class VersionEntry:
-    """A Version plus the job that produced it (needed to reach its audio route)."""
+    """A Version plus the job that produced it (needed to reach its audio route),
+    plus that job's provider-reported metadata, if any (Phase 10)."""
 
     version: Version
     job_id: Optional[str]
     job_status: Optional[str]
+    metadata: Optional[VersionMetadata] = None
 
 
 @dataclass(frozen=True)

@@ -30,10 +30,47 @@ from app.projects.models import Project, ProjectSongEntry, ProjectSummary
 from app.projects.repository import ProjectRepository
 from app.providers.base import GenerationRequest
 from app.songs.errors import ImmutableVersionError, SongNotFoundError, VersionNotFoundError
-from app.songs.models import Song, SongSummary, Version, VersionAudio, VersionEntry, utcnow
+from app.songs.models import Song, SongSummary, Version, VersionAudio, VersionEntry, VersionMetadata, utcnow
 from app.songs.repository import PROJECT_FILTER_NONE, SongRepository
 
 _MAX_IN_QUERY = 500
+
+
+def _clean_metadata_string(value: Any) -> Optional[str]:
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _clean_metadata_number(value: Any) -> Optional[float]:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _version_metadata_from_result(result: Any) -> Optional[VersionMetadata]:
+    """Extract the Phase 10 provider-metadata subset from a Job's stored result,
+    discarding everything else (prompt/lyrics/audio_url/provider paths) immediately
+    -- the domain object never carries anything beyond these four allowlisted
+    fields, so nothing downstream needs to re-allowlist it to stay safe.
+
+    ACE-Step's own provider (`app/providers/ace_step.py`) defaults a value it
+    didn't get to `""`, not `None` -- normalized to `None` here so "missing" is
+    represented one way, not two.
+    """
+
+    if not isinstance(result, dict):
+        return None
+    metadata = result.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+    parsed = VersionMetadata(
+        bpm=_clean_metadata_number(metadata.get("bpm")),
+        genres=_clean_metadata_string(metadata.get("genres")),
+        key_scale=_clean_metadata_string(metadata.get("key_scale")),
+        time_signature=_clean_metadata_string(metadata.get("time_signature")),
+    )
+    if parsed == VersionMetadata():
+        return None  # the provider reported nothing at all -- absent, not an empty object
+    return parsed
 
 
 class JobRepository(SongRepository, ProjectRepository):
@@ -200,7 +237,15 @@ class InMemoryJobRepository(JobRepository):
         entries = []
         for v in sorted((v for v in self._versions.values() if v.song_id == song_id), key=lambda v: v.version_number, reverse=True):
             jobs = sorted((j for j in self._jobs.values() if j.version_id == v.id), key=lambda j: j.created_at, reverse=True)
-            entries.append(VersionEntry(version=v, job_id=jobs[0].id if jobs else None, job_status=jobs[0].status.value if jobs else None))
+            latest_job = jobs[0] if jobs else None
+            entries.append(
+                VersionEntry(
+                    version=v,
+                    job_id=latest_job.id if latest_job else None,
+                    job_status=latest_job.status.value if latest_job else None,
+                    metadata=_version_metadata_from_result(latest_job.result if latest_job else None),
+                )
+            )
         return entries
 
     # -- projects (Phase 6) ---------------------------------------------------------
@@ -634,14 +679,19 @@ class SqliteJobRepository(JobRepository):
     def list_version_entries(self, song_id: str) -> list[VersionEntry]:
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT v.*, j.id AS job_id, j.status AS job_status FROM versions v "
+                "SELECT v.*, j.id AS job_id, j.status AS job_status, j.result_json AS job_result_json FROM versions v "
                 "LEFT JOIN jobs j ON j.version_id = v.id WHERE v.song_id = ? "
                 "ORDER BY v.version_number DESC, j.created_at DESC",
                 (song_id,),
             ).fetchall()
         entries: dict[str, VersionEntry] = {}
         for row in rows:  # one entry per version; if it ever has several jobs the newest wins
-            entries.setdefault(row["id"], VersionEntry(self._row_to_version(row), row["job_id"], row["job_status"]))
+            if row["id"] in entries:
+                continue
+            result = json.loads(row["job_result_json"]) if row["job_result_json"] else None
+            entries[row["id"]] = VersionEntry(
+                self._row_to_version(row), row["job_id"], row["job_status"], _version_metadata_from_result(result)
+            )
         return list(entries.values())
 
     # -- projects (Phase 6) ---------------------------------------------------------

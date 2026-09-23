@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VersionActions } from "@/components/song/version-actions";
+import { VersionComparison } from "@/components/song/version-comparison";
 import { ApiError, type GenerationJob } from "@/lib/api/jobs";
 import { useJobStatus } from "@/lib/jobs/use-job-status";
 import {
@@ -32,6 +33,11 @@ type Result = { key: string; details?: SongDetails; notFound?: boolean; error?: 
 
 const UNAVAILABLE = "Audio is temporarily unavailable.";
 const OPERATION_FAILED = "That version could not be created. Your existing versions are unchanged.";
+const NOT_AVAILABLE = "Not available";
+
+function metaValue(value: string | number | null | undefined): string {
+  return value === null || value === undefined || value === "" ? NOT_AVAILABLE : String(value);
+}
 
 interface Pending {
   jobId: string;
@@ -72,6 +78,7 @@ export function SongDetailsView({ songId }: { songId: string }) {
   const [pending, setPending] = useState<Pending | null>(null);
   const [opFailed, setOpFailed] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [comparing, setComparing] = useState(false);
 
   const key = `${songId}|${attempt}`;
   useEffect(() => {
@@ -198,6 +205,31 @@ export function SongDetailsView({ songId }: { songId: string }) {
           )}
           {resource && !pending && <VersionActions key={active.id} songId={details.id} version={active} onStarted={onStarted} />}
 
+          <div className="mt-6 rounded-lg border border-border/60 p-3 text-sm" data-testid="provider-metadata">
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="font-medium">Provider Metadata</h3>
+              <span className="text-xs text-muted-foreground">Provider-reported</span>
+            </div>
+            <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+              <div>
+                <dt className="text-xs text-muted-foreground">BPM</dt>
+                <dd data-testid="metadata-bpm">{metaValue(active.metadata?.bpm)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Genre</dt>
+                <dd data-testid="metadata-genre">{metaValue(active.metadata?.genres)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Key</dt>
+                <dd data-testid="metadata-key">{metaValue(active.metadata?.key_scale)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-muted-foreground">Time Signature</dt>
+                <dd data-testid="metadata-time-signature">{metaValue(active.metadata?.time_signature)}</dd>
+              </div>
+            </dl>
+          </div>
+
           <details className="mt-6 text-sm text-muted-foreground">
             <summary className="cursor-pointer">Details</summary>
             <dl className="mt-2 grid gap-1">
@@ -251,6 +283,22 @@ export function SongDetailsView({ songId }: { songId: string }) {
             );
           })}
         </fieldset>
+      )}
+
+      {details.versions.length >= 2 && (
+        <div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-expanded={comparing}
+            onClick={() => setComparing((v) => !v)}
+            data-testid="compare-versions-toggle"
+          >
+            {comparing ? "Hide Comparison" : "Compare Versions"}
+          </Button>
+          {comparing && <VersionComparison versions={details.versions} />}
+        </div>
       )}
     </div>
   );

@@ -28,6 +28,20 @@ export const PROJECT_FILTER_NONE = "none";
 export type VersionOperation = "ORIGINAL" | "EXTEND" | "REMIX" | "REPAINT";
 export type CreativeOperation = Exclude<VersionOperation, "ORIGINAL">;
 
+/**
+ * Music metadata the generation provider itself reported for this Version
+ * (Phase 10) -- e.g. ACE-Step's own LM output. Provider-reported only, never
+ * independently verified or recomputed by Tunora; any field the provider
+ * didn't report is null, never a fabricated default.
+ */
+export interface VersionMetadata {
+  bpm: number | null;
+  genres: string | null;
+  key_scale: string | null;
+  time_signature: string | null;
+  source: "provider";
+}
+
 export interface SongVersion {
   id: string;
   /** How this version was made; ORIGINAL when it was generated from a description. */
@@ -46,6 +60,8 @@ export interface SongVersion {
   language: string;
   instrumental: boolean;
   seed: number | null;
+  /** Null when the provider reported nothing for this version (Phase 10). */
+  metadata: VersionMetadata | null;
 }
 
 export interface SongDetails {

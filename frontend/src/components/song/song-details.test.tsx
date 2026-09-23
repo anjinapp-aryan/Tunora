@@ -272,7 +272,9 @@ describe("SongDetailsView", () => {
 
   it("encodes the song id in the request and renders no path, key or provider detail", async () => {
     const { container } = await renderSong(three(), "song-1");
-    expect(container.innerHTML).not.toMatch(/C:\\|\/home\/|\.cache|absolute_path|8001|ace-step|provider/i);
+    // "Provider Metadata" / "Provider-reported" (Phase 10) are intentional, user-facing
+    // disclosure copy -- checked for internal provider identifiers/paths, not the word itself.
+    expect(container.innerHTML).not.toMatch(/C:\\|\/home\/|\.cache|absolute_path|8001|ace-step|provider_job_id/i);
     expect(container.textContent).not.toMatch(/tunora-job|ver-\d/); // ids are not shown as text
 
     fetchMock.mockReset();
@@ -440,5 +442,76 @@ describe("Song management (Phase 9): rename, favorite, delete", () => {
 
     expect(screen.queryByTestId("delete-song-confirm")).toBeNull();
     expect(fetchMock.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "DELETE")).toBe(false);
+  });
+});
+
+describe("Phase 10: provider metadata and Compare Versions", () => {
+  it("shows the active version's provider-reported metadata, labelled as provider-reported", async () => {
+    await renderSong(
+      details([version(1, { metadata: { bpm: 128, genres: "Pop", key_scale: "C major", time_signature: "4/4", source: "provider" } })]),
+    );
+    const section = screen.getByTestId("provider-metadata");
+    expect(section).toHaveTextContent("Provider-reported");
+    expect(screen.getByTestId("metadata-bpm")).toHaveTextContent("128");
+    expect(screen.getByTestId("metadata-genre")).toHaveTextContent("Pop");
+    expect(screen.getByTestId("metadata-key")).toHaveTextContent("C major");
+    expect(screen.getByTestId("metadata-time-signature")).toHaveTextContent("4/4");
+  });
+
+  it("shows 'Not available' for missing fields, never a fabricated 0 or blank", async () => {
+    await renderSong(details([version(1, { metadata: { bpm: 90, genres: null, key_scale: null, time_signature: null, source: "provider" } })]));
+    expect(screen.getByTestId("metadata-bpm")).toHaveTextContent("90");
+    expect(screen.getByTestId("metadata-genre")).toHaveTextContent("Not available");
+    expect(screen.getByTestId("metadata-key")).toHaveTextContent("Not available");
+    expect(screen.getByTestId("metadata-time-signature")).toHaveTextContent("Not available");
+  });
+
+  it("shows 'Not available' for every field when the provider reported nothing at all", async () => {
+    await renderSong(details([version(1, { metadata: null })]));
+    expect(screen.getByTestId("metadata-bpm")).toHaveTextContent("Not available");
+    expect(screen.getByTestId("metadata-genre")).toHaveTextContent("Not available");
+  });
+
+  it("switching the selected version shows that version's own metadata, never a stale or swapped one", async () => {
+    await renderSong(
+      details([
+        version(1, { metadata: { bpm: 60, genres: "Ambient", key_scale: null, time_signature: null, source: "provider" } }),
+        version(2, { metadata: { bpm: 180, genres: "Metal", key_scale: null, time_signature: null, source: "provider" } }),
+      ]),
+    );
+    expect(screen.getByTestId("metadata-bpm")).toHaveTextContent("180"); // version 2 is latest/active by default
+
+    await userEvent.click(screen.getByRole("radio", { name: /version 1\b/i }));
+    await waitFor(() => expect(screen.getByTestId("metadata-bpm")).toHaveTextContent("60"));
+    expect(screen.getByTestId("metadata-genre")).toHaveTextContent("Ambient");
+  });
+
+  it("does not show a Compare Versions control with fewer than two versions", async () => {
+    await renderSong(details([version(1)]));
+    expect(screen.queryByTestId("compare-versions-toggle")).toBeNull();
+  });
+
+  it("Compare Versions toggles an accessible comparison panel open and closed", async () => {
+    await renderSong(three());
+    const toggle = screen.getByTestId("compare-versions-toggle");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("version-comparison")).toBeNull();
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(await screen.findByTestId("version-comparison")).toBeInTheDocument();
+
+    await userEvent.click(toggle);
+    expect(screen.queryByTestId("version-comparison")).toBeNull();
+  });
+
+  it("renders no path, key or provider-internal detail in the metadata section", async () => {
+    await renderSong(
+      details([
+        version(1, { metadata: { bpm: 128, genres: "Pop", key_scale: "C major", time_signature: "4/4", source: "provider" } }),
+      ]),
+    );
+    const section = screen.getByTestId("provider-metadata");
+    expect(section.textContent).not.toMatch(/ver-\d|ace-step|8001|C:\\|provider_job_id/i);
   });
 });

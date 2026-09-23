@@ -262,6 +262,8 @@ describe("Version actions", () => {
     setup({ versions: [version(1), version(2, { operation: "REMIX", source_version_number: 1 })] });
     await screen.findByTestId("version-list");
     const text = document.body.textContent ?? "";
-    expect(text).not.toMatch(/ver-\d|source_version_id|\/v1\/audio|C:\\|provider/i);
+    // "Provider Metadata" (Phase 10) is intentional, user-facing disclosure copy -- checked
+    // for internal provider identifiers/paths, not the word itself.
+    expect(text).not.toMatch(/ver-\d|source_version_id|\/v1\/audio|C:\\|provider_job_id/i);
   });
 });

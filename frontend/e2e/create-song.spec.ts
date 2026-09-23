@@ -1011,3 +1011,71 @@ test("Song management C -- delete: a real Song with real audio is permanently re
     expect(fs.existsSync(path.dirname(audioPath))).toBe(false);
   }
 });
+
+// -- Phase 10: provider metadata + Version Comparison ----------------------------------------------
+
+test("Provider metadata + Compare Versions: two real versions, each with its own audio and metadata", async ({ page, request }) => {
+  test.setTimeout(GENERATION_TIMEOUT_MS * 2 + 60_000);
+  await trackMediaElement(page);
+  const TITLE = `Compare Test ${Date.now()}`;
+
+  // ---- Two real generations of the SAME Song ----
+  const v1 = await generateRealSong(page, "a short upbeat instrumental synth loop", TITLE);
+  const v2 = await generateNextVersion(request, v1.song_id, "a short mellow instrumental piano loop");
+  expect(v2.song_id).toBe(v1.song_id);
+  expect(v2.version_number).toBe(2);
+
+  // ---- Song Details: the active (latest) version shows a Provider Metadata section ----
+  await page.goto(`/songs/${v1.song_id}`);
+  await expect(page.getByTestId("song-title")).toHaveText(TITLE);
+  const metadataSection = page.getByTestId("provider-metadata");
+  await expect(metadataSection).toBeVisible();
+  await expect(metadataSection).toContainText(/provider-reported/i);
+  // Values vary per real generation (or may be legitimately absent) -- only presence/shape
+  // of the disclosure is asserted, never a specific hardcoded bpm/key.
+  const bpmText = await page.getByTestId("metadata-bpm").innerText();
+  expect(bpmText.length).toBeGreaterThan(0);
+
+  // ---- Switching the selected version shows THAT version's own metadata, not a stale one ----
+  await page.getByRole("radio", { name: /version 1\b/i }).check();
+  await expect(page.getByTestId("active-version-title")).toContainText("Version 1");
+  const v1BpmText = await page.getByTestId("metadata-bpm").innerText();
+  expect(v1BpmText.length).toBeGreaterThan(0);
+
+  // ---- Compare Versions: select A and B, see two real players, descriptive metadata ----
+  await page.getByTestId("compare-versions-toggle").click();
+  const comparison = page.getByTestId("version-comparison");
+  await expect(comparison).toBeVisible();
+
+  await comparison.getByLabel("Version A").selectOption(v1.version_id);
+  await comparison.getByLabel("Version B").selectOption(v2.version_id);
+  expect(await comparison.getByTestId("compare-a-heading").innerText()).toContain("Version 1");
+  expect(await comparison.getByTestId("compare-b-heading").innerText()).toContain("Version 2");
+
+  // ---- Each side's player is bound to that Version's own real audio (never the other's) ----
+  const playerA = comparison.getByTestId("compare-column-a").getByTestId("audio-player");
+  const playerB = comparison.getByTestId("compare-column-b").getByTestId("audio-player");
+  await expect(playerA).toHaveAttribute("data-audio-url", `/api/jobs/${v1.id}/audio`);
+  await expect(playerB).toHaveAttribute("data-audio-url", `/api/jobs/${v2.id}/audio`);
+
+  // ---- Both actually play their own real audio ----
+  await expect(playerA.getByRole("button", { name: "Play", exact: true })).toBeEnabled({ timeout: 30_000 });
+  await expect(playerB.getByRole("button", { name: "Play", exact: true })).toBeEnabled({ timeout: 30_000 });
+  await playerA.getByRole("button", { name: "Play", exact: true }).click();
+  await expect.poll(async () => (await media(page))?.currentTime ?? 0, { timeout: 15_000 }).toBeGreaterThan(0.3);
+  await playerA.getByRole("button", { name: "Pause", exact: true }).click();
+
+  // ---- Descriptive diff table, no score/winner language ----
+  const diff = comparison.getByTestId("compare-diff");
+  await expect(diff).toBeVisible();
+  const diffText = (await diff.innerText()).toLowerCase();
+  expect(diffText).not.toMatch(/similarity|score|winner|better|superior|compatib/);
+
+  // ---- Same-version selection is rejected with a clear message ----
+  await comparison.getByLabel("Version B").selectOption(v1.version_id);
+  await expect(comparison.getByTestId("compare-same-version")).toBeVisible();
+  await expect(comparison.getByTestId("compare-column-a")).toHaveCount(0);
+
+  await expectNoInternalLeak(page);
+  await expectFitsViewport(page, 375, [page.getByTestId("compare-versions-toggle")]);
+});
