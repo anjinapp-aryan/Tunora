@@ -122,7 +122,7 @@ async def create_version_from_operation(
     payload: VersionOperationRequest,
     song_id: str = Path(max_length=80, pattern=_ID_PATTERN),
     version_id: str = Path(max_length=80, pattern=_ID_PATTERN),
-    operation: Literal["extend", "remix", "repaint"] = Path(),
+    operation: Literal["extend", "remix", "repaint", "extract"] = Path(),
 ):
     """Create a NEW version of a song from one of its existing versions. The source version
     is only read; the result is a normal job that will produce the new version."""
@@ -139,6 +139,7 @@ async def create_version_from_operation(
             repaint_start=payload.repaint_start,
             repaint_end=payload.repaint_end,
             remix_strength=payload.remix_strength,
+            track_name=payload.track_name,
         )
     except (InvalidIdError, SongNotFoundError, SourceVersionNotFoundError):
         raise HTTPException(status_code=404, detail="Song or version not found.")

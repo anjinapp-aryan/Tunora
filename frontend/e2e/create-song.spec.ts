@@ -1079,3 +1079,61 @@ test("Provider metadata + Compare Versions: two real versions, each with its own
   await expectNoInternalLeak(page);
   await expectFitsViewport(page, 375, [page.getByTestId("compare-versions-toggle")]);
 });
+
+// -- Phase 11: EXTRACT (stem/track separation) -----------------------------------------------------
+
+test("Extract: a real track pulled from a real version becomes a new, playable version; the source is untouched", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(GENERATION_TIMEOUT_MS + 120_000);
+  await trackMediaElement(page);
+  const TITLE = `Extract Test ${Date.now()}`;
+
+  // ---- A real generation with vocals, so extracting "vocals" is a meaningful, real operation ----
+  const v1 = await generateRealSong(page, "an upbeat pop song with clear female lead vocals, drums and bass", TITLE);
+  const v1Job = await fetchCompletedJob(request, v1.id);
+  const v1AudioBytesBefore = await (await request.get(`${NEXT}${v1Job.result!.audio.audio_url}`)).body();
+
+  await page.goto(`/songs/${v1.song_id}`);
+  await expect(page.getByTestId("song-title")).toHaveText(TITLE);
+
+  // ---- Start Extract: only the verified track types are offered ----
+  await page.getByRole("button", { name: "Extract", exact: true }).click();
+  const form = page.getByRole("form", { name: /^extract version 1$/i });
+  await expect(form).toBeVisible();
+  for (const track of ["Vocals", "Drums", "Bass", "Guitar"]) await expect(form.getByRole("radio", { name: track })).toBeVisible();
+  await form.getByRole("radio", { name: "Vocals" }).check();
+  await form.getByRole("button", { name: /create extract version/i }).click();
+
+  // ---- Real extraction runs (base-tier model, per the Phase 11 spike) ----
+  await expect(page.getByTestId("version-pending")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /^version 2 /i })).toBeChecked({ timeout: GENERATION_TIMEOUT_MS });
+
+  // ---- The new version's lineage names the extracted track, and it really plays its own audio ----
+  await expect(page.getByTestId("active-version-title")).toContainText("Version 2");
+  await expect(page.getByTestId("active-version-operation")).toContainText(/extract: vocals/i);
+  await expect(page.getByTestId("active-version-operation")).toContainText(/from version 1/i);
+  const v2AudioUrl = (await page.getByTestId("audio-player").getAttribute("data-audio-url"))!;
+  const v2JobId = v2AudioUrl.split("/")[3];
+  const v2Total = await expectPlayableAudio(page, v2JobId);
+  expect(v2Total).toBeGreaterThan(0);
+
+  // ---- The extracted audio is real and distinct from the source (not a passthrough) ----
+  const v2AudioBytes = await (await request.get(`${NEXT}${v2AudioUrl}`)).body();
+  expect(Buffer.compare(v2AudioBytes, v1AudioBytesBefore)).not.toBe(0);
+  expect(v2AudioBytes.length).toBeGreaterThan(1000);
+
+  // ---- The original Version 1 is completely untouched ----
+  await page.getByRole("radio", { name: /^version 1\b/i }).check();
+  await expect(page.getByTestId("active-version-title")).toContainText("Version 1");
+  await expect(page.getByTestId("active-version-operation")).toHaveText("Original");
+  const v1AudioBytesAfter = await (await request.get(`${NEXT}${v1Job.result!.audio.audio_url}`)).body();
+  expect(Buffer.compare(v1AudioBytesAfter, v1AudioBytesBefore)).toBe(0);
+
+  // ---- Download of the extracted version works ----
+  await page.getByRole("radio", { name: /^version 2 /i }).check();
+  await expectDownloadMatchesStoredAudio(page, request, await fetchCompletedJob(request, v2JobId));
+
+  await expectNoInternalLeak(page);
+});

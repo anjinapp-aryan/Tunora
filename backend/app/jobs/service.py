@@ -538,9 +538,10 @@ class JobService:
         repaint_start: Optional[float] = None,
         repaint_end: Optional[float] = None,
         remix_strength: Optional[float] = None,
+        track_name: Optional[str] = None,
     ) -> Job:
-        """Create a NEW Version of `song_id` by extending / remixing / repainting an existing
-        version of the same song, then submit it as a normal Job.
+        """Create a NEW Version of `song_id` by extending / remixing / repainting / extracting a
+        track from an existing version of the same song, then submit it as a normal Job.
 
         The source version is never touched: the new Version gets its own row, Job and audio
         file. All validation happens before anything is written. Raises InvalidIdError,
@@ -600,7 +601,7 @@ class JobService:
                 raise InvalidOperationError("Strength must be between 0 and 1.")
             request = GenerationRequest(prompt=new_prompt, duration=source_duration, remix_strength=strength, **common)
             params = {"remix_strength": strength}
-        else:  # REPAINT
+        elif operation == ops.REPAINT:
             if new_prompt is None:
                 raise InvalidOperationError("Describe what the repainted section should sound like.")
             start = _finite(repaint_start, "Start")
@@ -618,6 +619,14 @@ class JobService:
                 prompt=new_prompt, duration=source_duration, repaint_start=start, repaint_end=end, **common
             )
             params = {"repaint_start": start, "repaint_end": end}
+        else:  # EXTRACT
+            clean_track = (track_name or "").strip().lower()
+            if clean_track not in ops.TRACK_NAMES:
+                raise InvalidOperationError(f"Choose a track: {', '.join(ops.TRACK_NAMES)}.")
+            request = GenerationRequest(
+                prompt=spec.prompt, duration=source_duration, track_name=clean_track, **common
+            )
+            params = {"track_name": clean_track}
 
         return await self.create_and_submit(
             request, song_id=song_id, source_version_id=source.id, operation_params=params

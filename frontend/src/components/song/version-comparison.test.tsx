@@ -40,6 +40,7 @@ function version(n: number, overrides: Partial<SongVersion> = {}): SongVersion {
     instrumental: false,
     seed: null,
     metadata: null,
+    extracted_track: null,
     ...overrides,
   };
 }

@@ -42,6 +42,7 @@ class GenerationRequest:
     repaint_start: Optional[float] = None
     repaint_end: Optional[float] = None
     remix_strength: Optional[float] = None
+    track_name: Optional[str] = None  # EXTRACT: which track to pull out (see app.songs.operations.TRACK_NAMES)
 
 
 @dataclass(frozen=True)

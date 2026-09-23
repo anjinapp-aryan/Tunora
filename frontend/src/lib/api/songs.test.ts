@@ -35,6 +35,7 @@ const v = (n: number, audio: boolean, overrides: Partial<SongVersion> = {}): Son
   instrumental: false,
   seed: null,
   metadata: null,
+  extracted_track: null,
   ...overrides,
 });
 
@@ -112,11 +113,18 @@ describe("versionAudioResource / defaultVersion", () => {
 
 describe("operationLabel", () => {
   it("names the operation and its source without exposing ids", () => {
-    expect(operationLabel({ operation: "ORIGINAL", source_version_number: null })).toBe("Original");
-    expect(operationLabel({ operation: "EXTEND", source_version_number: 2 })).toBe("Extend · from Version 2");
-    expect(operationLabel({ operation: "REMIX", source_version_number: 1 })).toBe("Remix · from Version 1");
-    expect(operationLabel({ operation: "REPAINT", source_version_number: 3 })).toBe("Repaint · from Version 3");
-    expect(operationLabel({ operation: "REPAINT", source_version_number: null })).toBe("Repaint");
+    expect(operationLabel({ operation: "ORIGINAL", source_version_number: null, extracted_track: null })).toBe("Original");
+    expect(operationLabel({ operation: "EXTEND", source_version_number: 2, extracted_track: null })).toBe("Extend · from Version 2");
+    expect(operationLabel({ operation: "REMIX", source_version_number: 1, extracted_track: null })).toBe("Remix · from Version 1");
+    expect(operationLabel({ operation: "REPAINT", source_version_number: 3, extracted_track: null })).toBe("Repaint · from Version 3");
+    expect(operationLabel({ operation: "REPAINT", source_version_number: null, extracted_track: null })).toBe("Repaint");
+  });
+
+  it("names the extracted track for EXTRACT versions", () => {
+    expect(operationLabel({ operation: "EXTRACT", source_version_number: 1, extracted_track: "vocals" })).toBe(
+      "Extract: Vocals · from Version 1",
+    );
+    expect(operationLabel({ operation: "EXTRACT", source_version_number: null, extracted_track: "drums" })).toBe("Extract: Drums");
   });
 });
 

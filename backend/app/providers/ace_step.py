@@ -60,7 +60,14 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
 
     name = "ace-step"
     # Verified against the local turbo model (see docs/PHASE-5B-EXTEND-REMIX-REPAINT.md).
-    supported_operations = frozenset({"ORIGINAL", "EXTEND", "REMIX", "REPAINT"})
+    supported_operations = frozenset({"ORIGINAL", "EXTEND", "REMIX", "REPAINT", "EXTRACT"})
+
+    # EXTRACT needs ACE-Step's base-tier model (Phase 11 spike,
+    # docs/PHASE-11-IMPLEMENTATION.md): `extract` is not in ACE-Step's turbo-tier task set
+    # (ACE-Step-1.5/acestep/constants.py TASK_TYPES_TURBO). Verified reachable via the same
+    # /release_task endpoint EXTEND/REMIX/REPAINT already use, with model set explicitly so it
+    # is routed to the base-tier handler regardless of the server's own default model.
+    _EXTRACT_MODEL = "acestep-v15-base"
 
     def __init__(
         self,
@@ -242,6 +249,17 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
                 "repainting_start": request.repaint_start,
                 "repainting_end": request.repaint_end,
                 "chunk_mask_mode": "explicit",
+            }
+        if op == "EXTRACT":
+            if not request.track_name:
+                raise ProviderResponseError("EXTRACT needs a track name")
+            return {
+                "task_type": "extract",
+                "track_name": request.track_name,
+                "model": AceStepMusicGenerationProvider._EXTRACT_MODEL,
+                # One output only: a second batch item would just be computed and discarded
+                # (get_result() already only ever reads audio_items[0]) -- see the Phase 11 spike.
+                "batch_size": 1,
             }
         raise UnsupportedOperationError(f"Operation {op!r} is not supported by ACE-Step")
 

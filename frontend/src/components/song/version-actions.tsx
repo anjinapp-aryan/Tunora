@@ -11,17 +11,23 @@ import {
   EXTEND_SECONDS,
   REMIX_STRENGTHS,
   REPAINT_MIN_SECONDS,
+  TRACK_NAMES,
   type CreativeOperation,
   type SongVersion,
   type VersionOperationParams,
 } from "@/lib/api/songs";
 
-const TITLES: Record<CreativeOperation, string> = { EXTEND: "Extend", REMIX: "Remix", REPAINT: "Repaint" };
+const TITLES: Record<CreativeOperation, string> = { EXTEND: "Extend", REMIX: "Remix", REPAINT: "Repaint", EXTRACT: "Extract" };
 const HELP: Record<CreativeOperation, string> = {
   EXTEND: "Continue this version further. The result is a new, longer version.",
   REMIX: "Re-imagine this version with a new description. The result is a new version.",
   REPAINT: "Regenerate one time range of this version. The rest stays as it is.",
+  EXTRACT: "Pull one track out of this version's audio. The result is a new version of just that track.",
 };
+
+function trackLabel(track: string): string {
+  return track[0].toUpperCase() + track.slice(1);
+}
 
 interface Props {
   songId: string;
@@ -45,6 +51,7 @@ export function VersionActions({ songId, version, onStarted }: Props) {
   const [strength, setStrength] = useState<number>(0.7);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [trackName, setTrackName] = useState<string>(TRACK_NAMES[0]);
 
   const duration = version.duration;
 
@@ -56,6 +63,10 @@ export function VersionActions({ songId, version, onStarted }: Props) {
   function validate(op: CreativeOperation): { params?: VersionOperationParams; error?: string } {
     const text = prompt.trim();
     if (op === "EXTEND") return { params: { extend_seconds: seconds, ...(text ? { prompt: text } : {}) } };
+    if (op === "EXTRACT") {
+      if (!TRACK_NAMES.includes(trackName as (typeof TRACK_NAMES)[number])) return { error: "Choose a track to extract." };
+      return { params: { track_name: trackName } };
+    }
     if (!text) return { error: "Describe what you want first." };
     if (op === "REMIX") return { params: { prompt: text, remix_strength: strength } };
     const s = Number(start);
@@ -150,6 +161,25 @@ export function VersionActions({ songId, version, onStarted }: Props) {
             </fieldset>
           )}
 
+          {open === "EXTRACT" && (
+            <fieldset className="flex flex-wrap gap-3 text-sm">
+              <legend className="mb-1">Track</legend>
+              {TRACK_NAMES.map((track) => (
+                <label key={track} className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="track-name"
+                    checked={trackName === track}
+                    onChange={() => setTrackName(track)}
+                    className="size-4 accent-primary"
+                    autoFocus={track === TRACK_NAMES[0]}
+                  />
+                  {trackLabel(track)}
+                </label>
+              ))}
+            </fieldset>
+          )}
+
           {open === "REPAINT" && (
             <div className="flex flex-wrap gap-3 text-sm">
               <label className="flex flex-col gap-1">
@@ -168,10 +198,12 @@ export function VersionActions({ songId, version, onStarted }: Props) {
             </div>
           )}
 
-          <label className="flex flex-col gap-1 text-sm">
-            {open === "EXTEND" ? "Description (optional)" : "Description"}
-            <Textarea value={prompt} maxLength={1000} rows={2} onChange={(e) => setPrompt(e.target.value)} />
-          </label>
+          {open !== "EXTRACT" && (
+            <label className="flex flex-col gap-1 text-sm">
+              {open === "EXTEND" ? "Description (optional)" : "Description"}
+              <Textarea value={prompt} maxLength={1000} rows={2} onChange={(e) => setPrompt(e.target.value)} />
+            </label>
+          )}
 
           {open === "REPAINT" && (
             <label className="flex flex-col gap-1 text-sm">

@@ -25,7 +25,7 @@ export interface SongSummary {
 /** `list_song_summaries(project=...)` value that means "songs with no Project". */
 export const PROJECT_FILTER_NONE = "none";
 
-export type VersionOperation = "ORIGINAL" | "EXTEND" | "REMIX" | "REPAINT";
+export type VersionOperation = "ORIGINAL" | "EXTEND" | "REMIX" | "REPAINT" | "EXTRACT";
 export type CreativeOperation = Exclude<VersionOperation, "ORIGINAL">;
 
 /**
@@ -62,6 +62,8 @@ export interface SongVersion {
   seed: number | null;
   /** Null when the provider reported nothing for this version (Phase 10). */
   metadata: VersionMetadata | null;
+  /** Which track this version is (Phase 11); null except for EXTRACT versions. */
+  extracted_track: string | null;
 }
 
 export interface SongDetails {
@@ -212,6 +214,13 @@ export const REMIX_STRENGTHS = [
   { label: "Bold", value: 0.5 },
 ] as const;
 
+/**
+ * Track types verified against a real running ACE-Step base-tier server (Phase 11 spike,
+ * docs/PHASE-11-IMPLEMENTATION.md) -- mirrors backend/app/songs/operations.py:TRACK_NAMES
+ * exactly; never invent a track type the backend hasn't validated.
+ */
+export const TRACK_NAMES = ["vocals", "drums", "bass", "guitar"] as const;
+
 export interface VersionOperationParams {
   prompt?: string;
   lyrics?: string;
@@ -219,16 +228,28 @@ export interface VersionOperationParams {
   repaint_start?: number;
   repaint_end?: number;
   remix_strength?: number;
+  track_name?: string;
 }
 
-const OPERATION_NAMES: Record<VersionOperation, string> = { ORIGINAL: "Original", EXTEND: "Extend", REMIX: "Remix", REPAINT: "Repaint" };
+const OPERATION_NAMES: Record<VersionOperation, string> = {
+  ORIGINAL: "Original",
+  EXTEND: "Extend",
+  REMIX: "Remix",
+  REPAINT: "Repaint",
+  EXTRACT: "Extract",
+};
 
-/** "Original", or "Extend · from Version 2". Never exposes an id. */
-export function operationLabel(version: Pick<SongVersion, "operation" | "source_version_number">): string {
+/** "Original", "Extend · from Version 2", or "Extract: Vocals · from Version 2". Never exposes an id. */
+export function operationLabel(
+  version: Pick<SongVersion, "operation" | "source_version_number" | "extracted_track">,
+): string {
   const name = OPERATION_NAMES[version.operation] ?? "Original";
-  return version.operation !== "ORIGINAL" && version.source_version_number
-    ? `${name} · from Version ${version.source_version_number}`
+  const label = version.operation === "EXTRACT" && version.extracted_track
+    ? `${name}: ${version.extracted_track[0].toUpperCase()}${version.extracted_track.slice(1)}`
     : name;
+  return version.operation !== "ORIGINAL" && version.source_version_number
+    ? `${label} · from Version ${version.source_version_number}`
+    : label;
 }
 
 /**

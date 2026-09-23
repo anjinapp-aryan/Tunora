@@ -175,6 +175,8 @@ class VersionResponse(BaseModel):
     seed: Optional[int] = None
     # Null when the provider reported nothing for this version (Phase 10).
     metadata: Optional[VersionMetadataResponse] = None
+    # Which track this version is (Phase 11); null except for EXTRACT versions.
+    extracted_track: Optional[str] = None
 
 
 class SongDetailsResponse(BaseModel):
@@ -238,6 +240,9 @@ def song_details_response(
                 key_scale=entry.metadata.key_scale,
                 time_signature=entry.metadata.time_signature,
             )
+        extracted_track = None
+        if v.operation == "EXTRACT" and isinstance(v.operation_params, dict):
+            extracted_track = v.operation_params.get("track_name")
         versions.append(
             VersionResponse(
                 id=v.id,
@@ -255,6 +260,7 @@ def song_details_response(
                 instrumental=v.spec.instrumental,
                 seed=v.spec.seed,
                 metadata=metadata,
+                extracted_track=extracted_track,
             )
         )
     return SongDetailsResponse(
@@ -286,7 +292,8 @@ class VersionOperationRequest(BaseModel):
     """Body of POST /api/songs/{song_id}/versions/{version_id}/{operation}.
 
     Which fields apply depends on the operation (extend: extend_seconds; remix: prompt,
-    remix_strength; repaint: prompt, repaint_start, repaint_end); the service validates them.
+    remix_strength; repaint: prompt, repaint_start, repaint_end; extract: track_name); the
+    service validates them.
     """
 
     prompt: Optional[str] = Field(default=None, max_length=1000)
@@ -295,6 +302,7 @@ class VersionOperationRequest(BaseModel):
     repaint_start: Optional[float] = Field(default=None, allow_inf_nan=False)
     repaint_end: Optional[float] = Field(default=None, allow_inf_nan=False)
     remix_strength: Optional[float] = Field(default=None, allow_inf_nan=False)
+    track_name: Optional[str] = Field(default=None, max_length=40)
 
 
 # -- Projects (Phase 6) ---------------------------------------------------------------------------

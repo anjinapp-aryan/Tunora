@@ -30,6 +30,8 @@ function version(n: number, overrides: Record<string, unknown> = {}) {
     language: "en",
     instrumental: false,
     seed: null,
+    metadata: null,
+    extracted_track: null,
     ...overrides,
   };
 }
@@ -71,8 +73,23 @@ function setup(overrides: Partial<World> = {}) {
       posts.push({ url: u, body });
       const response = world.post(u, body);
       if (response.ok && !world.versions.some((v) => v.version_number === 2)) {
-        const operation = u.endsWith("/extend") ? "EXTEND" : u.endsWith("/remix") ? "REMIX" : "REPAINT";
-        world.versions.push(version(2, { operation, source_version_number: 1, audio: null, duration: null, status: "SUBMITTED" }));
+        const operation = u.endsWith("/extend")
+          ? "EXTEND"
+          : u.endsWith("/remix")
+            ? "REMIX"
+            : u.endsWith("/extract")
+              ? "EXTRACT"
+              : "REPAINT";
+        world.versions.push(
+          version(2, {
+            operation,
+            source_version_number: 1,
+            audio: null,
+            duration: null,
+            status: "SUBMITTED",
+            ...(operation === "EXTRACT" ? { extracted_track: (body as { track_name?: string }).track_name ?? null } : {}),
+          }),
+        );
       }
       return Promise.resolve(response);
     }
@@ -265,5 +282,59 @@ describe("Version actions", () => {
     // "Provider Metadata" (Phase 10) is intentional, user-facing disclosure copy -- checked
     // for internal provider identifiers/paths, not the word itself.
     expect(text).not.toMatch(/ver-\d|source_version_id|\/v1\/audio|C:\\|provider_job_id/i);
+  });
+
+  // -- Phase 11: Extract --------------------------------------------------------------------------
+
+  it("offers Extract alongside Extend, Remix and Repaint", async () => {
+    setup();
+    const actions = await screen.findByTestId("version-actions");
+    expect(within(actions).getByRole("button", { name: "Extract" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("Extract shows only verified track types, no description or lyrics field", async () => {
+    setup();
+    await userEvent.click(await screen.findByRole("button", { name: "Extract" }));
+    const form = screen.getByRole("form", { name: "Extract Version 1" });
+    for (const track of ["Vocals", "Drums", "Bass", "Guitar"]) expect(within(form).getByRole("radio", { name: track })).toBeInTheDocument();
+    expect(within(form).queryByLabelText("Description")).not.toBeInTheDocument();
+    expect(within(form).queryByLabelText(/lyrics/i)).not.toBeInTheDocument();
+  });
+
+  it("Extract defaults to the first track and posts the chosen track_name", async () => {
+    const { posts } = setup();
+    await userEvent.click(await screen.findByRole("button", { name: "Extract" }));
+    expect(screen.getByRole("radio", { name: "Vocals" })).toBeChecked();
+    await userEvent.click(screen.getByRole("radio", { name: "Drums" }));
+    await userEvent.click(screen.getByRole("button", { name: /create extract version/i }));
+
+    expect(await screen.findByTestId("version-pending")).toHaveTextContent("Creating Version 2");
+    expect(posts).toEqual([{ url: "/api/songs/song-1/versions/ver-1/extract", body: { track_name: "drums" } }]);
+  });
+
+  it("a completed Extract shows the track name in the version's lineage label", async () => {
+    const { world } = setup();
+    await userEvent.click(await screen.findByRole("button", { name: "Extract" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Vocals" }));
+    await userEvent.click(screen.getByRole("button", { name: /create extract version/i }));
+    await screen.findByTestId("version-pending");
+    finish(world);
+
+    await waitFor(() => expect(screen.getByRole("radio", { name: /^version 2 /i })).toBeChecked(), { timeout: 8000 });
+    expect(screen.getByTestId("active-version-operation")).toHaveTextContent("Extract: Vocals · from Version 1");
+  });
+
+  it("the original version is untouched after an Extract completes", async () => {
+    const { world } = setup();
+    await userEvent.click(await screen.findByRole("button", { name: "Extract" }));
+    await userEvent.click(screen.getByRole("button", { name: /create extract version/i }));
+    await screen.findByTestId("version-pending");
+    finish(world);
+    await waitFor(() => expect(screen.getByRole("radio", { name: /^version 2 /i })).toBeChecked(), { timeout: 8000 });
+
+    await userEvent.click(screen.getByRole("radio", { name: /^version 1 /i }));
+    expect(screen.getByTestId("active-version-title")).toHaveTextContent("Version 1");
+    expect(screen.getByTestId("active-version-operation")).toHaveTextContent("Original");
+    expect(screen.getByTestId("audio-player")).toHaveAttribute("data-audio-url", "/api/jobs/tunora-job-1/audio");
   });
 });

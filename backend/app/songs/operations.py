@@ -11,8 +11,9 @@ ORIGINAL = "ORIGINAL"
 EXTEND = "EXTEND"
 REMIX = "REMIX"
 REPAINT = "REPAINT"
+EXTRACT = "EXTRACT"
 
-CREATIVE_OPERATIONS = (EXTEND, REMIX, REPAINT)
+CREATIVE_OPERATIONS = (EXTEND, REMIX, REPAINT, EXTRACT)
 ALL_OPERATIONS = (ORIGINAL, *CREATIVE_OPERATIONS)
 
 # Limits come from the provider's documented repaint range (3-90 s) and are enforced server-side.
@@ -21,3 +22,12 @@ EXTEND_MAX_SECONDS = 90.0
 REPAINT_MIN_SECONDS = 3.0
 REPAINT_MAX_SECONDS = 90.0
 DEFAULT_REMIX_STRENGTH = 0.7
+
+# Track types verified against a real running base-tier generation provider server (Phase 11
+# spike, docs/PHASE-11-IMPLEMENTATION.md): each of these was actually extracted from a real
+# Tunora generation and produced a valid, distinct audio file. The provider documents 8 more
+# track types (woodwinds, brass, fx, synth, strings, percussion, keyboard, backing_vocals) that
+# were not individually spike-verified this session -- deliberately not exposed here (never
+# invent/expose an unverified capability); add them only after the same real-extraction
+# verification.
+TRACK_NAMES = ("vocals", "drums", "bass", "guitar")
