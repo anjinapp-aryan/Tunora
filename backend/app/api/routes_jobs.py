@@ -9,12 +9,17 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from typing import Literal, Optional
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
 from app.api.schemas import CreateJobRequest, JobResponse
+from app.jobs.models import JobStatus
 from app.jobs.errors import AudioIntegrityError, AudioNotAvailableError, JobNotFoundError
 from app.jobs.service import JobService
+from app.projects.errors import ProjectNotFoundError
+from app.songs.errors import InvalidIdError, SongNotFoundError
 from app.providers.base import GenerationRequest
 
 logger = logging.getLogger(__name__)
@@ -38,10 +43,20 @@ async def create_job(payload: CreateJobRequest, request: Request, background_tas
         instrumental=payload.instrumental,
         batch_size=payload.batch_size,
     )
-    job = await service.create_and_submit(generation_request)
+    try:
+        job = await service.create_and_submit(
+            generation_request, title=payload.title, song_id=payload.song_id, project_id=payload.project_id
+        )
+    except (SongNotFoundError, ProjectNotFoundError, InvalidIdError):
+        raise HTTPException(status_code=404, detail="Song or project not found.")
     if job.status.value not in ("FAILED",):
         background_tasks.add_task(service.run_until_terminal, job.id)
-    return JobResponse.from_job(job)
+    return _respond(service, [job])[0]
+
+
+def _respond(service: JobService, jobs: list) -> list[JobResponse]:
+    versions = service.versions_for(jobs)
+    return [JobResponse.from_job(job, versions.get(job.version_id)) for job in jobs]
 
 
 @router.get("/{job_id}", response_model=JobResponse)
@@ -51,13 +66,25 @@ async def get_job(job_id: str, request: Request):
         job = service.get(job_id)
     except JobNotFoundError:
         raise HTTPException(status_code=404, detail=f"No job found with id {job_id!r}")
-    return JobResponse.from_job(job)
+    return _respond(service, [job])[0]
 
 
 @router.get("", response_model=list[JobResponse])
-async def list_jobs(request: Request, limit: int = 50):
+async def list_jobs(
+    request: Request,
+    limit: int = Query(50, ge=1, le=200),
+    status: Optional[str] = Query(None, description="Only jobs in this status, e.g. COMPLETED"),
+    q: str = Query("", max_length=100, description="Case-insensitive search in title and prompt"),
+    sort: Literal["newest", "oldest", "title"] = "newest",
+):
     service = _get_service(request)
-    return [JobResponse.from_job(job) for job in service.list(limit=limit)]
+    wanted: Optional[JobStatus] = None
+    if status:
+        try:
+            wanted = JobStatus(status.upper())
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Unknown status.")
+    return _respond(service, service.search(status=wanted, query=q, sort=sort, limit=limit))
 
 
 @router.get("/{job_id}/audio")

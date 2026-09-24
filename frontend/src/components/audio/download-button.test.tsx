@@ -108,3 +108,22 @@ describe("DownloadButton", () => {
     expect(container.innerHTML).not.toMatch(/C:\\|\/home\/|\/v1\/audio|8001|\.cache|absolute|tunora-1\/tunora-1/i);
   });
 });
+
+describe("DownloadButton notification", () => {
+  it("clears 'Download started.' after a few seconds instead of leaving it on the page", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      fetchMock.mockResolvedValue(audio());
+      render(<DownloadButton resource={resource} />);
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+      await user.click(screen.getByRole("button", { name: /download mp3/i }));
+      expect(await screen.findByRole("status")).toHaveTextContent("Download started.");
+
+      await vi.advanceTimersByTimeAsync(4500);
+      await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

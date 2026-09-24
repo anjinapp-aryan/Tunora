@@ -389,3 +389,61 @@ def test_download_by_a_completed_job_is_the_same_trusted_route_and_bytes(env):
     assert saved.content == AUDIO_BYTES
     assert len(saved.content) == body["size_bytes"] == int(saved.headers["content-length"])
     assert body["filename"] == "tunora-a.mp3"
+
+
+# -- Milestone: titles + library query -------------------------------------------------------
+
+
+def _completed(env, job_id, prompt, title="", minutes_ago=0):
+    from datetime import datetime, timedelta, timezone
+
+    job = env.add_completed_job(job_id)
+    job.request = GenerationRequest(prompt=prompt)
+    job.title = title
+    job.created_at = datetime.now(timezone.utc) - timedelta(minutes=minutes_ago)
+    env.repository.update(job)
+    return job
+
+
+def test_response_title_is_provided_or_derived_never_the_job_id(env):
+    _completed(env, "tunora-a", "warm cinematic piano ballad with strings", title="")
+    _completed(env, "tunora-b", "ignored", title="My Anthem")
+    a = env.client.get("/api/jobs/tunora-a").json()
+    b = env.client.get("/api/jobs/tunora-b").json()
+    assert a["title"] == "Warm cinematic piano ballad with strings"
+    assert b["title"] == "My Anthem"
+    assert "tunora-a" not in a["title"]
+
+
+def test_library_query_filters_by_status_search_and_sort(env):
+    _completed(env, "tunora-1", "sad piano ballad", "Rainy Day", minutes_ago=30)
+    _completed(env, "tunora-2", "upbeat dance", "Aurora", minutes_ago=10)
+    _completed(env, "tunora-3", "cinematic theme", "Zenith", minutes_ago=20)
+    env.add_job("tunora-run", JobStatus.RUNNING)
+
+    def ids(query):
+        return [j["id"] for j in env.client.get(f"/api/jobs?{query}").json()]
+
+    assert ids("status=COMPLETED") == ["tunora-2", "tunora-3", "tunora-1"]  # newest first
+    assert ids("status=completed&sort=oldest") == ["tunora-1", "tunora-3", "tunora-2"]
+    assert ids("status=COMPLETED&sort=title") == ["tunora-2", "tunora-1", "tunora-3"]
+    assert ids("status=COMPLETED&q=piano") == ["tunora-1"]  # matches the prompt
+    assert ids("status=COMPLETED&q=AURORA") == ["tunora-2"]  # case-insensitive title
+    assert ids("status=COMPLETED&q=nothing-matches") == []
+    assert "tunora-run" in ids("")  # no filter -> everything
+
+
+def test_library_query_rejects_bad_parameters_without_touching_the_filesystem(env):
+    assert env.client.get("/api/jobs?status=BOGUS").status_code == 422
+    assert env.client.get("/api/jobs?sort=../../etc/passwd").status_code == 422
+    assert env.client.get("/api/jobs?limit=0").status_code == 422
+    assert env.client.get("/api/jobs?limit=9999").status_code == 422
+    assert env.client.get("/api/jobs?q=" + "x" * 101).status_code == 422
+
+
+def test_library_listing_never_exposes_paths_or_provider_ids(env):
+    _completed(env, "tunora-1", "p", "T")
+    text = env.client.get("/api/jobs?status=COMPLETED").text
+    assert str(env.tmp_path) not in text
+    for leaked in ("absolute_path", "/v1/audio", "8741640e", "provider_job_id", "8001"):
+        assert leaked not in text

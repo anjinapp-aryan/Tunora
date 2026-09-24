@@ -2,80 +2,76 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Repo state
-
-Planning-only repo right now. No source code, no build tooling, nothing to compile/lint/test yet. All decisions live in `docs/*.md`. Current work: Phase 2 (implementation planning / hands-on validation on real hardware — no Tunora product code written yet, validation only). Read the relevant `docs/PHASE-*.md` file before assuming what phase we're in, since it advances over time.
-
 ## What Tunora is
 
-Free, open-source-first, self-hostable AI Music Studio. User describes a song in plain language (optionally lyrics/style/mood/language), generates via an open-source AI music model, previews in-browser, manages results in a versioned/searchable/downloadable library. Suno/Udio are UX benchmarks ONLY — no proprietary code, models, weights, datasets, or branding may be used or reverse engineered. Long-term: become for AI music generation what Stable Diffusion WebUIs became for image generation — a product layer over a swappable ecosystem of open models.
+Free, open-source-first, self-hostable AI Music Studio: describe a song (optionally lyrics/language/duration), generate it with a local open-source model, play it in the browser with a waveform, download it, and browse it in a Library. Suno/Udio are UX benchmarks only; no proprietary code, models, weights, datasets or branding may be used.
 
-## The one rule that governs everything: Reuse-First Law
+Repo layout: `backend/` (FastAPI), `frontend/` (Next.js), `docs/` (decisions and per-phase write-ups), `ACE-Step-1.5/` (git **submodule**: the upstream model server, treated as an external dependency; never add Tunora code there and never commit its local/untracked files), `start-tunora.ps1`.
 
-From `docs/REUSE-FIRST-LAW.md`, verbatim, applies to every phase/feature/component:
+State: the vertical slice Create → Generate → Track → Save → Play/Seek → Download → Song-oriented Library → Song Details (`/songs/{id}`, version history and selection) works end to end and is tested. Song → Version → Audio domain exists (Phases 4–5A); there is no UI to create a new version, Projects, or Extend/Remix/Repaint yet. Read the latest `docs/PHASE-*.md` / `docs/MILESTONE-*.md` before assuming what exists; they record what was actually verified and known limitations.
 
-> **REUSE → ADAPT → COMPOSE → BUILD**
+## The rule that governs everything: Reuse-First Law
 
-BUILD is permitted only when:
-1. No suitable existing open-source solution exists, or
-2. Existing solutions are technically unsuitable, or
-3. License restrictions prevent adoption, or
-4. Integration/security requirements make adoption unreasonable.
+`docs/REUSE-FIRST-LAW.md`: **REUSE → ADAPT → COMPOSE → BUILD**. Before adding any capability or dependency, do a fresh audit (license, maturity, fit, cost) and record the decision in `docs/`. Check each license separately: source code, model, weights, dataset. Do not add a dependency merely because it exists; several steps here deliberately used stdlib/platform features instead (SQLite `PRAGMA user_version` instead of Alembic, native `<a download>` instead of file-saver, native `<details>`/radio instead of extra UI libs). Hard rejects already made: MinIO (AGPLv3/archived), AudioCraft/MusicGen weights (CC-BY-NC), aeneas, madmom models, ComfyUI/A1111 code (GPL/AGPL). See `docs/LICENSE-AUDIT.md`, `COST-AUDIT.md`, `NON-GOALS.md`. No mandatory paid service; no Kubernetes/Kafka/Redis/Celery unless a demonstrated need.
 
-Before adding any dependency, check EACH of these separately — they can differ: source-code license, model license, model-weight license, dataset license, commercial-use restrictions, redistribution restrictions, attribution requirements, API/service restrictions. Never assume "GitHub repository = free for everything." A project can have open-source code while its model weights or training dataset carry different, more restrictive terms — this has already tripped up multiple candidates in this project (see License constraints below).
+## Commands
 
-## Architecture (`docs/ARCHITECTURE-PRINCIPLES.md`)
+Everything runs locally on Windows (PowerShell/Git Bash). `uv` for Python, `npm` for the frontend.
 
-Modular Monolith with Replaceable AI Providers — not microservices. Backend defines a `MusicGenerationProvider` interface; UI/domain layer must never depend on a specific model.
+```bash
+# Start all three services (ACE-Step :8001, backend :8000, frontend :3000), each in its own window
+powershell -File start-tunora.ps1 [-OpenBrowser] [-NoWait]
 
-- No component the UI depends on may hardcode a specific AI model.
-- No infrastructure complexity introduced without demonstrated need (no Kubernetes, no Kafka at this stage — see Non-goals).
-- Zero mandatory cost for local development and self-hosting.
-- Data model: `User → Project → Song → Version → Audio`. Regeneration always creates a new Version, never overwrites.
+# Backend (cd backend)
+uv sync
+uv run uvicorn app.main:app --port 8000
+uv run pytest tests -m "not smoke"                      # unit/integration, no GPU
+uv run pytest tests -m smoke                            # REAL ACE-Step generations; needs ACE-Step up on :8001 (skips if unreachable)
+uv run pytest tests/songs/test_domain.py::test_name -q  # single test
 
-## Scope boundaries
+# Frontend (cd frontend)
+npm install
+npm run dev            # http://localhost:3000; /api/* is proxied to TUNORA_API_URL (default http://127.0.0.1:8000)
+npm test               # vitest; single file: npx vitest run src/components/audio/download-button.test.tsx
+npm run typecheck && npx eslint
+npm run build
+npm run test:e2e       # Playwright against the REAL stack (see below)
+```
 
-**MVP** (`docs/MVP-SCOPE.md`, `docs/PRODUCT-SCOPE.md`): prompt/lyrics-to-song creation form; generation job lifecycle (queued/generating/processing/completed/failed); audio preview (play/pause/seek/volume, waveform if practical); song metadata + download; library (list/search/sort/play/delete/favorite); basic persistence (songs, versions, audio asset refs).
+Backend env: `TUNORA_DB_PATH` (default `tunora.db`), `TUNORA_STORAGE_ROOT` (default `./data/audio`), `ACE_STEP_BASE_URL` (default `http://127.0.0.1:8001`). Relative paths resolve against the process cwd; `backend/data/` and `*.db` are gitignored.
 
-**Explicitly out of MVP**: extend/remix/repaint, Projects, stems, reference audio, melody/voice conditioning, LoRA, multi-user accounts, any infra beyond one local generation job.
+**E2E is not mocked**: it needs ACE-Step, a backend, and Next.js. It does two real GPU generations per run (~60 s). Useful env: `E2E_PORT` (Next, default 3100), `E2E_BACKEND_PORT` (default 8000), `E2E_DIST_DIR` (separate Next build dir so it can run beside another `next dev`), `E2E_STORAGE_ROOT` (backend storage dir; required by the missing-audio test and enables byte-for-byte comparison with the stored file). Run it against a throwaway `TUNORA_DB_PATH`/`TUNORA_STORAGE_ROOT`, e.g. backend on port 8010:
+`E2E_BACKEND_PORT=8010 E2E_DIST_DIR=.next-e2e E2E_STORAGE_ROOT=<dir> npx playwright test`.
 
-**Non-goals** (`docs/NON-GOALS.md`, verbatim): "Do not clone Suno/Udio's UI, branding, or proprietary implementation." "Do not build a custom foundation music model." "Do not introduce Kubernetes at this stage." "Do not introduce Kafka at this stage." "No mandatory paid subscription/API/cloud GPU for core functionality."
+Frontend is **Next.js 16**: its APIs differ from older versions; `frontend/AGENTS.md` says to read `node_modules/next/dist/docs/` before writing Next code. Route props use generated types (`PageProps<...>`, run `npx next typegen` if they are missing).
 
-## Locked-in tech decisions
+## Architecture (needs several files to see)
 
-Check `docs/MODEL-CANDIDATES.md`, `docs/PHASE-1-DECISIONS.md`, `docs/REUSE-MATRIX.md` before proposing alternatives — these were already audited for license/cost/technical fit.
+```
+Browser -> Next.js (/api/* rewrite) -> FastAPI routes -> JobService -> JobRepository (SQLite)
+                                                      |-> MusicGenerationProvider -> AceStepMusicGenerationProvider -> ACE-Step REST API
+                                                      |-> AudioStorage -> LocalAudioStorage -> filesystem
+```
 
-- **Primary AI model**: ACE-Step 1.5 (MIT code, Apache-2.0 weights, self-hostable from 4GB VRAM). Not yet declared final — pending GPU validation in Phase 2.
-- **Fallback models**: DiffRhythm2, YuE/YuE2 (need spikes). Reference only: HeartMuLa, Stable Audio Open. Rejected: AudioCraft/MusicGen weights (CC-BY-NC-4.0, non-commercial).
-- **Application base**: adapt `fspecii/ace-step-ui` (React/TS/Express/SQLite) rather than build from scratch — covers ~6 of 9 MVP surfaces. License unresolved (README claims MIT, no LICENSE file found — treat as blocking until confirmed). Fallback base: `Sion971/ace-step-studio`.
-- **Frontend**: Next.js + TypeScript, Tailwind CSS, shadcn/ui (MIT).
-- **Audio playback/waveform**: WaveSurfer.js (BSD-3-Clause) — single dependency, Regions/Timeline/Spectrogram plugins as needed.
-- **Backend**: Python + FastAPI.
-- **Job queue**: RQ (Redis Queue, MIT) — not Celery, not Kafka.
-- **GPU inference**: plain worker process using `transformers`/`diffusers` directly. No serving framework (TorchServe/Triton/BentoML/Ray Serve rejected/deferred).
-- **Storage**: local filesystem for MVP. MinIO rejected (archived, AGPLv3) — re-research object storage only when actually needed.
-- **Auth**: deferred for MVP (single-user/local). Fallback: fastapi-users (MIT).
-- **Monitoring**: structured logging only for now; OTel/Prometheus/Grafana deferred.
-- **Audio processing**: FFmpeg (LGPL-only build — do NOT enable `--enable-gpl`), soundfile (BSD-3), librosa (ISC).
-- **Stem separation (V2+)**: Demucs adefossez fork — weight license ("scientific purposes only") is disputed/unverified, blocking for commercial use.
-- **Transcription (V2+)**: basic-pitch (Apache-2.0 code+weights, cleanest license in the whole audit).
-- **Confirmed BUILD-only** (no viable OSS reuse path found): lyrics/LRC editor UI, generation job-status UI, Projects+Versions data model/UI.
+- **Composition root is `backend/app/main.py`** (lifespan): the only place that names concrete provider/repository/storage. Everything else depends on the abstractions (`app/providers/base.py`, `app/jobs/repository.py`, `app/storage/base.py`). ACE-Step request/response shapes, task ids and its `/v1/audio` URLs must never leave `app/providers/ace_step.py`.
+- **Job vs Song vs Version** (`app/jobs`, `app/songs`): a `Job` is only the execution/lifecycle of one generation (state machine in `jobs/state_machine.py`, polled by `JobService.run_until_terminal` as a FastAPI BackgroundTask). A `Song` is the durable identity; a `Version` is an immutable generation snapshot (`spec` is the provider-neutral `GenerationRequest`) with a write-once audio reference; `jobs.version_id` links a job to the version it produces. `POST /api/jobs` with `song_id` creates the next Version of an existing Song. Song + Version + Job are created in one `BEGIN IMMEDIATE` transaction that **commits before** the provider is called; completion (`complete_job`) atomically marks the job COMPLETED and attaches audio. Version numbers are per song, assigned inside the transaction, `UNIQUE(song_id, version_number)`; SQLite triggers make snapshots immutable.
+- **Persistence and migrations**: stdlib `sqlite3`, all queries parameterized, no ORM. Schema changes go through `app/jobs/migrations.py` (versioned by `PRAGMA user_version`, one `BEGIN IMMEDIATE` transaction per step, additive only, idempotent). Legacy jobs map 1:1 to a song with version 1; audio files are never moved (key stays `<job-id>/<job-id>.<ext>`). Add new steps rather than editing old ones.
+- **Audio is served only through `GET /api/jobs/{id}/audio`** (Starlette `FileResponse`: Range, ETag, Content-Length). The client sends only a job id; the file is resolved from the trusted job record via `AudioStorage` with ownership/media-type/containment checks in `JobService.resolve_audio`. Downloads reuse that same route on the client (fetch + Blob + `<a download>`); there is deliberately no second endpoint. Filenames are sanitized once in `app/storage/filenames.py`.
+- **Public API is an allowlist** (`app/api/schemas.py`): `absolute_path`, storage key internals, `Job.error` (returns a fixed "Generation failed."), provider task ids and ACE-Step URLs must never appear in a response, page, or log shown to users. Tests assert this; keep it that way for every new endpoint (validate ids with `app/songs/ids.py`, never accept paths).
+- **Frontend** (`frontend/src`): `lib/api/jobs.ts` is the only API client and the only place audio URLs are built (`isTunoraAudioUrl` guards every use). Job tracking is a hand-written polling hook (`lib/jobs/use-job-status.ts`: recursive timeout, no overlap, backoff, stops on terminal state/404/unmount). The single player is `components/audio/audio-player.tsx` on WaveSurfer.js: it downloads and decodes the whole file once and plays from a blob, so it makes one plain GET (no Range); Range support exists and is tested for future direct streaming. shadcn/ui components live in `components/ui` (Base UI based).
 
-## Cost constraints (`docs/COST-AUDIT.md`)
+## Testing conventions
 
-Zero-cost policy: no mandatory paid API/subscription/cloud service for core functionality. Every MVP-stack component must be zero-cost. Watch items if scope grows: Stable Audio Open (free under $1M annual revenue, paid above), MusicGen weights (non-commercial only), MinIO (archived, vendor pushing paid "AIStor"), madmom (NC-licensed models). Hardware/electricity for self-hosting is NOT a cost-policy violation.
+Backend uses `FakeProvider`/`FakeAudioStorage` (`tests/jobs/fakes.py`) for unit tests; real `LocalAudioStorage` over `tmp_path` where storage behavior matters; tests marked `smoke` hit the real ACE-Step and are skipped when it is unreachable. `asyncio_mode = "auto"`. Classify results honestly: unit ≠ integration ≠ real E2E ≠ real GPU; a skipped smoke test is not a pass. Audio quality, vocals and pronunciation need human listening; report only objective facts. Never weaken or delete a test to make a change pass; if a contract intentionally changes, update the assertion and say so. jsdom cannot decode audio, so player logic is unit-tested with a fake WaveSurfer and real playback is verified only in Playwright.
 
-## License constraints (`docs/LICENSE-AUDIT.md`)
+## Locked-in decisions and constraints
 
-Biggest open legal risk: training-data provenance is undisclosed for every full-song vocal model audited except Stable Audio Open (which can't do vocals). Hard rejects already made: aeneas (AGPLv3), madmom pretrained models (CC BY-NC-SA 4.0), MusicGen weights (CC-BY-NC-4.0), ComfyUI/AUTOMATIC1111 code (GPL-3.0/AGPL-3.0 — reference only, cannot ship). Blocking/unresolved: `fspecii/ace-step-ui` actual license, Demucs weight license, torchaudio `forced_align`/MMS_FA API stability across versions.
+- **Model**: ACE-Step 1.5 (MIT code, Apache-2.0 weights) behind `MusicGenerationProvider`; fallbacks (DiffRhythm2, YuE) need local validation before becoming providers. Dev GPU RTX 5060 Ti 16 GB. Exact lyric-to-vocal timing is not guaranteed; do not claim language support beyond what was actually validated.
+- **Storage** local filesystem behind `AudioStorage`; **DB** SQLite; **job execution** in-process (FastAPI BackgroundTasks + polling), no queue. Only replace these with evidence.
+- **Audio tooling**: FFmpeg LGPL-only build (never `--enable-gpl`), soundfile, librosa. Demucs weight license is disputed (blocking for commercial use); basic-pitch has the cleanest license.
+- Do not clone Suno/Udio UI or branding; do not build a custom foundation model.
+- `docs/` holds the audit trail (`REUSE-*.md`, `LICENSE-AUDIT.md`, `MODEL-CANDIDATES.md`, `PHASE-*`, `MILESTONE-*`); consult it instead of re-deriving decisions.
 
-## Phase 2 environment and test-plan ground rules
+## Environment notes
 
-Real GPU validation is underway on the dev machine, not simulated (`docs/PHASE-2-ENVIRONMENT.md`, `docs/PHASE-2-TEST-PLAN.md`):
-
-- Dev GPU: RTX 5060 Ti, 16GB VRAM. For this tier, start with the **2B DiT** variant, not XL — rule is to start smallest-practical, not largest-capable.
-- Classify every test result VERIFIED / PARTIALLY VERIFIED / NOT VERIFIED / FAILED / NOT TESTED. Never invent metrics.
-- Audio quality/vocals/pronunciation require human listening — Claude cannot hear audio, so report only objective facts (file exists, duration, sample rate, generation succeeded/failed) and let the user judge quality.
-- No Tunora product code during this phase — validation only.
-- No premature infra: do not introduce Kubernetes/Kafka/Celery/Triton/MinIO/Redis/PostgreSQL unless a validated need is demonstrated first.
-- Fixed prompt set of 8 themes (English pop, instrumental, ballad, Indian-style, Hindi, Kannada, devotional, complex structure) is locked — don't alter it after seeing results.
+Windows. Some long-lived local processes (a `next dev`, a backend, the ACE-Step server) may hold ports 3000/8000/8001 and refuse `taskkill` (access denied); use alternate ports/`E2E_DIST_DIR` rather than fighting them. Only one `next dev` can use a given `distDir` (`NEXT_DIST_DIR`) at a time. The frontend, backend and ACE-Step each need their own dependency install (`npm install`, `uv sync` in `backend` and in `ACE-Step-1.5`).

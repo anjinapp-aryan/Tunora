@@ -12,7 +12,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.routes_director import router as director_router
 from app.api.routes_jobs import router as jobs_router
+from app.api.routes_projects import router as projects_router
+from app.api.routes_songs import router as songs_router
+from app.director.ace_step import AceStepSongDirector
 from app.jobs.repository import SqliteJobRepository
 from app.jobs.service import JobService
 from app.providers.ace_step import AceStepMusicGenerationProvider
@@ -30,15 +34,24 @@ async def lifespan(app: FastAPI):
     storage = LocalAudioStorage(STORAGE_ROOT)
     app.state.job_service = JobService(repository=repository, provider=provider, storage=storage)
     app.state.provider = provider
+    director = AceStepSongDirector(base_url=ACE_STEP_BASE_URL)
+    app.state.song_director = director
     try:
         yield
     finally:
         await provider.aclose()
+        await director.aclose()
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Tunora Backend", lifespan=lifespan)
     app.include_router(jobs_router)
+    # director_router owns the static "/api/songs/plan" path and must be registered
+    # before songs_router's "/api/songs/{song_id}" -- otherwise the dynamic route can
+    # shadow it (song_id="plan") and a POST there 405s instead of reaching the planner.
+    app.include_router(director_router)
+    app.include_router(songs_router)
+    app.include_router(projects_router)
     return app
 
 

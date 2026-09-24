@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DownloadIcon, Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { AudioResource } from "@/lib/api/jobs";
 import { downloadAudio, DownloadError, DOWNLOAD_MESSAGES } from "@/lib/audio/download-audio";
 import { downloadLabel, formatBytes } from "@/lib/audio/format-bytes";
+
+const STARTED_MESSAGE_MS = 4000;
 
 type State = { kind: "idle" } | { kind: "downloading" } | { kind: "started" } | { kind: "error"; message: string };
 
@@ -17,6 +19,13 @@ type State = { kind: "idle" } | { kind: "downloading" } | { kind: "started" } | 
 export function DownloadButton({ resource }: { resource: AudioResource }) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const busy = useRef(false);
+
+  // "Download started." is a passing notification, not permanent page content.
+  useEffect(() => {
+    if (state.kind !== "started") return;
+    const timer = setTimeout(() => setState({ kind: "idle" }), STARTED_MESSAGE_MS);
+    return () => clearTimeout(timer);
+  }, [state]);
 
   async function onClick() {
     if (busy.current) return;
