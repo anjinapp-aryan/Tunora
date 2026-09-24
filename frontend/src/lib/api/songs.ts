@@ -208,6 +208,7 @@ export function defaultVersion(details: SongDetails): SongVersion | null {
 /** Bounds mirrored from backend/app/songs/operations.py (the backend is the authority). */
 export const EXTEND_SECONDS = [10, 20, 30, 60] as const;
 export const REPAINT_MIN_SECONDS = 3;
+export const REPAINT_MAX_SECONDS = 90;
 export const REMIX_STRENGTHS = [
   { label: "Subtle", value: 0.85 },
   { label: "Balanced", value: 0.7 },

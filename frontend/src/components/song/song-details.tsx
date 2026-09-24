@@ -14,11 +14,14 @@ import { VersionActions } from "@/components/song/version-actions";
 import { VersionComparison } from "@/components/song/version-comparison";
 import { ApiError, type GenerationJob } from "@/lib/api/jobs";
 import { useJobStatus } from "@/lib/jobs/use-job-status";
+import type { RepaintRange } from "@/lib/audio/repaint-region";
 import {
   defaultVersion,
   deleteSong,
   getSongDetails,
   operationLabel,
+  REPAINT_MAX_SECONDS,
+  REPAINT_MIN_SECONDS,
   updateSong,
   versionAudioResource,
   type CreativeOperation,
@@ -79,6 +82,13 @@ export function SongDetailsView({ songId }: { songId: string }) {
   const [opFailed, setOpFailed] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [comparing, setComparing] = useState(false);
+  // The Repaint region (Phase 12): owned here since AudioPlayer and VersionActions are siblings
+  // that both need it -- the waveform to draw it on, the form to read/set it from. `null` means
+  // no region should be shown (Repaint isn't open). `repaintDragGeneration` increments only when
+  // a drag/resize on the waveform (never typing in the form) changes the region -- VersionActions
+  // uses it as a React key to reset its own text fields exactly then, not on every keystroke.
+  const [repaintRegion, setRepaintRegion] = useState<RepaintRange | null>(null);
+  const [repaintDragGeneration, setRepaintDragGeneration] = useState(0);
 
   const key = `${songId}|${attempt}`;
   useEffect(() => {
@@ -188,7 +198,23 @@ export function SongDetailsView({ songId }: { songId: string }) {
           {resource ? (
             <>
               {/* key: a different version gets a fresh player (old one destroyed, position reset). */}
-              <AudioPlayer key={active.id} src={resource.url} />
+              <AudioPlayer
+                key={active.id}
+                src={resource.url}
+                region={
+                  repaintRegion
+                    ? {
+                        ...repaintRegion,
+                        minLength: REPAINT_MIN_SECONDS,
+                        maxLength: REPAINT_MAX_SECONDS,
+                        onChange: (start, end) => {
+                          setRepaintRegion({ start, end });
+                          setRepaintDragGeneration((n) => n + 1);
+                        },
+                      }
+                    : undefined
+                }
+              />
               <DownloadButton key={`download-${active.id}`} resource={resource} />
             </>
           ) : (
@@ -203,7 +229,17 @@ export function SongDetailsView({ songId }: { songId: string }) {
               {OPERATION_FAILED}
             </p>
           )}
-          {resource && !pending && <VersionActions key={active.id} songId={details.id} version={active} onStarted={onStarted} />}
+          {resource && !pending && (
+            <VersionActions
+              key={active.id}
+              songId={details.id}
+              version={active}
+              onStarted={onStarted}
+              repaintRegion={repaintRegion}
+              onRepaintRegionChange={setRepaintRegion}
+              repaintDragGeneration={repaintDragGeneration}
+            />
+          )}
 
           <div className="mt-6 rounded-lg border border-border/60 p-3 text-sm" data-testid="provider-metadata">
             <div className="flex items-baseline justify-between gap-2">

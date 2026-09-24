@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, type GenerationJob } from "@/lib/api/jobs";
+import { defaultRepaintRegion, type RepaintBounds, type RepaintRange } from "@/lib/audio/repaint-region";
 import {
   createVersionOperation,
   EXTEND_SECONDS,
   REMIX_STRENGTHS,
+  REPAINT_MAX_SECONDS,
   REPAINT_MIN_SECONDS,
   TRACK_NAMES,
   type CreativeOperation,
@@ -34,13 +36,33 @@ interface Props {
   version: SongVersion;
   /** Called with the created job once the backend accepted the request. */
   onStarted: (job: GenerationJob, operation: CreativeOperation) => void;
+  /**
+   * The Repaint region shown on the shared waveform (Phase 12), owned by the parent since the
+   * player and this form are siblings. `null` when no region should be shown (Repaint not open).
+   */
+  repaintRegion: RepaintRange | null;
+  onRepaintRegionChange: (region: RepaintRange | null) => void;
+  /**
+   * Incremented by the parent only when a drag/resize on the waveform changes `repaintRegion`
+   * (never when typing in the Start/End fields here) -- used as a React `key` to reset the
+   * fields' own local edit buffer exactly when an external change should override it, via the
+   * same "resetting state with a key" pattern React itself documents, rather than an effect.
+   */
+  repaintDragGeneration: number;
 }
 
 /**
- * Extend / Remix / Repaint for one version. Each opens an inline form and creates a NEW version;
- * the source version is never modified. All bounds are re-checked by the backend.
+ * Extend / Remix / Repaint / Extract for one version. Each opens an inline form and creates a NEW
+ * version; the source version is never modified. All bounds are re-checked by the backend.
  */
-export function VersionActions({ songId, version, onStarted }: Props) {
+export function VersionActions({
+  songId,
+  version,
+  onStarted,
+  repaintRegion,
+  onRepaintRegionChange,
+  repaintDragGeneration,
+}: Props) {
   const [open, setOpen] = useState<CreativeOperation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,15 +71,32 @@ export function VersionActions({ songId, version, onStarted }: Props) {
   const [prompt, setPrompt] = useState("");
   const [lyrics, setLyrics] = useState("");
   const [strength, setStrength] = useState<number>(0.7);
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
   const [trackName, setTrackName] = useState<string>(TRACK_NAMES[0]);
 
   const duration = version.duration;
+  const repaintBounds: RepaintBounds = { minLength: REPAINT_MIN_SECONDS, maxLength: REPAINT_MAX_SECONDS, duration: duration ?? REPAINT_MAX_SECONDS };
+  // What actually gets submitted: the last value RepaintRangeFields committed to the shared
+  // region (on a full, valid number) -- not necessarily whatever partial text is on screen mid-edit.
+  const start = repaintRegion ? String(repaintRegion.start) : "";
+  const end = repaintRegion ? String(repaintRegion.end) : "";
 
   function close() {
     setOpen(null);
     setError(null);
+    onRepaintRegionChange(null);
+  }
+
+  /** Open a different operation's panel (or close the current one). Setting the region here --
+   * a real click handler, not an effect -- is what gives Repaint a visible starting region the
+   * instant its panel opens, without a render-then-effect round trip. */
+  function openPanel(op: CreativeOperation) {
+    if (open === op) {
+      close();
+      return;
+    }
+    setOpen(op);
+    setError(null);
+    onRepaintRegionChange(op === "REPAINT" ? (repaintRegion ?? defaultRepaintRegion(repaintBounds)) : null);
   }
 
   function validate(op: CreativeOperation): { params?: VersionOperationParams; error?: string } {
@@ -113,7 +152,7 @@ export function VersionActions({ songId, version, onStarted }: Props) {
             variant={open === op ? "default" : "outline"}
             aria-expanded={open === op}
             aria-controls={`op-panel-${op}`}
-            onClick={() => (open === op ? close() : (setOpen(op), setError(null)))}
+            onClick={() => openPanel(op)}
           >
             {TITLES[op]}
           </Button>
@@ -181,21 +220,13 @@ export function VersionActions({ songId, version, onStarted }: Props) {
           )}
 
           {open === "REPAINT" && (
-            <div className="flex flex-wrap gap-3 text-sm">
-              <label className="flex flex-col gap-1">
-                Start (seconds)
-                <Input type="number" inputMode="decimal" min={0} step="0.5" value={start} onChange={(e) => setStart(e.target.value)} className="w-32" autoFocus />
-              </label>
-              <label className="flex flex-col gap-1">
-                End (seconds)
-                <Input type="number" inputMode="decimal" min={0} step="0.5" value={end} onChange={(e) => setEnd(e.target.value)} className="w-32" />
-              </label>
-              {duration ? (
-                <p className="basis-full text-xs text-muted-foreground">
-                  This version is {Math.floor(duration)} s long. Repaint at least {REPAINT_MIN_SECONDS} s.
-                </p>
-              ) : null}
-            </div>
+            <RepaintRangeFields
+              key={repaintDragGeneration}
+              region={repaintRegion}
+              bounds={repaintBounds}
+              duration={duration ?? null}
+              onChange={onRepaintRegionChange}
+            />
           )}
 
           {open !== "EXTRACT" && (
@@ -229,5 +260,79 @@ export function VersionActions({ songId, version, onStarted }: Props) {
         </form>
       )}
     </section>
+  );
+}
+
+/**
+ * The Repaint Start/End text fields (Phase 12). Owns its own local edit buffer so typing is
+ * smooth (no clamping mid-keystroke) -- every full, valid number is still immediately clamped
+ * and committed to the shared region via `onChange`, which is what the waveform above reflects
+ * live. Remounted (via the parent's `key={repaintDragGeneration}`) exactly when a drag/resize
+ * changes the region externally, which is what resets this local buffer to the new values --
+ * React's own documented "resetting state with a key" pattern, not an effect.
+ */
+function RepaintRangeFields({
+  region,
+  bounds,
+  duration,
+  onChange,
+}: {
+  region: RepaintRange | null;
+  bounds: RepaintBounds;
+  duration: number | null;
+  onChange: (region: RepaintRange | null) => void;
+}) {
+  const [start, setStart] = useState(() => (region ? String(region.start) : ""));
+  const [end, setEnd] = useState(() => (region ? String(region.end) : ""));
+
+  // Deliberately NOT clamped: the raw typed numbers are what `validate()` in the parent checks
+  // against the backend's own bounds, so a genuinely invalid range (end before start, too short,
+  // past the end of the version) survives up to submit time and produces its real error message
+  // instead of being silently corrected. Clamping is reserved for the waveform drag/resize path
+  // (WaveSurfer's own minLength/maxLength/duration already constrain those) and the initial
+  // default region. An incomplete pair (cleared, or mid-typing something not yet a full number)
+  // reports `null`, which both hides the waveform region and makes the fields read as blank for
+  // validation -- matching "Enter a start and an end" exactly as before this region existed.
+  function commit(nextStart: string, nextEnd: string) {
+    const s = Number(nextStart);
+    const e = Number(nextEnd);
+    const complete = nextStart.trim() !== "" && nextEnd.trim() !== "" && Number.isFinite(s) && Number.isFinite(e);
+    onChange(complete ? { start: s, end: e } : null);
+  }
+
+  return (
+    <div className="flex flex-wrap gap-3 text-sm">
+      <label className="flex flex-col gap-1">
+        Start (seconds)
+        <Input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step="0.1"
+          value={start}
+          onChange={(e) => (setStart(e.target.value), commit(e.target.value, end))}
+          className="w-32"
+          autoFocus
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        End (seconds)
+        <Input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step="0.1"
+          value={end}
+          onChange={(e) => (setEnd(e.target.value), commit(start, e.target.value))}
+          className="w-32"
+        />
+      </label>
+      {duration ? (
+        <p className="basis-full text-xs text-muted-foreground">
+          This version is {Math.floor(duration)} s long. Repaint between {bounds.minLength} and{" "}
+          {Math.min(bounds.maxLength, Math.floor(duration))} s. Drag on the waveform above, or type exact values here.
+        </p>
+      ) : null}
+    </div>
   );
 }

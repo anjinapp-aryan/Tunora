@@ -9,8 +9,18 @@ import { JobTracker } from "./job-tracker";
 // jsdom cannot decode audio or draw canvas; the real player is covered by the audio-player unit tests and Playwright.
 vi.mock("wavesurfer.js", () => ({
   default: {
-    create: () => ({ on: () => () => {}, destroy: () => {}, setTime: () => {}, setVolume: () => {}, playPause: async () => {} }),
+    create: () => ({
+      on: () => () => {},
+      destroy: () => {},
+      setTime: () => {},
+      setVolume: () => {},
+      playPause: async () => {},
+      registerPlugin: (plugin: unknown) => plugin,
+    }),
   },
+}));
+vi.mock("wavesurfer.js/dist/plugins/regions.js", () => ({
+  default: { create: () => ({ addRegion: () => ({ on: () => () => {}, setOptions: () => {}, remove: () => {} }) }) },
 }));
 
 const fetchMock = vi.fn();

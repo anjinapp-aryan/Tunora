@@ -198,15 +198,17 @@ describe("Version actions", () => {
   });
 
   it.each([
-    ["", "5", "Enter a start and an end"],
-    ["5", "5", "after the start"],
     ["6", "5", "after the start"],
     ["0", "2", "at least 3"],
     ["10", "25", "cannot be after the end of this version (20 s)"],
   ])("Repaint %s to %s is rejected in the form (%s) without a request", async (start, end, message) => {
+    // Phase 12: Start/End are pre-filled with a default region (a visible starting point for the
+    // waveform selector) rather than blank, so a real edit means clearing the existing value first.
     const { posts } = setup();
     await userEvent.click(await screen.findByRole("button", { name: "Repaint" }));
-    if (start) await userEvent.type(screen.getByLabelText("Start (seconds)"), start);
+    await userEvent.clear(screen.getByLabelText("Start (seconds)"));
+    await userEvent.type(screen.getByLabelText("Start (seconds)"), start);
+    await userEvent.clear(screen.getByLabelText("End (seconds)"));
     await userEvent.type(screen.getByLabelText("End (seconds)"), end);
     await userEvent.type(screen.getByLabelText("Description"), "drums");
     await userEvent.click(screen.getByRole("button", { name: /create repaint version/i }));
@@ -214,10 +216,27 @@ describe("Version actions", () => {
     expect(posts).toHaveLength(0);
   });
 
+  it("Repaint shows a pre-filled default region and rejects it once cleared", async () => {
+    const { posts } = setup();
+    await userEvent.click(await screen.findByRole("button", { name: "Repaint" }));
+    // duration is 20s in this fixture -> a quarter of it, clamped to the 3-90s bounds.
+    expect(screen.getByLabelText("Start (seconds)")).toHaveValue(0);
+    expect(screen.getByLabelText("End (seconds)")).toHaveValue(5);
+
+    await userEvent.clear(screen.getByLabelText("Start (seconds)"));
+    await userEvent.clear(screen.getByLabelText("End (seconds)"));
+    await userEvent.type(screen.getByLabelText("Description"), "drums");
+    await userEvent.click(screen.getByRole("button", { name: /create repaint version/i }));
+    expect(screen.getByTestId("op-error")).toHaveTextContent("Enter a start and an end");
+    expect(posts).toHaveLength(0);
+  });
+
   it("Repaint sends the region, description and optional lyrics", async () => {
     const { posts } = setup();
     await userEvent.click(await screen.findByRole("button", { name: "Repaint" }));
+    await userEvent.clear(screen.getByLabelText("Start (seconds)"));
     await userEvent.type(screen.getByLabelText("Start (seconds)"), "4");
+    await userEvent.clear(screen.getByLabelText("End (seconds)"));
     await userEvent.type(screen.getByLabelText("End (seconds)"), "9.5");
     await userEvent.type(screen.getByLabelText("Description"), "sudden drums");
     await userEvent.type(screen.getByLabelText(/lyrics for this part/i), "la la");

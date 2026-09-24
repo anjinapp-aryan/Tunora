@@ -55,12 +55,46 @@ const fake = vi.hoisted(() => {
     destroy() {
       this.destroyed = true;
     }
+
+    registerPlugin<T>(plugin: T): T {
+      return plugin;
+    }
   }
 
-  return { instances, FakeWaveSurfer };
+  class FakeRegion {
+    handlers: Record<string, Handler[]> = {};
+    removed = false;
+    constructor(
+      public start: number,
+      public end: number,
+    ) {}
+    on(event: string, handler: Handler) {
+      (this.handlers[event] ??= []).push(handler);
+      return () => {};
+    }
+    setOptions(next: { start?: number; end?: number }) {
+      if (next.start !== undefined) this.start = next.start;
+      if (next.end !== undefined) this.end = next.end;
+    }
+    remove() {
+      this.removed = true;
+    }
+  }
+
+  class FakeRegionsPlugin {
+    static create() {
+      return new FakeRegionsPlugin();
+    }
+    addRegion(params: { start: number; end: number }) {
+      return new FakeRegion(params.start, params.end);
+    }
+  }
+
+  return { instances, FakeWaveSurfer, FakeRegionsPlugin };
 });
 
 vi.mock("wavesurfer.js", () => ({ default: fake.FakeWaveSurfer }));
+vi.mock("wavesurfer.js/dist/plugins/regions.js", () => ({ default: fake.FakeRegionsPlugin }));
 
 const SRC = "/api/jobs/tunora-1/audio";
 const ws = () => fake.instances[fake.instances.length - 1];

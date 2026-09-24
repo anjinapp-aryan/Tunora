@@ -25,6 +25,7 @@ const fake = vi.hoisted(() => {
           setTime: () => {},
           setVolume: () => {},
           playPause: async () => {},
+          registerPlugin: (plugin: unknown) => plugin,
         };
         instances.push(instance);
         return instance;
@@ -33,6 +34,9 @@ const fake = vi.hoisted(() => {
   };
 });
 vi.mock("wavesurfer.js", () => ({ default: fake.default }));
+vi.mock("wavesurfer.js/dist/plugins/regions.js", () => ({
+  default: { create: () => ({ addRegion: () => ({ on: () => () => {}, setOptions: () => {}, remove: () => {} }) }) },
+}));
 
 const fetchMock = vi.fn();
 const clicks: Array<{ download: string }> = [];

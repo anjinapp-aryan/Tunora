@@ -1137,3 +1137,140 @@ test("Extract: a real track pulled from a real version becomes a new, playable v
 
   await expectNoInternalLeak(page);
 });
+
+// -- Phase 12: Timeline Repaint region selection ---------------------------------------------------
+
+/**
+ * The Repaint region rendered by the WaveSurfer Regions plugin. It carries a shadow-DOM `part`
+ * attribute (`region <id>`) set by the plugin itself, which Playwright's CSS engine can locate
+ * because it pierces open shadow roots -- no test id needed inside third-party plugin markup.
+ */
+const repaintRegion = (page: Page) => page.locator('[data-testid="waveform"] [part~="region"]');
+
+test("Repaint: dragging the waveform region updates Start/End, and the real generation from that region creates a new version without touching Version 1", async ({
+  page,
+  request,
+}) => {
+  test.skip(!STORAGE_ROOT, "Needs E2E_STORAGE_ROOT to compare stored files");
+  test.setTimeout(GENERATION_TIMEOUT_MS * 2 + 180_000);
+  await trackMediaElement(page);
+  const TITLE = `Repaint Drag Test ${Date.now()}`;
+
+  const first = await generateRealSong(page, "short upbeat instrumental synth loop with a steady beat", TITLE);
+  const v1 = await fetchCompletedJob(request, first.id);
+  const v1File = storedAudioPath(v1);
+  const v1Hash = sha(v1File);
+  const v1Size = fs.statSync(v1File).size;
+
+  await page.goto(`/songs/${v1.song_id}`);
+  await expect(page.getByTestId("active-version-title")).toHaveText("Version 1 — Latest");
+  const total = await expectPlayableAudio(page, v1.id); // also proves normal (non-Repaint) playback still works
+
+  // ---- Opening Repaint shows a pre-filled region, both on the waveform and in the numeric fields ----
+  await page.getByRole("button", { name: "Repaint", exact: true }).click();
+  const form = page.getByRole("form", { name: /^repaint version 1$/i });
+  await expect(form).toBeVisible();
+  const startField = page.getByLabel("Start (seconds)");
+  const endField = page.getByLabel("End (seconds)");
+  const region = repaintRegion(page);
+  await expect(region).toBeVisible();
+
+  const initialStart = Number(await startField.inputValue());
+  const initialEnd = Number(await endField.inputValue());
+  expect(initialEnd).toBeGreaterThan(initialStart);
+  const initialLength = initialEnd - initialStart;
+
+  // ---- Drag the region (its middle, away from the resize handles) to the right ----
+  const box = (await region.boundingBox())!;
+  const waveformBox = (await page.getByTestId("waveform").boundingBox())!;
+  const pxPerSecond = waveformBox.width / total;
+  const dragStartX = box.x + box.width / 2;
+  const dragY = box.y + box.height / 2;
+  const deltaSeconds = Math.min(initialLength, total / 8); // a real, visible move that still fits before the end
+  const dragEndX = Math.min(waveformBox.x + waveformBox.width - 5, dragStartX + deltaSeconds * pxPerSecond);
+
+  await page.mouse.move(dragStartX, dragY);
+  await page.mouse.down();
+  await page.mouse.move(dragEndX, dragY, { steps: 10 });
+  await page.mouse.up();
+
+  // ---- The drag moved BOTH numeric fields (a move, not a resize) and kept the region on screen ----
+  await expect.poll(async () => Number(await startField.inputValue())).toBeGreaterThan(initialStart);
+  const draggedStart = Number(await startField.inputValue());
+  const draggedEnd = Number(await endField.inputValue());
+  expect(draggedEnd).toBeGreaterThan(draggedStart);
+  expect(draggedEnd - draggedStart).toBeCloseTo(initialLength, 0); // duration preserved by a drag
+  expect(draggedEnd).toBeLessThanOrEqual(total + 0.5);
+
+  // ---- Manual precision edit still works and keeps the waveform region in sync ----
+  const preciseStart = roundToOneDecimal(draggedStart);
+  const preciseEnd = roundToOneDecimal(Math.min(draggedStart + 3, total)); // shorter than the dragged length, so the region visibly shrinks
+  await startField.fill(String(preciseStart));
+  await endField.fill(String(preciseEnd));
+  const draggedWidth = box.width;
+  await expect.poll(async () => (await region.boundingBox())!.width).toBeLessThan(draggedWidth - 5);
+
+  // ---- Submit: the exact selected range is what gets sent and generated ----
+  await form.getByLabel("Description", { exact: true }).fill("a brief synth flourish");
+  const repaintRequest = page.waitForRequest(
+    (r) => /\/api\/songs\/[^/]+\/versions\/[^/]+\/repaint$/.test(r.url()) && r.method() === "POST",
+  );
+  await form.getByRole("button", { name: /create repaint version/i }).click();
+  const sentBody = (await repaintRequest).postDataJSON() as { repaint_start: number; repaint_end: number };
+  expect(sentBody.repaint_start).toBeCloseTo(preciseStart, 1);
+  expect(sentBody.repaint_end).toBeCloseTo(preciseEnd, 1);
+
+  // ---- Real generation runs and becomes the new, active, Latest version ----
+  await expect(page.getByTestId("version-pending")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /^version 2 /i })).toBeChecked({ timeout: GENERATION_TIMEOUT_MS });
+  await expect(page.getByTestId("active-version-title")).toHaveText("Version 2 — Latest");
+  await expect(page.getByTestId("active-version-operation")).toContainText("Repaint · from Version 1");
+
+  const v2AudioUrl = (await page.getByTestId("audio-player").getAttribute("data-audio-url"))!;
+  const v2JobId = v2AudioUrl.split("/")[3];
+  await expectPlayableAudio(page, v2JobId);
+  const v2Job = await fetchCompletedJob(request, v2JobId);
+  expect(sha(storedAudioPath(v2Job))).not.toBe(v1Hash); // its own, real, different audio
+
+  // ---- Version 1's own audio was only ever read, never modified ----
+  await page.getByRole("radio", { name: /^version 1\b/i }).check();
+  await expect(page.getByTestId("active-version-title")).toContainText("Version 1");
+  await expect(page.getByTestId("active-version-operation")).toHaveText("Original");
+  expect([sha(v1File), fs.statSync(v1File).size]).toEqual([v1Hash, v1Size]);
+
+  await expectNoInternalLeak(page);
+});
+
+function roundToOneDecimal(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+test("Repaint region selector fits mobile and tablet widths, and stays usable from the keyboard alone", async ({ page, request }) => {
+  test.setTimeout(GENERATION_TIMEOUT_MS + 60_000);
+  const TITLE = `Repaint A11y Test ${Date.now()}`;
+  const job = await generateRealSong(page, SONG_PROMPT, TITLE);
+  await page.goto(`/songs/${job.song_id}`);
+  await expect(page.getByRole("button", { name: "Repaint", exact: true })).toBeVisible({ timeout: 30_000 });
+
+  // ---- Responsive: the waveform + Repaint form fit at 375px and 768px, no page overflow ----
+  await page.getByRole("button", { name: "Repaint", exact: true }).click();
+  const form = page.getByRole("form", { name: /^repaint version 1$/i });
+  await expectFitsViewport(page, 375, [page.getByTestId("waveform"), form]);
+  await expectFitsViewport(page, 768, [page.getByTestId("waveform"), form]);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  // ---- Keyboard-only path: the numeric fields remain a fully keyboard-operable fallback,
+  // since the Regions plugin exposes no keyboard interaction of its own ----
+  const startField = page.getByLabel("Start (seconds)");
+  const endField = page.getByLabel("End (seconds)");
+  await expect(startField).toBeFocused(); // autofocus when the panel opens
+  await startField.fill("2");
+  await endField.focus();
+  await endField.fill("8");
+  await form.getByLabel("Description", { exact: true }).fill("a brief keyboard-only edit");
+  await expect(form.getByRole("button", { name: /create repaint version/i })).toBeEnabled();
+
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(form).toHaveCount(0);
+  await expectNoInternalLeak(page, job);
+});

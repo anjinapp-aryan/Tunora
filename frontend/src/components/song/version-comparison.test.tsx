@@ -14,7 +14,15 @@ const fake = vi.hoisted(() => {
     instances,
     default: {
       create(options: Record<string, unknown>) {
-        const instance = { options, on: () => () => {}, destroy() {}, setTime: () => {}, setVolume: () => {}, playPause: async () => {} };
+        const instance = {
+          options,
+          on: () => () => {},
+          destroy() {},
+          setTime: () => {},
+          setVolume: () => {},
+          playPause: async () => {},
+          registerPlugin: (plugin: unknown) => plugin,
+        };
         instances.push(instance);
         return instance;
       },
@@ -22,6 +30,9 @@ const fake = vi.hoisted(() => {
   };
 });
 vi.mock("wavesurfer.js", () => ({ default: fake.default }));
+vi.mock("wavesurfer.js/dist/plugins/regions.js", () => ({
+  default: { create: () => ({ addRegion: () => ({ on: () => () => {}, setOptions: () => {}, remove: () => {} }) }) },
+}));
 
 function version(n: number, overrides: Partial<SongVersion> = {}): SongVersion {
   return {
