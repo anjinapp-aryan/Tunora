@@ -24,6 +24,7 @@ import {
   REPAINT_MIN_SECONDS,
   updateSong,
   versionAudioResource,
+  operationName,
   type CreativeOperation,
   type SongDetails,
   type SongVersion,
@@ -60,7 +61,7 @@ function PendingVersion({ pending, onDone }: { pending: Pending; onDone: (job: G
   }, [terminal, notFound, onDone]);
   return (
     <p role="status" className="mt-6 text-sm" data-testid="version-pending">
-      Creating Version {pending.versionNumber}… ({pending.operation.charAt(0) + pending.operation.slice(1).toLowerCase()})
+      Creating Version {pending.versionNumber}… ({operationName(pending.operation)})
     </p>
   );
 }

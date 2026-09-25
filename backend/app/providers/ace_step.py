@@ -60,7 +60,10 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
 
     name = "ace-step"
     # Verified against the local turbo model (see docs/PHASE-5B-EXTEND-REMIX-REPAINT.md).
-    supported_operations = frozenset({"ORIGINAL", "EXTEND", "REMIX", "REPAINT", "EXTRACT"})
+    supported_operations = frozenset({"ORIGINAL", "EXTEND", "REMIX", "REPAINT", "EXTRACT", "ANOTHER_TAKE"})
+
+    # Plain text-to-music: no source audio is uploaded (ANOTHER_TAKE is a fresh generation, Phase 13).
+    _TEXT_TO_MUSIC_OPERATIONS = frozenset({"ORIGINAL", "ANOTHER_TAKE"})
 
     # EXTRACT needs ACE-Step's base-tier model (Phase 11 spike,
     # docs/PHASE-11-IMPLEMENTATION.md): `extract` is not in ACE-Step's turbo-tier task set
@@ -104,7 +107,7 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
         if request.operation not in self.supported_operations:
             raise UnsupportedOperationError(f"Operation {request.operation!r} is not supported by ACE-Step")
         payload = self._build_release_task_payload(request)
-        if request.operation == "ORIGINAL":
+        if request.operation in self._TEXT_TO_MUSIC_OPERATIONS:
             data = await self._post("/release_task", payload)
         else:
             data = await self._post_with_source_audio("/release_task", payload, request)
@@ -196,7 +199,7 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
             "lyrics": "" if request.instrumental else request.lyrics,
             "vocal_language": request.language,
         }
-        if request.duration is not None and request.operation == "ORIGINAL":
+        if request.duration is not None and request.operation in self._TEXT_TO_MUSIC_OPERATIONS:
             payload["audio_duration"] = request.duration
         if request.seed is not None:
             payload["use_random_seed"] = False
@@ -221,7 +224,7 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
         """
 
         op = request.operation
-        if op == "ORIGINAL":
+        if op in AceStepMusicGenerationProvider._TEXT_TO_MUSIC_OPERATIONS:
             return {}
         if request.source_audio_path is None:
             raise ProviderResponseError(f"{op} needs source audio")

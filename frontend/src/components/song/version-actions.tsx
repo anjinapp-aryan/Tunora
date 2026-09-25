@@ -19,8 +19,16 @@ import {
   type VersionOperationParams,
 } from "@/lib/api/songs";
 
-const TITLES: Record<CreativeOperation, string> = { EXTEND: "Extend", REMIX: "Remix", REPAINT: "Repaint", EXTRACT: "Extract" };
-const HELP: Record<CreativeOperation, string> = {
+// Another take starts immediately (no form: it needs no input), so only the others open a panel.
+type PanelOperation = Exclude<CreativeOperation, "ANOTHER_TAKE">;
+const TITLES: Record<CreativeOperation, string> = {
+  EXTEND: "Extend",
+  REMIX: "Remix",
+  REPAINT: "Repaint",
+  EXTRACT: "Extract",
+  ANOTHER_TAKE: "Another Take",
+};
+const HELP: Record<PanelOperation, string> = {
   EXTEND: "Continue this version further. The result is a new, longer version.",
   REMIX: "Re-imagine this version with a new description. The result is a new version.",
   REPAINT: "Regenerate one time range of this version. The rest stays as it is.",
@@ -63,7 +71,7 @@ export function VersionActions({
   onRepaintRegionChange,
   repaintDragGeneration,
 }: Props) {
-  const [open, setOpen] = useState<CreativeOperation | null>(null);
+  const [open, setOpen] = useState<PanelOperation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -89,7 +97,7 @@ export function VersionActions({
   /** Open a different operation's panel (or close the current one). Setting the region here --
    * a real click handler, not an effect -- is what gives Repaint a visible starting region the
    * instant its panel opens, without a render-then-effect round trip. */
-  function openPanel(op: CreativeOperation) {
+  function openPanel(op: PanelOperation) {
     if (open === op) {
       close();
       return;
@@ -99,7 +107,7 @@ export function VersionActions({
     onRepaintRegionChange(op === "REPAINT" ? (repaintRegion ?? defaultRepaintRegion(repaintBounds)) : null);
   }
 
-  function validate(op: CreativeOperation): { params?: VersionOperationParams; error?: string } {
+  function validate(op: PanelOperation): { params?: VersionOperationParams; error?: string } {
     const text = prompt.trim();
     if (op === "EXTEND") return { params: { extend_seconds: seconds, ...(text ? { prompt: text } : {}) } };
     if (op === "EXTRACT") {
@@ -117,7 +125,7 @@ export function VersionActions({
     return { params: { prompt: text, repaint_start: s, repaint_end: e, ...(lyrics.trim() ? { lyrics: lyrics.trim() } : {}) } };
   }
 
-  async function submit(event: FormEvent, op: CreativeOperation) {
+  async function submit(event: FormEvent, op: PanelOperation) {
     event.preventDefault();
     if (busy) return;
     const checked = validate(op);
@@ -138,13 +146,30 @@ export function VersionActions({
     }
   }
 
+  /** Generate another take of this version's idea. One click, one job: `busy` blocks a second submit. */
+  async function startTake() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const job = await createVersionOperation(songId, version.id, "ANOTHER_TAKE", {});
+      setOpen(null);
+      onRepaintRegionChange(null);
+      onStarted(job, "ANOTHER_TAKE");
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Could not start this. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section aria-labelledby="actions-heading" className="mt-6 border-t border-border/60 pt-4" data-testid="version-actions">
       <h3 id="actions-heading" className="text-sm font-medium">
         Create a new version from Version {version.version_number}
       </h3>
       <div className="mt-2 flex flex-wrap gap-2">
-        {(Object.keys(TITLES) as CreativeOperation[]).map((op) => (
+        {(Object.keys(HELP) as PanelOperation[]).map((op) => (
           <Button
             key={op}
             type="button"
@@ -157,7 +182,15 @@ export function VersionActions({
             {TITLES[op]}
           </Button>
         ))}
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={startTake}>
+          {busy && !open ? "Starting…" : TITLES.ANOTHER_TAKE}
+        </Button>
       </div>
+      {!open && error && (
+        <p role="alert" className="mt-2 text-sm text-destructive" data-testid="op-error">
+          {error}
+        </p>
+      )}
 
       {open && (
         <form

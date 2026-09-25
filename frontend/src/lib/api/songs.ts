@@ -25,7 +25,7 @@ export interface SongSummary {
 /** `list_song_summaries(project=...)` value that means "songs with no Project". */
 export const PROJECT_FILTER_NONE = "none";
 
-export type VersionOperation = "ORIGINAL" | "EXTEND" | "REMIX" | "REPAINT" | "EXTRACT";
+export type VersionOperation = "ORIGINAL" | "EXTEND" | "REMIX" | "REPAINT" | "EXTRACT" | "ANOTHER_TAKE";
 export type CreativeOperation = Exclude<VersionOperation, "ORIGINAL">;
 
 /**
@@ -238,13 +238,19 @@ const OPERATION_NAMES: Record<VersionOperation, string> = {
   REMIX: "Remix",
   REPAINT: "Repaint",
   EXTRACT: "Extract",
+  ANOTHER_TAKE: "Another take",
 };
+
+/** The display name of one operation ("Extend", "Another take"); never an id. */
+export function operationName(operation: VersionOperation): string {
+  return OPERATION_NAMES[operation] ?? "Original";
+}
 
 /** "Original", "Extend · from Version 2", or "Extract: Vocals · from Version 2". Never exposes an id. */
 export function operationLabel(
   version: Pick<SongVersion, "operation" | "source_version_number" | "extracted_track">,
 ): string {
-  const name = OPERATION_NAMES[version.operation] ?? "Original";
+  const name = operationName(version.operation);
   const label = version.operation === "EXTRACT" && version.extracted_track
     ? `${name}: ${version.extracted_track[0].toUpperCase()}${version.extracted_track.slice(1)}`
     : name;
@@ -254,7 +260,7 @@ export function operationLabel(
 }
 
 /**
- * Start Extend / Remix / Repaint on one version. Creates a NEW version (and its job); the source is
+ * Start Extend / Remix / Repaint / Extract / Another take on one version. Creates a NEW version (and its job); the source is
  * never modified. Errors map to fixed messages; nothing from the server body is echoed.
  */
 export async function createVersionOperation(

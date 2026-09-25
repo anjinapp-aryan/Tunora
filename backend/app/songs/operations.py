@@ -12,8 +12,10 @@ EXTEND = "EXTEND"
 REMIX = "REMIX"
 REPAINT = "REPAINT"
 EXTRACT = "EXTRACT"
+# Phase 13: a fresh text-to-music generation of the same creative idea (no source audio).
+ANOTHER_TAKE = "ANOTHER_TAKE"
 
-CREATIVE_OPERATIONS = (EXTEND, REMIX, REPAINT, EXTRACT)
+CREATIVE_OPERATIONS = (EXTEND, REMIX, REPAINT, EXTRACT, ANOTHER_TAKE)
 ALL_OPERATIONS = (ORIGINAL, *CREATIVE_OPERATIONS)
 
 # Limits come from the provider's documented repaint range (3-90 s) and are enforced server-side.

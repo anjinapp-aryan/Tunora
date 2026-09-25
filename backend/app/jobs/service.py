@@ -559,6 +559,8 @@ class JobService:
             raise SourceVersionNotFoundError(source_version_id)
         if operation not in self._provider.supported_operations:
             raise UnsupportedOperationError(f"Operation {operation!r} is not supported by this provider")
+        if operation == ops.ANOTHER_TAKE:
+            return await self._create_another_take(song_id, source)
         if source.audio is None:
             raise SourceAudioUnavailableError("The source version has no audio.")
         try:
@@ -631,6 +633,32 @@ class JobService:
         return await self.create_and_submit(
             request, song_id=song_id, source_version_id=source.id, operation_params=params
         )
+
+    async def _create_another_take(self, song_id: str, source: Version) -> Job:
+        """Phase 13: generate the same creative idea again as a NEW Version of the same song.
+
+        Copies only the source's creative inputs (prompt, lyrics, language, instrumental,
+        duration). The seed is deliberately left unset so the provider picks a fresh random one
+        (a fixed source seed would otherwise be reused), and batch_size is never copied: exactly
+        one output becomes exactly one Version. No source audio is read; the source is untouched.
+        """
+
+        if source.operation == ops.EXTRACT:
+            raise InvalidOperationError("Another take is not available for an extracted track.")
+        spec = source.spec
+        duration = spec.duration
+        if duration is None and source.audio is not None and _valid_seconds(source.audio.duration):
+            duration = source.audio.duration
+        request = GenerationRequest(
+            prompt=spec.prompt,
+            lyrics=spec.lyrics,
+            language=spec.language,
+            instrumental=spec.instrumental,
+            duration=duration,
+            seed=None,
+            operation=ops.ANOTHER_TAKE,
+        )
+        return await self.create_and_submit(request, song_id=song_id, source_version_id=source.id)
 
     # -- projects (Phase 6): organizational metadata over Songs, no audio/Version involved ---------
 

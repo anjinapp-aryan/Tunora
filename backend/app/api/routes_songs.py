@@ -122,7 +122,7 @@ async def create_version_from_operation(
     payload: VersionOperationRequest,
     song_id: str = Path(max_length=80, pattern=_ID_PATTERN),
     version_id: str = Path(max_length=80, pattern=_ID_PATTERN),
-    operation: Literal["extend", "remix", "repaint", "extract"] = Path(),
+    operation: Literal["extend", "remix", "repaint", "extract", "another_take"] = Path(),
 ):
     """Create a NEW version of a song from one of its existing versions. The source version
     is only read; the result is a normal job that will produce the new version."""

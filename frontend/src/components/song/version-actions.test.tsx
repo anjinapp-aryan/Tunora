@@ -79,7 +79,9 @@ function setup(overrides: Partial<World> = {}) {
             ? "REMIX"
             : u.endsWith("/extract")
               ? "EXTRACT"
-              : "REPAINT";
+              : u.endsWith("/another_take")
+                ? "ANOTHER_TAKE"
+                : "REPAINT";
         world.versions.push(
           version(2, {
             operation,
@@ -355,5 +357,80 @@ describe("Version actions", () => {
     expect(screen.getByTestId("active-version-title")).toHaveTextContent("Version 1");
     expect(screen.getByTestId("active-version-operation")).toHaveTextContent("Original");
     expect(screen.getByTestId("audio-player")).toHaveAttribute("data-audio-url", "/api/jobs/tunora-job-1/audio");
+  });
+
+  // -- Phase 13: Another Take ------------------------------------------------------------------
+
+  it("offers an Another Take button with an accessible name, next to the other actions", async () => {
+    setup();
+    const actions = await screen.findByTestId("version-actions");
+    const take = within(actions).getByRole("button", { name: "Another Take" });
+    expect(take).toBeEnabled();
+    expect(take).not.toHaveAttribute("aria-expanded"); // it starts immediately; it has no panel
+  });
+
+  it("Another Take posts an empty body to the another_take route and shows the existing pending UI", async () => {
+    const { posts } = setup();
+    await userEvent.click(await screen.findByRole("button", { name: "Another Take" }));
+
+    expect(await screen.findByTestId("version-pending")).toHaveTextContent("Creating Version 2… (Another take)");
+    expect(posts).toEqual([{ url: "/api/songs/song-1/versions/ver-1/another_take", body: {} }]);
+    expect(screen.queryByTestId("version-actions")).not.toBeInTheDocument(); // one operation at a time
+    await waitFor(() => expect(screen.getAllByTestId("version-option")).toHaveLength(2));
+    expect(screen.getAllByTestId("version-option")[0]).toHaveTextContent("Another take · from Version 1");
+    expect(screen.getByRole("radio", { name: /^version 1 /i })).toBeChecked();
+  });
+
+  it("Another Take can be started from the keyboard alone", async () => {
+    const { posts } = setup();
+    const take = await screen.findByRole("button", { name: "Another Take" });
+    take.focus();
+    expect(take).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await screen.findByTestId("version-pending");
+    expect(posts).toHaveLength(1);
+  });
+
+  it("a double click on Another Take creates only one job", async () => {
+    const { posts } = setup();
+    const take = await screen.findByRole("button", { name: "Another Take" });
+    fetchMock.mockImplementationOnce(() => new Promise(() => {})); // the POST stays in flight
+    await userEvent.dblClick(take);
+
+    const postCalls = fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === "POST");
+    expect(postCalls).toHaveLength(1);
+    expect(posts).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Starting…" })).toBeDisabled();
+  });
+
+  it("selects the new take, keeps the source version, and re-enables actions once it completes", async () => {
+    const { world } = setup();
+    await userEvent.click(await screen.findByRole("button", { name: "Another Take" }));
+    await screen.findByTestId("version-pending");
+    finish(world);
+
+    await waitFor(() => expect(screen.getByRole("radio", { name: /^version 2 /i })).toBeChecked(), { timeout: 8000 });
+    // The Latest marker arrives with the refetched details, a moment after the selection moves.
+    await waitFor(() => expect(screen.getByTestId("active-version-title")).toHaveTextContent("Version 2 — Latest"));
+    expect(screen.getByTestId("active-version-operation")).toHaveTextContent("Another take · from Version 1");
+    expect(screen.getByTestId("audio-player")).toHaveAttribute("data-audio-url", "/api/jobs/tunora-job-2/audio");
+    expect(screen.getAllByTestId("version-option")).toHaveLength(2); // the source is still listed
+    expect(screen.getByTestId("version-actions")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("radio", { name: /^version 1 /i }));
+    expect(screen.getByTestId("active-version-operation")).toHaveTextContent("Original");
+    expect(screen.getByTestId("audio-player")).toHaveAttribute("data-audio-url", "/api/jobs/tunora-job-1/audio");
+  }, 15000);
+
+  it("shows the existing safe error, creates no pending version and lets the user retry when Another Take is refused", async () => {
+    const { posts } = setup({ post: () => json({ detail: "boom /secret/path" }, 500) });
+    await userEvent.click(await screen.findByRole("button", { name: "Another Take" }));
+
+    const alert = await screen.findByTestId("op-error");
+    expect(alert).toHaveTextContent("Could not start this. Please try again.");
+    expect(alert).not.toHaveTextContent("secret");
+    expect(screen.queryByTestId("version-pending")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Another Take" })).toBeEnabled();
+    expect(posts).toHaveLength(1);
   });
 });

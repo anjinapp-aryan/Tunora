@@ -1274,3 +1274,82 @@ test("Repaint region selector fits mobile and tablet widths, and stays usable fr
   await expect(form).toHaveCount(0);
   await expectNoInternalLeak(page, job);
 });
+
+// -- Phase 13: Another Take ------------------------------------------------------------------------
+
+test("Another Take: a real new version of the same idea, playable and downloadable, and the source version is untouched", async ({
+  page,
+  request,
+}) => {
+  test.skip(!STORAGE_ROOT, "Needs E2E_STORAGE_ROOT to compare stored files");
+  test.setTimeout(GENERATION_TIMEOUT_MS + 240_000);
+  await trackMediaElement(page);
+  const TITLE = `Another Take Test ${Date.now()}`;
+
+  const first = await generateRealSong(page, "short upbeat instrumental synth loop with a steady beat", TITLE);
+  const v1 = await fetchCompletedJob(request, first.id);
+  const v1File = storedAudioPath(v1);
+  const v1Hash = sha(v1File);
+  const v1Size = fs.statSync(v1File).size;
+  type Detail = { versions: Array<{ id: string; version_number: number; operation: string; source_version_number: number | null; prompt: string; lyrics: string; language: string; instrumental: boolean; seed: number | null; duration: number | null; is_latest: boolean }> };
+  const before = (await (await request.get(`${NEXT}/api/songs/${v1.song_id}`)).json()) as Detail;
+  const source = before.versions.find((v) => v.version_number === 1)!;
+  const jobsBefore = ((await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[]).length;
+
+  await page.goto(`/songs/${v1.song_id}`);
+  await expect(page.getByTestId("active-version-title")).toHaveText("Version 1 — Latest");
+  const take = page.getByRole("button", { name: "Another Take", exact: true });
+  await expect(take).toBeVisible();
+  await expectFitsViewport(page, 375, [take]);
+  await expectFitsViewport(page, 768, [take]);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await take.focus();
+  await expect(take).toBeFocused(); // reachable from the keyboard
+
+  // ---- One click: one request, no second submission while it runs ----
+  const takeRequests: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST" && r.url().endsWith("/another_take")) takeRequests.push(r.url());
+  });
+  await take.click();
+  await expect(page.getByTestId("version-pending")).toContainText("Creating Version 2");
+  await expect(page.getByTestId("version-actions")).toHaveCount(0); // one operation at a time
+  await expect(page.getByTestId("active-version-title")).toHaveText("Version 2 — Latest", { timeout: GENERATION_TIMEOUT_MS });
+  await expect(page.getByTestId("version-pending")).toHaveCount(0);
+  expect(takeRequests).toHaveLength(1);
+  await expect(page.getByTestId("active-version-operation")).toHaveText("Another take · from Version 1");
+
+  // ---- The API's view: exactly one new Version, lineage, same creative inputs, provider-chosen seed ----
+  const after = (await (await request.get(`${NEXT}/api/songs/${v1.song_id}`)).json()) as Detail;
+  expect(after.versions.map((v) => v.version_number)).toEqual([2, 1]);
+  const created = after.versions.find((v) => v.version_number === 2)!;
+  expect([created.operation, created.source_version_number, created.is_latest]).toEqual(["ANOTHER_TAKE", 1, true]);
+  expect([created.prompt, created.lyrics, created.language, created.instrumental]).toEqual([source.prompt, source.lyrics, source.language, source.instrumental]);
+  expect(created.seed).toBeNull();
+  expect(created.id).not.toBe(source.id);
+  expect(after.versions.find((v) => v.version_number === 1)).toEqual({ ...source, is_latest: false }); // source unchanged
+  expect(((await (await request.get(`${NEXT}/api/jobs?limit=200`)).json()) as Job[]).length).toBe(jobsBefore + 1); // exactly one new job
+
+  // ---- The new version is real, distinct, playable and downloadable ----
+  const v2Url = (await page.getByTestId("audio-player").getAttribute("data-audio-url"))!;
+  const v2JobId = v2Url.split("/")[3];
+  expect(v2JobId).not.toBe(v1.id);
+  const v2Job = await fetchCompletedJob(request, v2JobId);
+  expect(v2Job.version_number).toBe(2);
+  expect(sha(storedAudioPath(v2Job))).not.toBe(v1Hash);
+  await expectPlayableAudio(page, v2JobId);
+  await expectDownloadMatchesStoredAudio(page, request, v2Job);
+
+  // ---- Version history shows the lineage; the source is still there, selectable and playable ----
+  const options = page.getByTestId("version-option");
+  await expect(options).toHaveCount(2);
+  await expect(options.nth(0)).toContainText("Another take · from Version 1");
+  await expect(options.nth(1)).toContainText("Original");
+  await page.getByRole("radio", { name: /^version 1\b/i }).check();
+  await expect(page.getByTestId("active-version-operation")).toHaveText("Original");
+  await expectPlayableAudio(page, v1.id);
+
+  // ---- The source was only ever left alone ----
+  expect([sha(v1File), fs.statSync(v1File).size]).toEqual([v1Hash, v1Size]);
+  await expectNoInternalLeak(page, after);
+});
