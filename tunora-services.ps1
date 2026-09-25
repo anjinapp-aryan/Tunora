@@ -88,7 +88,7 @@ function Start-TunoraWindow([string]$Title, [string]$WorkDir, [string]$Command) 
 
 function Get-TunoraLaunch([hashtable]$Service, [string]$Root) {
     switch ($Service.Key) {
-        "ace"      { return @{ Dir = (Join-Path $Root "ACE-Step-1.5"); Cmd = "& '.\.venv\Scripts\python.exe' -m acestep.api_server --host 127.0.0.1 --port $($Service.Port)" } }
+        "ace"      { return @{ Dir = (Join-Path $Root "ACE-Step-1.5"); Cmd = "`$env:ACESTEP_CONFIG_PATH2 = 'acestep-v15-base'; & '.\.venv\Scripts\python.exe' -m acestep.api_server --host 127.0.0.1 --port $($Service.Port)" } }
         "backend"  { return @{ Dir = (Join-Path $Root "backend");      Cmd = "`$env:ACE_STEP_BASE_URL = 'http://127.0.0.1:8001'; & '.\.venv\Scripts\python.exe' -m uvicorn app.main:app --host 127.0.0.1 --port $($Service.Port)" } }
         "frontend" { return @{ Dir = (Join-Path $Root "frontend");     Cmd = "`$env:TUNORA_API_URL = 'http://127.0.0.1:8000'; npm run dev -- -p $($Service.Port)" } }
     }

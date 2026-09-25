@@ -37,7 +37,7 @@ Nothing is killed by process name, so other Python/Node projects are untouched. 
 ## Start manually (three windows)
 
 ```powershell
-cd I:\Tunora\ACE-Step-1.5; & ".\.venv\Scripts\python.exe" -m acestep.api_server --host 127.0.0.1 --port 8001
+cd I:\Tunora\ACE-Step-1.5; $env:ACESTEP_CONFIG_PATH2 = "acestep-v15-base"; & ".\.venv\Scripts\python.exe" -m acestep.api_server --host 127.0.0.1 --port 8001
 cd I:\Tunora\backend;      .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 cd I:\Tunora\frontend;     npm run dev
 ```
@@ -48,3 +48,11 @@ cd I:\Tunora\frontend;     npm run dev
 $p = (Get-NetTCPConnection -LocalPort 8000 -State Listen).OwningProcess
 Get-CimInstance Win32_Process -Filter "ProcessId = $p" | Select ProcessId, Name, CommandLine
 ```
+
+## ACE-Step second model (required for Extract)
+
+`tunora-services.ps1` starts ACE-Step with `ACESTEP_CONFIG_PATH2=acestep-v15-base` (a second model slot next to the default turbo model). Extract needs the base model: turbo does not support the `extract` task, and ACE-Step **silently** falls back to the turbo handler when the requested model is not loaded (`acestep/api/job_model_selection.py`). Tunora now checks the `dit_model` field of every Extract result and fails the job (visibly, with the generic "Generation failed." message) unless it is `acestep-v15-base`; nothing is saved for a rejected result.
+
+- Both models load on the first request (the health check alone does not load them). Measured on the RTX 5060 Ti 16 GB: idle about 1.5 GB after start; both models plus the language model resident about 11.6 GB; peak about 14.9-15.3 GB during real generations (turbo only: about 10.2 GB). Headroom is about 1-1.4 GB.
+- If you start ACE-Step without the variable (for example a manual start), Extract jobs fail; Create, Extend, Remix, Repaint and Another Take are unaffected.
+- To free the extra VRAM you can drop the variable (Extract then fails visibly by design).

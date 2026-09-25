@@ -71,6 +71,11 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
     # /release_task endpoint EXTEND/REMIX/REPAINT already use, with model set explicitly so it
     # is routed to the base-tier handler regardless of the server's own default model.
     _EXTRACT_MODEL = "acestep-v15-base"
+    # ACE-Step silently serves a request for a model that is not loaded with its primary (turbo)
+    # handler instead of failing (acestep/api/job_model_selection.py). The result item's `dit_model`
+    # names the handler that actually ran, so an EXTRACT result is only accepted when it says base
+    # (Phase 14). Bounded: ids are removed when their result is read.
+    _EXPECTED_MODEL_LIMIT = 1000
 
     def __init__(
         self,
@@ -85,6 +90,7 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
         self._default_model = default_model
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(timeout=request_timeout)
+        self._expected_models: dict[str, str] = {}
 
     async def aclose(self) -> None:
         """Close the underlying HTTP client if this provider created it."""
@@ -114,6 +120,10 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
         task_id = data.get("task_id") if isinstance(data, dict) else None
         if not task_id:
             raise ProviderResponseError("ACE-Step /release_task response is missing 'task_id'")
+        if request.operation == "EXTRACT":
+            if len(self._expected_models) >= self._EXPECTED_MODEL_LIMIT:
+                self._expected_models.pop(next(iter(self._expected_models)))
+            self._expected_models[str(task_id)] = self._EXTRACT_MODEL
         return GenerationJob(job_id=str(task_id), provider=self.name, status=JobState.QUEUED)
 
     async def get_status(self, job_id: str) -> GenerationStatus:
@@ -145,6 +155,12 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
             )
 
         primary = audio_items[0]
+        expected_model = self._expected_models.pop(job_id, None)
+        if expected_model is not None and primary.get("dit_model") != expected_model:
+            raise ProviderResponseError(
+                f"ACE-Step job {job_id} was not run on the required model {expected_model!r} "
+                f"(reported {primary.get('dit_model')!r}); the result was discarded"
+            )
         metas = primary.get("metas") or {}
         audio_path = self._extract_filesystem_path(primary["file"])
         return GenerationResult(
