@@ -77,7 +77,11 @@ def test_a_real_extract_creates_a_new_version_and_leaves_the_source_untouched(tm
         extract_job = extract.json()
 
         completed = client.get(f"/api/jobs/{extract_job['id']}")
-        assert completed.status_code == 200 and completed.json()["status"] == "COMPLETED", completed.json()
+        assert completed.status_code == 200 and completed.json()["status"] == "COMPLETED", (
+            "Extract job did not complete. If ACE-Step was not started with ACESTEP_CONFIG_PATH2=acestep-v15-base "
+            "(start-tunora.ps1 sets it), Tunora rejects the turbo-served result on purpose (Phase 14): ",
+            completed.json(),
+        )
 
         # ---- The extracted result is a real, new, playable Version ----
         details = client.get(f"/api/songs/{song_id}").json()

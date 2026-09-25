@@ -95,7 +95,7 @@ Duplicate-submission note: the guard relies on react-hook-form's `isSubmitting` 
 
 Finding during E2E: the first run timed out because Next 16's dev server blocks cross-origin dev resources, so the page loaded via `127.0.0.1` never hydrated and the click did nothing. Fixed with `allowedDevOrigins: ["127.0.0.1"]` in `next.config.ts` (dev-only).
 
-To reproduce, start ACE-Step (`uv run acestep-api` in `ACE-Step-1.5`), the backend (`uv run uvicorn app.main:app --port 8000` in `backend`), then `npm run test:e2e` in `frontend` (it starts Next.js itself).
+To reproduce, start ACE-Step (`uv run acestep-api` in `ACE-Step-1.5`; since Phase 14 `start-tunora.ps1` also sets `ACESTEP_CONFIG_PATH2=acestep-v15-base`, which a manual start needs only for Extract, see `docs/TUNORA-SERVICE-MANAGEMENT.md`), the backend (`uv run uvicorn app.main:app --port 8000` in `backend`), then `npm run test:e2e` in `frontend` (it starts Next.js itself).
 
 ## 12. Backend Regression
 

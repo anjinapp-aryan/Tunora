@@ -372,6 +372,10 @@ from that run).
   is genuinely unavailable, ACE-Step will reject the request; Tunora
   surfaces this the same way any other provider failure is already
   surfaced (a safe, generic error), not a fabricated success.
+  **Phase 14 update:** the launcher (`tunora-services.ps1`) now sets the variable, and
+  ACE-Step does not reject a request for an unloaded model: it silently falls back to
+  turbo. Tunora therefore checks the result's `dit_model` and fails the job unless it is
+  `acestep-v15-base` (`docs/PHASE-14-IMPLEMENTATION.md`).
 - Output quality was validated objectively (file validity, a real
   transformation distinct from the source, plausible dynamics for the
   requested track) but not by human listening in this session — consistent

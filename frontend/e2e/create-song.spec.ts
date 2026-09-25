@@ -1106,7 +1106,9 @@ test("Extract: a real track pulled from a real version becomes a new, playable v
   await form.getByRole("radio", { name: "Vocals" }).check();
   await form.getByRole("button", { name: /create extract version/i }).click();
 
-  // ---- Real extraction runs (base-tier model, per the Phase 11 spike) ----
+  // ---- Real extraction runs (base-tier model, per the Phase 11 spike). If this times out, check that
+  // ACE-Step was started with ACESTEP_CONFIG_PATH2=acestep-v15-base (start-tunora.ps1 does): without it
+  // Tunora fails the Extract job on purpose (Phase 14). ----
   await expect(page.getByTestId("version-pending")).toBeVisible();
   await expect(page.getByRole("radio", { name: /^version 2 /i })).toBeChecked({ timeout: GENERATION_TIMEOUT_MS });
 
