@@ -68,3 +68,7 @@ Since Phase 16 the backend resumes unfinished jobs at startup: it looks up every
 ## Audio format of new Versions (FLAC)
 
 Since Phase 17 new Versions are generated as 16-bit FLAC (about 5x the size of the old 128 kbps MP3), so derived Versions are not re-encoded through lossy MP3. Existing MP3 Versions are untouched and keep working next to FLAC ones. The backend reads `TUNORA_AUDIO_FORMAT` (`flac` by default; `mp3` rolls new Versions back to MP3); any other value stops the backend at startup. This is an operator setting, not a user option.
+
+## Measuring GPU use and storage (developer tools)
+
+`docs/validation/gpu_envelope.py` runs real operations against a throwaway backend and samples `nvidia-smi` (observed peaks, not guaranteed hardware peaks); `backend/scripts/storage_report.py` is a read-only report of stored audio by format with a projection. Observed on the RTX 5060 Ti 16 GB with both ACE-Step models resident: single active generation, durations 10-180 s, peak 15,775 MiB (about 536 MiB headroom); do not load another GPU model beside ACE-Step. See `docs/validation/README.md` and `docs/PHASE-19-IMPLEMENTATION.md`.
