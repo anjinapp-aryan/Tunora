@@ -113,6 +113,42 @@ async def test_get_status_running(provider):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("stage", ["running", "Loading model...", "Generating music", "Decoding audio"])
+async def test_get_status_any_started_stage_text_means_running(provider, stage):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.post("/query_result").mock(
+            return_value=httpx.Response(200, json=_wrap([_query_result_item(0, stage, progress=0.4)]))
+        )
+        status = await provider.get_status("task-123")
+
+    assert status.status == JobState.RUNNING
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stage", ["queued", "", None])
+async def test_get_status_only_the_initial_stage_means_queued(provider, stage):
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.post("/query_result").mock(
+            return_value=httpx.Response(200, json=_wrap([_query_result_item(0, stage)]))
+        )
+        status = await provider.get_status("task-123")
+
+    assert status.status == JobState.QUEUED
+
+
+@pytest.mark.asyncio
+async def test_get_status_an_unknown_task_id_is_a_failure_not_a_queued_job(provider):
+    """ACE-Step answers an id it does not know (e.g. after its own restart) with status 0 and no result entry."""
+    unknown = {"task_id": "task-123", "result": "[]", "status": 0}
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.post("/query_result").mock(return_value=httpx.Response(200, json=_wrap([unknown])))
+        status = await provider.get_status("task-123")
+
+    assert status.status == JobState.FAILED
+    assert "does not know" in status.message
+
+
+@pytest.mark.asyncio
 async def test_get_status_failed(provider):
     with respx.mock(base_url=BASE_URL) as mock:
         mock.post("/query_result").mock(

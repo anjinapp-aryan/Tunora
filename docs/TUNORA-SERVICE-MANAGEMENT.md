@@ -56,3 +56,11 @@ Get-CimInstance Win32_Process -Filter "ProcessId = $p" | Select ProcessId, Name,
 - Both models load on the first request (the health check alone does not load them). Measured on the RTX 5060 Ti 16 GB: idle about 1.5 GB after start; both models plus the language model resident about 11.6 GB; peak about 14.9-15.3 GB during real generations (turbo only: about 10.2 GB). Headroom is about 1-1.4 GB.
 - If you start ACE-Step without the variable (for example a manual start), Extract jobs fail; Create, Extend, Remix, Repaint and Another Take are unaffected.
 - To free the extra VRAM you can drop the variable (Extract then fails visibly by design).
+
+## Restarting the backend while a generation is running
+
+Since Phase 16 the backend resumes unfinished jobs at startup: it looks up every job that is not COMPLETED or FAILED and keeps polling ACE-Step with the provider job id stored in the database (it never submits the generation again). Stopping only the backend (or `restart-tunora.ps1`) while a song is being generated therefore no longer strands the job: after the backend is back up the job finishes, its audio is stored and the Version appears as usual. Progress is logged as `job recovery ...` lines in the backend window.
+
+- A job that never reached ACE-Step (the backend stopped before ACE-Step accepted it) is marked failed on the next start; generate again.
+- If **ACE-Step** was restarted too, it no longer knows the job: the job is marked failed right away ("Generation failed."), nothing is regenerated automatically.
+- An Extract job that is recovered is still checked against the required base model (see the second-model section above).

@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Optional, Sequence
 
 from app.jobs.migrations import migrate
-from app.jobs.models import Job, JobStatus
+from app.jobs.models import TERMINAL_STATUSES, Job, JobStatus
 from app.projects.errors import ProjectNotFoundError
 from app.projects.models import Project, ProjectSongEntry, ProjectSummary
 from app.projects.repository import ProjectRepository
@@ -90,6 +90,11 @@ class JobRepository(SongRepository, ProjectRepository):
     def list(self, limit: int = 50) -> list[Job]: ...
 
     @abstractmethod
+    def list_unfinished(self) -> list[Job]:
+        """Every job that is not COMPLETED or FAILED, oldest first (restart recovery, Phase 16).
+        Unlike `list` this is neither windowed nor limited: a stranded job must never be missed."""
+
+    @abstractmethod
     def create_generation(self, *, new_song: Optional[Song], version: Version, job: Job) -> Version:
         """Atomically create (optionally) a Song, the next Version of it, and the Job.
 
@@ -146,6 +151,9 @@ class InMemoryJobRepository(JobRepository):
 
     def list(self, limit: int = 50) -> list[Job]:
         return sorted(self._jobs.values(), key=lambda j: j.created_at, reverse=True)[:limit]
+
+    def list_unfinished(self) -> list[Job]:
+        return sorted((j for j in self._jobs.values() if j.status not in TERMINAL_STATUSES), key=lambda j: j.created_at)
 
     def create_generation(self, *, new_song: Optional[Song], version: Version, job: Job) -> Version:
         with self._lock:
@@ -472,6 +480,15 @@ class SqliteJobRepository(JobRepository):
     def list(self, limit: int = 50) -> list[Job]:
         with self._connect() as conn:
             rows = conn.execute("SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        return [self._row_to_job(row) for row in rows]
+
+    def list_unfinished(self) -> list[Job]:
+        finished = tuple(status.value for status in TERMINAL_STATUSES)
+        marks = ",".join("?" for _ in finished)
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM jobs WHERE status NOT IN ({marks}) ORDER BY created_at ASC", finished
+            ).fetchall()
         return [self._row_to_job(row) for row in rows]
 
     # -- atomic domain writes ---------------------------------------------------------

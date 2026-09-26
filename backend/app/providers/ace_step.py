@@ -120,11 +120,20 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
         task_id = data.get("task_id") if isinstance(data, dict) else None
         if not task_id:
             raise ProviderResponseError("ACE-Step /release_task response is missing 'task_id'")
-        if request.operation == "EXTRACT":
-            if len(self._expected_models) >= self._EXPECTED_MODEL_LIMIT:
-                self._expected_models.pop(next(iter(self._expected_models)))
-            self._expected_models[str(task_id)] = self._EXTRACT_MODEL
+        self.register_recovered_job(str(task_id), request.operation)
         return GenerationJob(job_id=str(task_id), provider=self.name, status=JobState.QUEUED)
+
+    def register_recovered_job(self, job_id: str, operation: str) -> None:
+        """Remember which model an EXTRACT result must come from (Phase 14 check).
+
+        Used for a fresh submission and, unchanged, by restart recovery (Phase 16), so a recovered
+        Extract job is held to the same base-model requirement as one that never lost its process."""
+
+        if operation != "EXTRACT":
+            return
+        if len(self._expected_models) >= self._EXPECTED_MODEL_LIMIT:
+            self._expected_models.pop(next(iter(self._expected_models)))
+        self._expected_models[job_id] = self._EXTRACT_MODEL
 
     async def get_status(self, job_id: str) -> GenerationStatus:
         item = await self._query_result_item(job_id)
@@ -314,10 +323,21 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
             state = JobState.SUCCEEDED
         elif status_int == 2:
             state = JobState.FAILED
+        elif status_int == 0 and not result_list:
+            # ACE-Step answers an id it does not know (for example after ACE-Step itself restarted:
+            # its job store is in memory) with status 0 and an empty result list, while every real
+            # queued/running job carries a result entry with a `stage` (verified live, Phase 16).
+            # Without this the job would be polled as "queued" until Tunora's 30 minute ceiling.
+            state = JobState.FAILED
+            message = "ACE-Step does not know this job (it may have been restarted)."
         elif status_int == 0:
             # ACE-Step's STATUS_MAP collapses "queued" and "running" to the same
             # integer (0); only the per-item "stage" string disambiguates them.
-            state = JobState.RUNNING if stage == "running" else JobState.QUEUED
+            # `stage` is a free-text progress description once the job starts ("running",
+            # "Loading model...", ...); only the initial value is "queued" (acestep/api/jobs/store.py).
+            # Mapping every other text to QUEUED made a running job flip back to QUEUED, which the
+            # state machine rejects (found by the Phase 16 real restart test).
+            state = JobState.QUEUED if stage in (None, "", "queued") else JobState.RUNNING
         else:
             raise ProviderResponseError(
                 f"ACE-Step /query_result returned an unrecognized status code: {status_int!r}"

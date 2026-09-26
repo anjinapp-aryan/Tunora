@@ -89,6 +89,13 @@ class MusicGenerationProvider(ABC):
     async def generate(self, request: GenerationRequest) -> GenerationJob:
         """Submit a generation request and return the accepted job."""
 
+    def register_recovered_job(self, job_id: str, operation: str) -> None:
+        """Called by restart recovery (Phase 16) before polling a job this process did not submit.
+
+        A provider that remembers anything about a submission in memory (for example what its
+        result must satisfy) restores it here from the persisted `job_id` and `operation`.
+        Default: nothing to restore."""
+
     @abstractmethod
     async def get_status(self, job_id: str) -> GenerationStatus:
         """Return the current status of a previously submitted job."""

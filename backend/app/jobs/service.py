@@ -139,6 +139,7 @@ class JobService:
         self._storage = storage
         self._poll_interval_seconds = poll_interval_seconds
         self._max_poll_seconds = max_poll_seconds
+        self._polling: set[str] = set()  # job ids with an active polling loop (one per job)
         self._id_factory = id_factory
 
     # -- lifecycle -----------------------------------------------------------
@@ -320,9 +321,19 @@ class JobService:
         """Poll a job to a terminal state, sleeping between polls.
 
         Enforces Tunora's own timeout ceiling (independent of ACE-Step's own
-        server-side timeout) so a stuck job cannot poll forever.
+        server-side timeout) so a stuck job cannot poll forever. At most one loop polls a given
+        job at a time in this process: a second call returns the job's current state immediately.
         """
 
+        if job_id in self._polling:
+            return self.get(job_id)
+        self._polling.add(job_id)
+        try:
+            return await self._poll_to_terminal(job_id)
+        finally:
+            self._polling.discard(job_id)
+
+    async def _poll_to_terminal(self, job_id: str) -> Job:
         elapsed = 0.0
         while True:
             job = await self.poll_once(job_id)
@@ -335,6 +346,56 @@ class JobService:
                 return job
             await asyncio.sleep(self._poll_interval_seconds)
             elapsed += self._poll_interval_seconds
+
+    async def recover_unfinished_jobs(self) -> dict[str, int]:
+        """Resume every job a previous process left unfinished (Phase 16). Called once at startup.
+
+        Only the persisted `provider_job_id` is used: nothing is ever resubmitted, so no second
+        provider job, Version or audio file can result. A job that was never submitted (no
+        provider id) is failed. Each job is recovered independently: one bad job cannot stop the
+        others. Returns counts of what happened.
+        """
+
+        unfinished = self._repository.list_unfinished()
+        summary = {"found": len(unfinished), "resumed": 0, "completed": 0, "failed": 0, "unsubmitted": 0}
+        logger.info("job recovery started: %d unfinished job(s)", len(unfinished))
+        resumable: list[Job] = []
+        for job in unfinished:
+            if not job.provider_job_id:
+                self._fail(job, "Recovery: the job was never submitted to the provider.")
+                summary["unsubmitted"] += 1
+                logger.warning("job recovery: job_id=%s was never submitted; marked FAILED", job.id)
+                continue
+            try:
+                self._provider.register_recovered_job(job.provider_job_id, job.request.operation)
+            except Exception:  # noqa: BLE001 -- an unexpected provider bug must not stop other jobs
+                logger.exception("job recovery: could not restore provider state for job_id=%s", job.id)
+                self._fail(job, "Recovery: the provider state could not be restored.")
+                summary["failed"] += 1
+                continue
+            resumable.append(job)
+
+        outcomes = await asyncio.gather(*(self._recover_one(job) for job in resumable))
+        summary["resumed"] = len(resumable)
+        summary["completed"] = sum(1 for status in outcomes if status == JobStatus.COMPLETED)
+        summary["failed"] += sum(1 for status in outcomes if status != JobStatus.COMPLETED)
+        logger.info("job recovery finished: %s", summary)
+        return summary
+
+    async def _recover_one(self, job: Job) -> JobStatus:
+        logger.info("job recovery: resuming polling job_id=%s status=%s", job.id, job.status.value)
+        try:
+            recovered = await self.run_until_terminal(job.id)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 -- keep the failure local to this job
+            logger.exception("job recovery failed unexpectedly for job_id=%s", job.id)
+            current = self._repository.get(job.id)
+            if current is not None and current.status not in TERMINAL_STATUSES:
+                self._fail(current, "Recovery failed unexpectedly.")
+            return JobStatus.FAILED
+        logger.info("job recovery: job_id=%s finished as %s", job.id, recovered.status.value)
+        return recovered.status
 
     # -- reads -----------------------------------------------------------------
 
