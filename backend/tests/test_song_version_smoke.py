@@ -66,7 +66,7 @@ def test_real_generation_creates_song_version_1_then_version_2_without_touching_
         v1 = repository.get_version(j1["version_id"])
         v1_path = storage.get_path(v1.audio.key)
         v1_hash, v1_size = _sha(v1_path), v1_path.stat().st_size
-        assert v1_size > 0 and v1.audio.size_bytes == v1_size and v1.audio.media_type == "audio/mpeg"
+        assert v1_size > 0 and v1.audio.size_bytes == v1_size and v1.audio.media_type == "audio/flac"  # FLAC since Phase 17
         assert v1.spec.seed == 11 and v1.spec.instrumental is True and v1.provider == "ace-step"
         assert client.get(f"/api/jobs/{j1['id']}/audio").content == v1_path.read_bytes()
 

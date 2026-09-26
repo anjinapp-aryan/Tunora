@@ -47,6 +47,8 @@ from app.providers.base import (
     MusicGenerationProvider,
 )
 from app.providers.ace_step_http import unwrap_envelope
+from app.storage.filenames import ALLOWED_EXTENSIONS
+from app.storage.media_types import guess_media_type
 from app.providers.errors import (
     ProviderResponseError,
     ProviderTimeoutError,
@@ -77,6 +79,13 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
     # (Phase 14). Bounded: ids are removed when their result is read.
     _EXPECTED_MODEL_LIMIT = 1000
 
+    # Canonical output format for every generation (Phase 17): 16-bit FLAC, so a derived Version
+    # is never re-encoded through lossy MP3 (ACE-Step's REST default is 128 kbps MP3). MP3 stays
+    # selectable as a rollback lever. Only formats verified to produce a file here are accepted
+    # (opus/aac report success without writing a file in the tested deployment).
+    DEFAULT_AUDIO_FORMAT = "flac"
+    SUPPORTED_AUDIO_FORMATS = frozenset({"flac", "mp3"})
+
     def __init__(
         self,
         base_url: str = "http://127.0.0.1:8001",
@@ -84,7 +93,11 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
         default_model: Optional[str] = None,
         request_timeout: float = 30.0,
         client: Optional[httpx.AsyncClient] = None,
+        audio_format: str = DEFAULT_AUDIO_FORMAT,
     ) -> None:
+        if audio_format not in self.SUPPORTED_AUDIO_FORMATS:
+            raise ValueError(f"Unsupported audio format {audio_format!r}; use one of {sorted(self.SUPPORTED_AUDIO_FORMATS)}")
+        self._audio_format = audio_format
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._default_model = default_model
@@ -223,6 +236,7 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
             "prompt": request.prompt,
             "lyrics": "" if request.instrumental else request.lyrics,
             "vocal_language": request.language,
+            "audio_format": self._audio_format,
         }
         if request.duration is not None and request.operation in self._TEXT_TO_MUSIC_OPERATIONS:
             payload["audio_duration"] = request.duration
@@ -372,15 +386,21 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
         rather than referenced. Bytes are read from a trusted AudioStorage path.
         """
 
+        source = Path(request.source_audio_path)
         try:
-            audio_bytes = Path(request.source_audio_path).read_bytes()
+            audio_bytes = source.read_bytes()
         except OSError as exc:
             raise ProviderResponseError("Source audio could not be read") from exc
+        # Upload under the stored file's real extension and type (ACE-Step decodes by content, but the
+        # name/type should not lie): `source.flac`/audio/flac for a FLAC Version, `source.mp3` for MP3.
+        suffix = source.suffix.lower() if source.suffix.lower() in ALLOWED_EXTENSIONS else ".mp3"
+        upload_name = f"source{suffix}"
+        upload_type = guess_media_type(upload_name)
         form = {k: ("true" if v is True else "false" if v is False else str(v)) for k, v in fields.items()}
         url = f"{self._base_url}{path}"
         try:
             response = await self._client.post(
-                url, data=form, files={"src_audio": ("source.mp3", audio_bytes, "audio/mpeg")}, headers=self._headers()
+                url, data=form, files={"src_audio": (upload_name, audio_bytes, upload_type)}, headers=self._headers()
             )
         except httpx.TimeoutException as exc:
             raise ProviderTimeoutError(f"ACE-Step request to {path} timed out") from exc

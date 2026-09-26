@@ -72,7 +72,7 @@ def test_real_job_lifecycle_end_to_end(tmp_path):
         audio = final["result"]["audio"]
         # The API exposes a storage key, never a filesystem path.
         assert "absolute_path" not in audio
-        assert audio["key"] == f"{job_id}/{job_id}.mp3"
+        assert audio["key"] == f"{job_id}/{job_id}.flac"  # FLAC is the canonical format since Phase 17
 
         resolved_path = storage.get_path(audio["key"])
         assert os.path.isfile(resolved_path), f"Audio file does not exist on disk: {resolved_path}"

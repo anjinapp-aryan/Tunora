@@ -56,6 +56,19 @@ describe("DownloadButton", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/jobs/tunora-1/audio", expect.objectContaining({ cache: "no-store" }));
   });
 
+  it("offers and saves a FLAC Version under its .flac filename (Phase 17), MP3 unchanged", async () => {
+    const flac = { ...resource, filename: "tunora-2.flac", mediaType: "audio/flac", sizeBytes: 874421, url: "/api/jobs/tunora-2/audio" };
+    fetchMock.mockResolvedValue(new Response("fLaC-bytes", { status: 200, headers: { "content-type": "audio/flac" } }));
+    render(<DownloadButton resource={flac} />);
+    expect(screen.getByRole("button", { name: /download flac \(854 kb\)/i })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole("button", { name: /download flac/i }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Download started.");
+    expect(clicks).toEqual([{ download: "tunora-2.flac" }]);
+    expect(fetchMock).toHaveBeenCalledWith("/api/jobs/tunora-2/audio", expect.objectContaining({ cache: "no-store" }));
+  });
+
   it("shows a loading state, is disabled and busy, and prevents duplicate downloads", async () => {
     let resolve!: (r: Response) => void;
     fetchMock.mockReturnValue(new Promise<Response>((r) => (resolve = r)));

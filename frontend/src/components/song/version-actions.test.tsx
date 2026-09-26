@@ -359,6 +359,21 @@ describe("Version actions", () => {
     expect(screen.getByTestId("audio-player")).toHaveAttribute("data-audio-url", "/api/jobs/tunora-job-1/audio");
   });
 
+  // -- Phase 17: FLAC Versions use the same player, list and download as MP3 ones ------------------------
+
+  it("a FLAC Version and an MP3 Version of one Song both play and download through the existing UI", async () => {
+    const flac = { filename: "t2.flac", media_type: "audio/flac", size_bytes: 874421, audio_url: "/api/jobs/tunora-job-2/audio" };
+    setup({ versions: [version(1), version(2, { operation: "ANOTHER_TAKE", source_version_number: 1, audio: flac, duration: 20 })] });
+
+    await screen.findByTestId("version-actions");
+    expect(await screen.findByRole("button", { name: /download flac/i })).toBeInTheDocument(); // Version 2 (latest) is FLAC
+    expect(screen.getByTestId("audio-player")).toHaveAttribute("data-audio-url", "/api/jobs/tunora-job-2/audio");
+
+    await userEvent.click(screen.getByRole("radio", { name: /^version 1 /i })); // the older MP3 Version
+    expect(await screen.findByRole("button", { name: /download mp3/i })).toBeInTheDocument();
+    expect(screen.getByTestId("audio-player")).toHaveAttribute("data-audio-url", "/api/jobs/tunora-job-1/audio");
+  });
+
   // -- Phase 13: Another Take ------------------------------------------------------------------
 
   it("offers an Another Take button with an accessible name, next to the other actions", async () => {

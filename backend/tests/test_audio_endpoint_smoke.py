@@ -59,7 +59,7 @@ def test_real_generation_then_audio_endpoint(tmp_path):
         # Only the Tunora job id is needed to get the audio.
         audio = client.get(f"/api/jobs/{job_id}/audio")
         assert audio.status_code == 200
-        assert audio.headers["content-type"] == job["result"]["audio"]["media_type"] == "audio/mpeg"
+        assert audio.headers["content-type"] == job["result"]["audio"]["media_type"] == "audio/flac"  # FLAC is the canonical format since Phase 17
         assert int(audio.headers["content-length"]) > 0
         assert len(audio.content) == int(audio.headers["content-length"]) == job["result"]["audio"]["size_bytes"]
 

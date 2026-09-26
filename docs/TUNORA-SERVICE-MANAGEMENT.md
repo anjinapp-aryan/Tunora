@@ -64,3 +64,7 @@ Since Phase 16 the backend resumes unfinished jobs at startup: it looks up every
 - A job that never reached ACE-Step (the backend stopped before ACE-Step accepted it) is marked failed on the next start; generate again.
 - If **ACE-Step** was restarted too, it no longer knows the job: the job is marked failed right away ("Generation failed."), nothing is regenerated automatically.
 - An Extract job that is recovered is still checked against the required base model (see the second-model section above).
+
+## Audio format of new Versions (FLAC)
+
+Since Phase 17 new Versions are generated as 16-bit FLAC (about 5x the size of the old 128 kbps MP3), so derived Versions are not re-encoded through lossy MP3. Existing MP3 Versions are untouched and keep working next to FLAC ones. The backend reads `TUNORA_AUDIO_FORMAT` (`flac` by default; `mp3` rolls new Versions back to MP3); any other value stops the backend at startup. This is an operator setting, not a user option.

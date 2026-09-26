@@ -12,6 +12,10 @@ const POLL_INTERVAL_MS = 2000;
 // Where the backend stores audio (set to compare the downloaded bytes with the stored file).
 const STORAGE_ROOT = process.env.E2E_STORAGE_ROOT;
 
+// New Versions are FLAC since Phase 17 (the backend's TUNORA_AUDIO_FORMAT can roll back to "mp3": set E2E_AUDIO_FORMAT=mp3).
+const AUDIO_FORMAT = process.env.E2E_AUDIO_FORMAT === "mp3" ? "mp3" : "flac";
+const AUDIO_TYPE = AUDIO_FORMAT === "mp3" ? "audio/mpeg" : "audio/flac";
+
 const INTERNAL_ANYWHERE = /v1\/audio|:8001|absolute_path|\.cache|8741640e|provider_job_id/;
 // A single drive letter not preceded by another letter (so "http://" does not match).
 const INTERNAL_PATH = /(?<![A-Za-z])[A-Za-z]:[\\/]/;
@@ -206,14 +210,15 @@ async function expectPlayableAudio(page: Page, jobId: string): Promise<number> {
  */
 async function expectDownloadMatchesStoredAudio(page: Page, request: APIRequestContext, job: Job) {
   const audioMeta = job.result!.audio;
-  const downloadButton = page.getByRole("button", { name: /^download mp3/i });
+  const downloadButton = page.getByRole("button", { name: /^download (mp3|flac)/i });
   await expect(downloadButton).toBeVisible();
   await expect(downloadButton).toBeEnabled();
 
   const [download] = await Promise.all([page.waitForEvent("download"), downloadButton.click()]);
-  expect(audioMeta.filename).toBe(`${job.id}.mp3`); // one filename contract, from the backend
+  expect(audioMeta.filename).toBe(`${job.id}.${AUDIO_FORMAT}`); // one filename contract, from the backend
   expect(download.suggestedFilename()).toBe(audioMeta.filename);
-  expect(download.suggestedFilename()).toMatch(/^[A-Za-z0-9][A-Za-z0-9._-]*\.mp3$/);
+  expect(download.suggestedFilename()).toMatch(new RegExp(`^[A-Za-z0-9][A-Za-z0-9._-]*[.]${AUDIO_FORMAT}$`));
+  expect(audioMeta.media_type).toBe(AUDIO_TYPE);
 
   const startedNotice = page.getByRole("status").filter({ hasText: "Download started." });
   await expect(startedNotice).toBeVisible();
@@ -229,7 +234,7 @@ async function expectDownloadMatchesStoredAudio(page: Page, request: APIRequestC
   // The file the browser saved is exactly what the trusted route serves...
   const served = await request.get(`${NEXT}/api/jobs/${job.id}/audio`);
   expect(served.status()).toBe(200);
-  expect(served.headers()["content-type"]).toBe("audio/mpeg");
+  expect(served.headers()["content-type"]).toBe(AUDIO_TYPE);
   expect(Number(served.headers()["content-length"])).toBe(downloadedBytes.length);
   expect(Buffer.compare(downloadedBytes, await served.body())).toBe(0);
   // ...and exactly what Tunora stored on disk (when the test knows the storage root).
@@ -271,7 +276,7 @@ async function expectFitsViewport(page: Page, width: number, controls: Locator[]
 
 const songPageControls = (page: Page) => [
   page.getByRole("button", { name: /^(Play|Pause)$/ }),
-  page.getByRole("button", { name: /^download mp3/i }),
+  page.getByRole("button", { name: /^download (mp3|flac)/i }),
   page.getByRole("slider", { name: "Seek" }),
   page.getByRole("slider", { name: "Volume" }),
   page.getByTestId("player-time"),
@@ -282,7 +287,7 @@ const songPageControls = (page: Page) => [
 
 const playerControls = (page: Page) => [
   page.getByRole("button", { name: /^(Play|Pause)$/ }),
-  page.getByRole("button", { name: /^download mp3/i }),
+  page.getByRole("button", { name: /^download (mp3|flac)/i }),
   page.getByTestId("audio-saved"),
   page.getByRole("slider", { name: "Seek" }),
   page.getByRole("slider", { name: "Volume" }),
@@ -424,7 +429,7 @@ test("a song whose stored audio disappeared: safe 500 everywhere, no path leak",
   fs.unlinkSync(storedAudioPath(job));
 
   // ---- The UI reports it honestly and safely ----
-  await page.getByRole("button", { name: /^download mp3/i }).click();
+  await page.getByRole("button", { name: /^download (mp3|flac)/i }).click();
   const alert = page.getByTestId("download-error");
   await expect(alert).toHaveText("Audio is temporarily unavailable.");
   expect(await alert.innerText()).not.toMatch(INTERNAL_PATH);

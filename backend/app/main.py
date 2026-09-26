@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 DB_PATH = os.environ.get("TUNORA_DB_PATH", "tunora.db")
 ACE_STEP_BASE_URL = os.environ.get("ACE_STEP_BASE_URL", "http://127.0.0.1:8001")
+# Canonical audio format for new Versions (Phase 17): "flac" (default) or "mp3" as a rollback lever.
+AUDIO_FORMAT = os.environ.get("TUNORA_AUDIO_FORMAT", AceStepMusicGenerationProvider.DEFAULT_AUDIO_FORMAT)
 STORAGE_ROOT = os.environ.get("TUNORA_STORAGE_ROOT", "./data/audio")
 
 
@@ -45,7 +47,7 @@ async def _recover_jobs(service: JobService) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    provider = AceStepMusicGenerationProvider(base_url=ACE_STEP_BASE_URL)
+    provider = AceStepMusicGenerationProvider(base_url=ACE_STEP_BASE_URL, audio_format=AUDIO_FORMAT)
     repository = SqliteJobRepository(DB_PATH)
     storage = LocalAudioStorage(STORAGE_ROOT)
     app.state.job_service = JobService(repository=repository, provider=provider, storage=storage)
