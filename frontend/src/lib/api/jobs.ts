@@ -12,6 +12,9 @@ export type JobStatus =
   | "FAILED";
 
 export interface CreateJobPayload {
+  title?: string | null;
+  /** Puts a brand-new song in this Project (Phase 6). Ignored if a song_id is given. */
+  project_id?: string | null;
   prompt: string;
   lyrics: string;
   language: string;
@@ -45,6 +48,11 @@ export interface JobResult {
 
 export interface GenerationJob {
   id: string;
+  title: string;
+  /** Tunora ids of the Song/Version this job generates; null for jobs created before versions existed. */
+  song_id?: string | null;
+  version_id?: string | null;
+  version_number?: number | null;
   provider: string;
   status: JobStatus;
   created_at: string;

@@ -45,7 +45,7 @@ def test_create_job_returns_tunora_shape_only():
     assert response.status_code == 200
     body = response.json()
     assert set(body.keys()) == {
-        "id", "provider", "status", "created_at", "submitted_at",
+        "id", "title", "song_id", "version_id", "version_number", "provider", "status", "created_at", "submitted_at",
         "started_at", "completed_at", "error", "result",
     }
     assert body["status"] == "SUBMITTED"
@@ -105,3 +105,17 @@ def test_create_job_with_provider_failure_returns_failed_status_not_error():
     # Step 16: raw failure text stays server-side; the API returns a fixed message.
     assert response.json()["error"] == "Generation failed."
     assert "connection refused" not in response.text
+
+
+def test_create_job_accepts_an_optional_title_and_derives_one_otherwise():
+    provider = FakeProvider()
+    provider.generate_response = GenerationJob(job_id="ace-task-9", provider="ace-step", status=JobState.QUEUED)
+    provider.status_responses = [GenerationStatus(job_id="ace-task-9", status=JobState.FAILED, message="stub")] * 4
+    client = _make_client(provider)
+
+    named = client.post("/api/jobs", json={"prompt": "quiet piano piece", "title": "  Evening   Rain "}).json()
+    derived = client.post("/api/jobs", json={"prompt": "quiet piano piece for a rainy evening walk home"}).json()
+
+    assert named["title"] == "Evening Rain"
+    assert derived["title"] == "Quiet piano piece for a rainy"
+    assert "tunora-" not in named["title"] + derived["title"]

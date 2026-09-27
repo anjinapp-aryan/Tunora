@@ -54,3 +54,6 @@ class Job:
     provider_job_id: Optional[str] = None
     error: Optional[str] = None
     result: Optional[dict[str, Any]] = None
+    title: str = ""
+    # The Version this job generates (see app.songs). A Job is only the execution.
+    version_id: Optional[str] = None

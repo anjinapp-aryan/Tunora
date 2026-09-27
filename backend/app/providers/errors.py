@@ -20,3 +20,7 @@ class ProviderTimeoutError(ProviderError):
 
 class ProviderResponseError(ProviderError):
     """The provider returned a response Tunora could not parse or did not expect."""
+
+
+class UnsupportedOperationError(ProviderError):
+    """The provider cannot perform the requested creative operation."""

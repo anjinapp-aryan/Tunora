@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { downloadLabel, formatBytes } from "./format-bytes";
+import { downloadLabel, formatBytes, formatLabel } from "./format-bytes";
 
 describe("formatBytes", () => {
   it.each([
@@ -21,5 +21,14 @@ describe("downloadLabel", () => {
     expect(downloadLabel("audio/wav")).toBe("Download WAV");
     expect(downloadLabel("audio/flac")).toBe("Download FLAC");
     expect(downloadLabel("application/octet-stream")).toBe("Download audio");
+  });
+});
+
+describe("formatLabel", () => {
+  it("names known formats and falls back to Original", () => {
+    expect(formatLabel("audio/mpeg")).toBe("MP3");
+    expect(formatLabel("audio/wav")).toBe("WAV");
+    expect(formatLabel("audio/flac")).toBe("FLAC");
+    expect(formatLabel("application/octet-stream")).toBe("Original");
   });
 });

@@ -27,9 +27,9 @@ class StoredAudio:
 class AudioStorage(ABC):
     """Interface for persisting generated audio artifacts.
 
-    Deliberately minimal: only what Step 13 actually needs. `delete()` and
-    byte-streaming `get()` are not included — nothing in Phase 3 requires
-    them yet, and adding them now would be speculative.
+    Deliberately minimal: byte-streaming `get()` is not included — nothing
+    requires it yet, and adding it now would be speculative. `delete()` (Phase 9)
+    was added once Song deletion made it a genuine, not speculative, need.
     """
 
     @abstractmethod
@@ -52,3 +52,13 @@ class AudioStorage(ABC):
     @abstractmethod
     def exists(self, key: str) -> bool:
         """Return whether an artifact exists at `key`."""
+
+    @abstractmethod
+    def delete(self, key: str) -> None:
+        """Permanently remove the artifact at `key` (and any now-empty directory it
+        leaves behind). Idempotent: deleting a key that doesn't exist is a no-op,
+        not an error, so a repeated or partially-completed deletion stays safe.
+        Raises `InvalidStorageKeyError`/`PathTraversalError` for a malformed key,
+        exactly like `get_path` -- a key is never allowed to resolve outside the
+        storage root, whether reading or deleting.
+        """

@@ -85,12 +85,15 @@ export function JobTracker({ jobId }: { jobId: string }) {
   const prompt = useRememberedPrompt(jobId);
 
   const idLine = (
-    <p className="mt-6 text-xs text-muted-foreground">
-      Job ID
-      <code data-testid="job-id" className="mt-1 block break-all font-mono text-sm text-foreground">
-        {jobId}
-      </code>
-    </p>
+    <details className="mt-6 text-xs text-muted-foreground">
+      <summary className="cursor-pointer">Details</summary>
+      <p className="mt-2">
+        Job ID
+        <code data-testid="job-id" className="mt-1 block break-all font-mono text-sm text-foreground">
+          {jobId}
+        </code>
+      </p>
+    </details>
   );
 
   if (notFound) {
@@ -134,6 +137,11 @@ export function JobTracker({ jobId }: { jobId: string }) {
         <h1 id="job-heading" className="text-2xl font-semibold tracking-tight">
           {heading}
         </h1>
+        {job?.title && (
+          <p data-testid="song-title" className="mt-1 text-lg font-medium [overflow-wrap:anywhere]">
+            {job.title}
+          </p>
+        )}
         {prompt && (
           <p className="mt-2 text-sm text-muted-foreground" data-testid="job-prompt">
             “{prompt}”

@@ -80,6 +80,17 @@ class LocalAudioStorage(AudioStorage):
             return False
         return path.is_file()
 
+    def delete(self, key: str) -> None:
+        path = self.get_path(key)  # raises PathTraversalError/InvalidStorageKeyError first
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass  # already gone -- deleting is idempotent, not an error
+        try:
+            path.parent.rmdir()  # each job/version has its own directory; remove it once empty
+        except OSError:
+            pass  # not empty (a companion file exists) or already removed -- either is fine
+
     # -- internals ---------------------------------------------------------
 
     def _validate_source(self, source: Path) -> None:

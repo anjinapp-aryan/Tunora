@@ -64,6 +64,8 @@ class FakeAudioStorage(AudioStorage):
     def __init__(self) -> None:
         self.save_response: "StoredAudio | Exception | None" = None
         self.save_calls: list[tuple[str, str, str]] = []
+        self.delete_calls: list[str] = []
+        self.delete_response: "Exception | None" = None
 
     def save(self, source_path, *, job_id: str, media_type: str) -> StoredAudio:
         self.save_calls.append((str(source_path), job_id, media_type))
@@ -84,3 +86,8 @@ class FakeAudioStorage(AudioStorage):
 
     def exists(self, key: str) -> bool:
         return True
+
+    def delete(self, key: str) -> None:
+        self.delete_calls.append(key)
+        if self.delete_response is not None:
+            raise self.delete_response

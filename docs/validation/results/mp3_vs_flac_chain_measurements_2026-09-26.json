@@ -1,0 +1,146 @@
+{
+ "region": "0-10 s of a 20 s song (untouched by every Repaint of 12-18 s)",
+ "rows": [
+  {
+   "file": "lossless master",
+   "snr_vs_master_db": null,
+   "rms_db": -16.2,
+   "peak_db": -1.0,
+   "bands": {
+    "lt_250hz": 0.6598,
+    "250hz_2khz": 0.2623,
+    "2_6khz": 0.0461,
+    "6_16khz": 0.0311,
+    "gt_16khz": 0.0007
+   }
+  },
+  {
+   "file": "mp3 chain, generation 0 (the source)",
+   "bytes": 321068,
+   "snr_vs_master_db": 17.8,
+   "level_change_db": 0.36,
+   "snr_after_level_match_db": 18.2,
+   "rms_db": -16.63,
+   "peak_db": -1.44,
+   "bands": {
+    "lt_250hz": 0.6575,
+    "250hz_2khz": 0.261,
+    "2_6khz": 0.0471,
+    "6_16khz": 0.0344,
+    "gt_16khz": 0.0
+   }
+  },
+  {
+   "file": "mp3 chain, generation 1",
+   "bytes": 321068,
+   "snr_vs_master_db": 12.6,
+   "level_change_db": 1.81,
+   "snr_after_level_match_db": 16.9,
+   "rms_db": -18.1,
+   "peak_db": -2.92,
+   "bands": {
+    "lt_250hz": 0.6588,
+    "250hz_2khz": 0.2617,
+    "2_6khz": 0.0478,
+    "6_16khz": 0.0317,
+    "gt_16khz": 0.0
+   }
+  },
+  {
+   "file": "mp3 chain, generation 2",
+   "bytes": 321068,
+   "snr_vs_master_db": 12.4,
+   "level_change_db": 1.72,
+   "snr_after_level_match_db": 15.9,
+   "rms_db": -18.04,
+   "peak_db": -2.43,
+   "bands": {
+    "lt_250hz": 0.661,
+    "250hz_2khz": 0.2621,
+    "2_6khz": 0.0472,
+    "6_16khz": 0.0296,
+    "gt_16khz": 0.0
+   }
+  },
+  {
+   "file": "mp3 chain, generation 3",
+   "bytes": 321068,
+   "snr_vs_master_db": 9.2,
+   "level_change_db": 3.19,
+   "snr_after_level_match_db": 15.3,
+   "rms_db": -19.52,
+   "peak_db": -3.75,
+   "bands": {
+    "lt_250hz": 0.6638,
+    "250hz_2khz": 0.2621,
+    "2_6khz": 0.0471,
+    "6_16khz": 0.027,
+    "gt_16khz": 0.0
+   }
+  },
+  {
+   "file": "flac chain, generation 0 (the source)",
+   "bytes": 2250196,
+   "snr_vs_master_db": 243.6,
+   "level_change_db": 0.0,
+   "snr_after_level_match_db": 243.6,
+   "rms_db": -16.2,
+   "peak_db": -1.0,
+   "bands": {
+    "lt_250hz": 0.6598,
+    "250hz_2khz": 0.2623,
+    "2_6khz": 0.0461,
+    "6_16khz": 0.0311,
+    "gt_16khz": 0.0007
+   }
+  },
+  {
+   "file": "flac chain, generation 1",
+   "bytes": 2206540,
+   "snr_vs_master_db": 22.8,
+   "level_change_db": 0.65,
+   "snr_after_level_match_db": 84.3,
+   "rms_db": -16.85,
+   "peak_db": -1.65,
+   "bands": {
+    "lt_250hz": 0.6598,
+    "250hz_2khz": 0.2623,
+    "2_6khz": 0.0461,
+    "6_16khz": 0.0311,
+    "gt_16khz": 0.0007
+   }
+  },
+  {
+   "file": "flac chain, generation 2",
+   "bytes": 2167304,
+   "snr_vs_master_db": 15.2,
+   "level_change_db": 1.65,
+   "snr_after_level_match_db": 80.3,
+   "rms_db": -17.85,
+   "peak_db": -2.65,
+   "bands": {
+    "lt_250hz": 0.6598,
+    "250hz_2khz": 0.2623,
+    "2_6khz": 0.0461,
+    "6_16khz": 0.0311,
+    "gt_16khz": 0.0007
+   }
+  },
+  {
+   "file": "flac chain, generation 3",
+   "bytes": 2131430,
+   "snr_vs_master_db": 11.6,
+   "level_change_db": 2.65,
+   "snr_after_level_match_db": 78.2,
+   "rms_db": -18.85,
+   "peak_db": -3.65,
+   "bands": {
+    "lt_250hz": 0.6598,
+    "250hz_2khz": 0.2623,
+    "2_6khz": 0.0461,
+    "6_16khz": 0.0311,
+    "gt_16khz": 0.0007
+   }
+  }
+ ]
+}

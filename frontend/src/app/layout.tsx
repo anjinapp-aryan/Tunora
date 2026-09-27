@@ -31,6 +31,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               TUNORA
             </Link>
             <span className="ml-3 hidden text-xs text-muted-foreground sm:inline">AI Music Studio</span>
+            <nav aria-label="Main" className="ml-auto flex gap-5 text-sm">
+              <Link href="/create" className="text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">Create</Link>
+              <Link href="/library" className="text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">Library</Link>
+              <Link href="/projects" className="text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">Projects</Link>
+            </nav>
           </div>
         </header>
         <main className="flex-1">{children}</main>

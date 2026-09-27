@@ -118,7 +118,7 @@ No files modified — this is a new `backend/` directory; nothing pre-existing i
 
 ### Real ACE-Step smoke test (`uv run pytest tests -m smoke`)
 
-**VERIFIED — 1/1 PASSED**, run twice against the real local ACE-Step API server (started via `uv run acestep-api`, `acestep-v15-turbo` DiT + `acestep-5Hz-lm-1.7B` LM per `.env`, RTX 5060 Ti).
+**VERIFIED — 1/1 PASSED**, run twice against the real local ACE-Step API server (started via `uv run acestep-api` (Phase 14 note: Extract additionally needs `ACESTEP_CONFIG_PATH2=acestep-v15-base`, set by `tunora-services.ps1`), `acestep-v15-turbo` DiT + `acestep-5Hz-lm-1.7B` LM per `.env`, RTX 5060 Ti).
 
 - **Run 1** (cold-ish, model already resident from prior manual testing): submitted a 10s instrumental job, polled to `SUCCEEDED`, `get_result()` initially failed — `os.path.isfile()` returned `False` because `audio_path` was still the raw `/v1/audio?path=...` route string (the bug described above). This is what surfaced the `file`-field discovery.
 - Fixed `AceStepMusicGenerationProvider` to recover the real filesystem path, added a unit test reproducing the exact real-world `file` value, reran mocked suite (17/17 still pass) and the smoke test again.

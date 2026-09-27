@@ -1,0 +1,261 @@
+[
+ {
+  "operation": "Create 10 s",
+  "status": "COMPLETED",
+  "seconds": 15.8,
+  "before_mib": 13214,
+  "peak_mib": 15423,
+  "after_mib": 12281,
+  "max_gpu_util_pct": 98,
+  "samples": 29,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 2.5,
+  "note": ""
+ },
+ {
+  "operation": "Create 30 s",
+  "status": "COMPLETED",
+  "seconds": 15.2,
+  "before_mib": 13131,
+  "peak_mib": 15355,
+  "after_mib": 12283,
+  "max_gpu_util_pct": 98,
+  "samples": 28,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 1.6,
+  "note": ""
+ },
+ {
+  "operation": "Create 60 s",
+  "status": "COMPLETED",
+  "seconds": 15.6,
+  "before_mib": 13132,
+  "peak_mib": 15370,
+  "after_mib": 12279,
+  "max_gpu_util_pct": 98,
+  "samples": 28,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 1.9,
+  "note": ""
+ },
+ {
+  "operation": "Create 180 s",
+  "status": "COMPLETED",
+  "seconds": 27.5,
+  "before_mib": 13127,
+  "peak_mib": 15370,
+  "after_mib": 12266,
+  "max_gpu_util_pct": 100,
+  "samples": 50,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 1.5,
+  "note": ""
+ },
+ {
+  "operation": "Extend +30 s (from 30 s)",
+  "status": "COMPLETED",
+  "seconds": 12.5,
+  "before_mib": 12274,
+  "peak_mib": 15716,
+  "after_mib": 12038,
+  "max_gpu_util_pct": 99,
+  "samples": 23,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 1.9,
+  "note": ""
+ },
+ {
+  "operation": "Remix (from 30 s)",
+  "status": "COMPLETED",
+  "seconds": 9.4,
+  "before_mib": 12037,
+  "peak_mib": 14503,
+  "after_mib": 11707,
+  "max_gpu_util_pct": 100,
+  "samples": 17,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 1.6,
+  "note": ""
+ },
+ {
+  "operation": "Repaint 10-20 s (from 30 s)",
+  "status": "COMPLETED",
+  "seconds": 9.3,
+  "before_mib": 11707,
+  "peak_mib": 14171,
+  "after_mib": 12120,
+  "max_gpu_util_pct": 98,
+  "samples": 17,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 2.6,
+  "note": ""
+ },
+ {
+  "operation": "Extract vocals (from 30 s)",
+  "status": "COMPLETED",
+  "seconds": 10.0,
+  "before_mib": 12120,
+  "peak_mib": 14581,
+  "after_mib": 12113,
+  "max_gpu_util_pct": 100,
+  "samples": 18,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 2.4,
+  "note": ""
+ },
+ {
+  "operation": "Extract drums (from 30 s)",
+  "status": "COMPLETED",
+  "seconds": 9.4,
+  "before_mib": 12113,
+  "peak_mib": 14577,
+  "after_mib": 12122,
+  "max_gpu_util_pct": 100,
+  "samples": 17,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 2.7,
+  "note": ""
+ },
+ {
+  "operation": "Extract bass (from 30 s)",
+  "status": "COMPLETED",
+  "seconds": 9.9,
+  "before_mib": 12122,
+  "peak_mib": 14586,
+  "after_mib": 12139,
+  "max_gpu_util_pct": 100,
+  "samples": 18,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 3.4,
+  "note": ""
+ },
+ {
+  "operation": "Extract guitar (from 30 s)",
+  "status": "COMPLETED",
+  "seconds": 9.4,
+  "before_mib": 12140,
+  "peak_mib": 14604,
+  "after_mib": 12140,
+  "max_gpu_util_pct": 94,
+  "samples": 17,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 5.1,
+  "note": ""
+ },
+ {
+  "operation": "Another Take (from 30 s)",
+  "status": "COMPLETED",
+  "seconds": 15.6,
+  "before_mib": 12990,
+  "peak_mib": 14933,
+  "after_mib": 12055,
+  "max_gpu_util_pct": 98,
+  "samples": 28,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 4.2,
+  "note": ""
+ },
+ {
+  "operation": "Extract drums (from 180 s)",
+  "status": "COMPLETED",
+  "seconds": 18.3,
+  "before_mib": 12055,
+  "peak_mib": 15775,
+  "after_mib": 11875,
+  "max_gpu_util_pct": 100,
+  "samples": 33,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 3.3,
+  "note": ""
+ },
+ {
+  "operation": "Repaint 60-90 s (from 180 s)",
+  "status": "COMPLETED",
+  "seconds": 24.5,
+  "before_mib": 11878,
+  "peak_mib": 15773,
+  "after_mib": 12055,
+  "max_gpu_util_pct": 100,
+  "samples": 44,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ],
+  "ram_free_gb": 3.9,
+  "note": ""
+ },
+ {
+  "operation": "2 concurrent Creates (30 s each)",
+  "status": [
+   "COMPLETED",
+   "COMPLETED"
+  ],
+  "seconds_each_finished": [
+   15.3,
+   30.5
+  ],
+  "ace_step_max_running_at_once": 1,
+  "before_mib": 12915,
+  "peak_mib": 14682,
+  "after_mib": 12111,
+  "max_gpu_util_pct": 97,
+  "samples": 55,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ]
+ },
+ {
+  "operation": "60 s Create with backend kill/restart (recovery)",
+  "status": "COMPLETED",
+  "seconds": 18.4,
+  "before_mib": 12961,
+  "peak_mib": 14673,
+  "after_mib": 12112,
+  "max_gpu_util_pct": 98,
+  "samples": 33,
+  "models_loaded": [
+   "acestep-v15-base",
+   "acestep-v15-turbo"
+  ]
+ }
+]

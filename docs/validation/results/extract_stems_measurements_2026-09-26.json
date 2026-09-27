@@ -1,0 +1,105 @@
+[
+ {
+  "item": "mix",
+  "seconds": 30.0,
+  "rms_db": -17.7,
+  "peak_db": -1.0,
+  "silent_frames_below_-60db": 0.073,
+  "silent_frames_below_-45db": 0.107,
+  "bands": {
+   "lt_250hz": 0.661,
+   "250hz_2khz": 0.2684,
+   "2_6khz": 0.0565,
+   "6_16khz": 0.0137,
+   "gt_16khz": 0.0003
+  },
+  "spectral_centroid_hz": 566.0,
+  "onsets_per_second": 2.6,
+  "stereo_correlation": 0.607
+ },
+ {
+  "item": "vocals",
+  "seconds": 30.0,
+  "rms_db": -19.49,
+  "peak_db": -1.0,
+  "silent_frames_below_-60db": 0.0,
+  "silent_frames_below_-45db": 0.16,
+  "bands": {
+   "lt_250hz": 0.9785,
+   "250hz_2khz": 0.0202,
+   "2_6khz": 0.0012,
+   "6_16khz": 0.0,
+   "gt_16khz": 0.0
+  },
+  "spectral_centroid_hz": 127.0,
+  "onsets_per_second": 2.5,
+  "stereo_correlation": 0.992,
+  "correlation_with_mix": 0.365,
+  "energy_share_of_mix_db": -0.9
+ },
+ {
+  "item": "drums",
+  "seconds": 30.0,
+  "rms_db": -24.12,
+  "peak_db": -1.0,
+  "silent_frames_below_-60db": 0.0,
+  "silent_frames_below_-45db": 0.26,
+  "bands": {
+   "lt_250hz": 0.8478,
+   "250hz_2khz": 0.092,
+   "2_6khz": 0.043,
+   "6_16khz": 0.017,
+   "gt_16khz": 0.0002
+  },
+  "spectral_centroid_hz": 452.0,
+  "onsets_per_second": 2.07,
+  "stereo_correlation": 0.933,
+  "correlation_with_mix": 0.467,
+  "energy_share_of_mix_db": -5.6
+ },
+ {
+  "item": "bass",
+  "seconds": 30.0,
+  "rms_db": -15.64,
+  "peak_db": -1.0,
+  "silent_frames_below_-60db": 0.0,
+  "silent_frames_below_-45db": 0.203,
+  "bands": {
+   "lt_250hz": 0.9923,
+   "250hz_2khz": 0.0077,
+   "2_6khz": 0.0,
+   "6_16khz": 0.0,
+   "gt_16khz": 0.0
+  },
+  "spectral_centroid_hz": 115.0,
+  "onsets_per_second": 2.83,
+  "stereo_correlation": 0.992,
+  "correlation_with_mix": 0.455,
+  "energy_share_of_mix_db": 3.0
+ },
+ {
+  "item": "guitar",
+  "seconds": 30.0,
+  "rms_db": -21.94,
+  "peak_db": -1.0,
+  "silent_frames_below_-60db": 0.023,
+  "silent_frames_below_-45db": 0.16,
+  "bands": {
+   "lt_250hz": 0.9306,
+   "250hz_2khz": 0.0574,
+   "2_6khz": 0.0109,
+   "6_16khz": 0.001,
+   "gt_16khz": 0.0
+  },
+  "spectral_centroid_hz": 187.0,
+  "onsets_per_second": 2.2,
+  "stereo_correlation": 0.968,
+  "correlation_with_mix": 0.585,
+  "energy_share_of_mix_db": -3.4
+ },
+ {
+  "item": "sum of the extracted stems vs mix",
+  "best_gain": 0.23,
+  "snr_db": 2.0
+ }
+]

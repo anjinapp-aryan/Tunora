@@ -33,6 +33,16 @@ class GenerationRequest:
     seed: Optional[int] = None
     instrumental: bool = False
     batch_size: Optional[int] = None
+    # Creative operations on an existing version (see app.songs.operations). ORIGINAL is a
+    # plain text-to-music generation; the others condition on the source audio below.
+    operation: str = "ORIGINAL"
+    source_audio_path: Optional[str] = None  # trusted local file resolved from AudioStorage, never client input
+    source_duration: Optional[float] = None
+    extend_seconds: Optional[float] = None
+    repaint_start: Optional[float] = None
+    repaint_end: Optional[float] = None
+    remix_strength: Optional[float] = None
+    track_name: Optional[str] = None  # EXTRACT: which track to pull out (see app.songs.operations.TRACK_NAMES)
 
 
 @dataclass(frozen=True)
@@ -71,9 +81,20 @@ class MusicGenerationProvider(ABC):
     specific provider's request/response schema.
     """
 
+    # Operations this provider genuinely performs (see GenerationRequest.operation).
+    # A provider must not list an operation it cannot honour with the source audio.
+    supported_operations: frozenset = frozenset({"ORIGINAL"})
+
     @abstractmethod
     async def generate(self, request: GenerationRequest) -> GenerationJob:
         """Submit a generation request and return the accepted job."""
+
+    def register_recovered_job(self, job_id: str, operation: str) -> None:
+        """Called by restart recovery (Phase 16) before polling a job this process did not submit.
+
+        A provider that remembers anything about a submission in memory (for example what its
+        result must satisfy) restores it here from the persisted `job_id` and `operation`.
+        Default: nothing to restore."""
 
     @abstractmethod
     async def get_status(self, job_id: str) -> GenerationStatus:

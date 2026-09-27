@@ -32,6 +32,7 @@ This module is the ONLY place in Tunora that should know these shapes.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import parse_qs, urlparse
 
@@ -45,10 +46,14 @@ from app.providers.base import (
     JobState,
     MusicGenerationProvider,
 )
+from app.providers.ace_step_http import unwrap_envelope
+from app.storage.filenames import ALLOWED_EXTENSIONS
+from app.storage.media_types import guess_media_type
 from app.providers.errors import (
     ProviderResponseError,
     ProviderTimeoutError,
     ProviderUnavailableError,
+    UnsupportedOperationError,
 )
 
 
@@ -56,6 +61,30 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
     """MusicGenerationProvider backed by a locally-running ACE-Step 1.5 API server."""
 
     name = "ace-step"
+    # Verified against the local turbo model (see docs/PHASE-5B-EXTEND-REMIX-REPAINT.md).
+    supported_operations = frozenset({"ORIGINAL", "EXTEND", "REMIX", "REPAINT", "EXTRACT", "ANOTHER_TAKE"})
+
+    # Plain text-to-music: no source audio is uploaded (ANOTHER_TAKE is a fresh generation, Phase 13).
+    _TEXT_TO_MUSIC_OPERATIONS = frozenset({"ORIGINAL", "ANOTHER_TAKE"})
+
+    # EXTRACT needs ACE-Step's base-tier model (Phase 11 spike,
+    # docs/PHASE-11-IMPLEMENTATION.md): `extract` is not in ACE-Step's turbo-tier task set
+    # (ACE-Step-1.5/acestep/constants.py TASK_TYPES_TURBO). Verified reachable via the same
+    # /release_task endpoint EXTEND/REMIX/REPAINT already use, with model set explicitly so it
+    # is routed to the base-tier handler regardless of the server's own default model.
+    _EXTRACT_MODEL = "acestep-v15-base"
+    # ACE-Step silently serves a request for a model that is not loaded with its primary (turbo)
+    # handler instead of failing (acestep/api/job_model_selection.py). The result item's `dit_model`
+    # names the handler that actually ran, so an EXTRACT result is only accepted when it says base
+    # (Phase 14). Bounded: ids are removed when their result is read.
+    _EXPECTED_MODEL_LIMIT = 1000
+
+    # Canonical output format for every generation (Phase 17): 16-bit FLAC, so a derived Version
+    # is never re-encoded through lossy MP3 (ACE-Step's REST default is 128 kbps MP3). MP3 stays
+    # selectable as a rollback lever. Only formats verified to produce a file here are accepted
+    # (opus/aac report success without writing a file in the tested deployment).
+    DEFAULT_AUDIO_FORMAT = "flac"
+    SUPPORTED_AUDIO_FORMATS = frozenset({"flac", "mp3"})
 
     def __init__(
         self,
@@ -64,12 +93,17 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
         default_model: Optional[str] = None,
         request_timeout: float = 30.0,
         client: Optional[httpx.AsyncClient] = None,
+        audio_format: str = DEFAULT_AUDIO_FORMAT,
     ) -> None:
+        if audio_format not in self.SUPPORTED_AUDIO_FORMATS:
+            raise ValueError(f"Unsupported audio format {audio_format!r}; use one of {sorted(self.SUPPORTED_AUDIO_FORMATS)}")
+        self._audio_format = audio_format
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._default_model = default_model
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(timeout=request_timeout)
+        self._expected_models: dict[str, str] = {}
 
     async def aclose(self) -> None:
         """Close the underlying HTTP client if this provider created it."""
@@ -89,12 +123,30 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
     # -- MusicGenerationProvider -------------------------------------------------
 
     async def generate(self, request: GenerationRequest) -> GenerationJob:
+        if request.operation not in self.supported_operations:
+            raise UnsupportedOperationError(f"Operation {request.operation!r} is not supported by ACE-Step")
         payload = self._build_release_task_payload(request)
-        data = await self._post("/release_task", payload)
+        if request.operation in self._TEXT_TO_MUSIC_OPERATIONS:
+            data = await self._post("/release_task", payload)
+        else:
+            data = await self._post_with_source_audio("/release_task", payload, request)
         task_id = data.get("task_id") if isinstance(data, dict) else None
         if not task_id:
             raise ProviderResponseError("ACE-Step /release_task response is missing 'task_id'")
+        self.register_recovered_job(str(task_id), request.operation)
         return GenerationJob(job_id=str(task_id), provider=self.name, status=JobState.QUEUED)
+
+    def register_recovered_job(self, job_id: str, operation: str) -> None:
+        """Remember which model an EXTRACT result must come from (Phase 14 check).
+
+        Used for a fresh submission and, unchanged, by restart recovery (Phase 16), so a recovered
+        Extract job is held to the same base-model requirement as one that never lost its process."""
+
+        if operation != "EXTRACT":
+            return
+        if len(self._expected_models) >= self._EXPECTED_MODEL_LIMIT:
+            self._expected_models.pop(next(iter(self._expected_models)))
+        self._expected_models[job_id] = self._EXTRACT_MODEL
 
     async def get_status(self, job_id: str) -> GenerationStatus:
         item = await self._query_result_item(job_id)
@@ -125,12 +177,18 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
             )
 
         primary = audio_items[0]
+        expected_model = self._expected_models.pop(job_id, None)
+        if expected_model is not None and primary.get("dit_model") != expected_model:
+            raise ProviderResponseError(
+                f"ACE-Step job {job_id} was not run on the required model {expected_model!r} "
+                f"(reported {primary.get('dit_model')!r}); the result was discarded"
+            )
         metas = primary.get("metas") or {}
         audio_path = self._extract_filesystem_path(primary["file"])
         return GenerationResult(
             job_id=job_id,
             audio_path=audio_path,
-            duration=metas.get("duration"),
+            duration=self._as_seconds(metas.get("duration")),
             metadata={
                 "audio_url": f"{self._base_url}{primary['file']}",
                 "audio_paths": [
@@ -144,6 +202,14 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
                 "time_signature": metas.get("timesignature", ""),
             },
         )
+
+    @staticmethod
+    def _as_seconds(value: Any) -> Optional[float]:
+        """ACE-Step reports `metas.duration` as the string "N/A" for cover/repaint results."""
+
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        return float(value) if value > 0 else None
 
     @staticmethod
     def _extract_filesystem_path(file_field: str) -> str:
@@ -170,8 +236,9 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
             "prompt": request.prompt,
             "lyrics": "" if request.instrumental else request.lyrics,
             "vocal_language": request.language,
+            "audio_format": self._audio_format,
         }
-        if request.duration is not None:
+        if request.duration is not None and request.operation in self._TEXT_TO_MUSIC_OPERATIONS:
             payload["audio_duration"] = request.duration
         if request.seed is not None:
             payload["use_random_seed"] = False
@@ -182,7 +249,61 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
             payload["batch_size"] = request.batch_size
         if self._default_model:
             payload["model"] = self._default_model
+        payload.update(self._operation_fields(request))
         return payload
+
+    @staticmethod
+    def _operation_fields(request: GenerationRequest) -> dict[str, Any]:
+        """ACE-Step task parameters for a creative operation (verified locally against the
+        turbo model, see docs/PHASE-5B-EXTEND-REMIX-REPAINT.md):
+
+        - EXTEND  = `repaint` of the region after the source's end, with a longer total duration.
+        - REMIX   = `cover`: regenerate conditioned on the source audio, `audio_cover_strength` in [0, 1].
+        - REPAINT = `repaint` of an explicit time range; audio outside it is preserved.
+        """
+
+        op = request.operation
+        if op in AceStepMusicGenerationProvider._TEXT_TO_MUSIC_OPERATIONS:
+            return {}
+        if request.source_audio_path is None:
+            raise ProviderResponseError(f"{op} needs source audio")
+        if op == "EXTEND":
+            if not request.source_duration or not request.extend_seconds:
+                raise ProviderResponseError("EXTEND needs the source duration and the extension length")
+            total = request.source_duration + request.extend_seconds
+            return {
+                "task_type": "repaint",
+                "audio_duration": total,
+                "repainting_start": request.source_duration,
+                "repainting_end": total,
+                "chunk_mask_mode": "explicit",
+            }
+        if op == "REMIX":
+            fields: dict[str, Any] = {"task_type": "cover"}
+            if request.remix_strength is not None:
+                fields["audio_cover_strength"] = request.remix_strength
+            return fields
+        if op == "REPAINT":
+            if request.repaint_start is None or request.repaint_end is None:
+                raise ProviderResponseError("REPAINT needs a start and an end")
+            return {
+                "task_type": "repaint",
+                "repainting_start": request.repaint_start,
+                "repainting_end": request.repaint_end,
+                "chunk_mask_mode": "explicit",
+            }
+        if op == "EXTRACT":
+            if not request.track_name:
+                raise ProviderResponseError("EXTRACT needs a track name")
+            return {
+                "task_type": "extract",
+                "track_name": request.track_name,
+                "model": AceStepMusicGenerationProvider._EXTRACT_MODEL,
+                # One output only: a second batch item would just be computed and discarded
+                # (get_result() already only ever reads audio_items[0]) -- see the Phase 11 spike.
+                "batch_size": 1,
+            }
+        raise UnsupportedOperationError(f"Operation {op!r} is not supported by ACE-Step")
 
     def _parse_result_field(self, item: dict[str, Any]) -> list[Any]:
         raw = item.get("result", "[]")
@@ -216,10 +337,21 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
             state = JobState.SUCCEEDED
         elif status_int == 2:
             state = JobState.FAILED
+        elif status_int == 0 and not result_list:
+            # ACE-Step answers an id it does not know (for example after ACE-Step itself restarted:
+            # its job store is in memory) with status 0 and an empty result list, while every real
+            # queued/running job carries a result entry with a `stage` (verified live, Phase 16).
+            # Without this the job would be polled as "queued" until Tunora's 30 minute ceiling.
+            state = JobState.FAILED
+            message = "ACE-Step does not know this job (it may have been restarted)."
         elif status_int == 0:
             # ACE-Step's STATUS_MAP collapses "queued" and "running" to the same
             # integer (0); only the per-item "stage" string disambiguates them.
-            state = JobState.RUNNING if stage == "running" else JobState.QUEUED
+            # `stage` is a free-text progress description once the job starts ("running",
+            # "Loading model...", ...); only the initial value is "queued" (acestep/api/jobs/store.py).
+            # Mapping every other text to QUEUED made a running job flip back to QUEUED, which the
+            # state machine rejects (found by the Phase 16 real restart test).
+            state = JobState.QUEUED if stage in (None, "", "queued") else JobState.RUNNING
         else:
             raise ProviderResponseError(
                 f"ACE-Step /query_result returned an unrecognized status code: {status_int!r}"
@@ -242,30 +374,39 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
         except httpx.HTTPError as exc:
             raise ProviderUnavailableError(f"Could not reach ACE-Step API at {url}") from exc
 
-        if response.status_code >= 500:
-            raise ProviderUnavailableError(
-                f"ACE-Step API returned {response.status_code} for {path}"
-            )
-        if response.status_code >= 400:
-            raise ProviderResponseError(
-                f"ACE-Step API returned {response.status_code} for {path}: {response.text}"
-            )
+        return self._unwrap(response, path)
 
+    def _unwrap(self, response: httpx.Response, path: str) -> Any:
+        return unwrap_envelope(response, path)
+
+    async def _post_with_source_audio(self, path: str, fields: dict[str, Any], request: GenerationRequest) -> Any:
+        """Submit a creative operation as multipart, uploading the source audio bytes.
+
+        ACE-Step refuses absolute server-side paths, so the file is uploaded (`src_audio`)
+        rather than referenced. Bytes are read from a trusted AudioStorage path.
+        """
+
+        source = Path(request.source_audio_path)
         try:
-            body = response.json()
-        except ValueError as exc:
-            raise ProviderResponseError(
-                f"ACE-Step API returned a non-JSON response for {path}"
-            ) from exc
-
-        if not isinstance(body, dict) or "data" not in body:
-            raise ProviderResponseError(
-                f"ACE-Step API response for {path} is missing the 'data' envelope"
+            audio_bytes = source.read_bytes()
+        except OSError as exc:
+            raise ProviderResponseError("Source audio could not be read") from exc
+        # Upload under the stored file's real extension and type (ACE-Step decodes by content, but the
+        # name/type should not lie): `source.flac`/audio/flac for a FLAC Version, `source.mp3` for MP3.
+        suffix = source.suffix.lower() if source.suffix.lower() in ALLOWED_EXTENSIONS else ".mp3"
+        upload_name = f"source{suffix}"
+        upload_type = guess_media_type(upload_name)
+        form = {k: ("true" if v is True else "false" if v is False else str(v)) for k, v in fields.items()}
+        url = f"{self._base_url}{path}"
+        try:
+            response = await self._client.post(
+                url, data=form, files={"src_audio": (upload_name, audio_bytes, upload_type)}, headers=self._headers()
             )
-        if body.get("error"):
-            raise ProviderResponseError(f"ACE-Step API returned an error for {path}: {body['error']}")
-
-        return body["data"]
+        except httpx.TimeoutException as exc:
+            raise ProviderTimeoutError(f"ACE-Step request to {path} timed out") from exc
+        except httpx.HTTPError as exc:
+            raise ProviderUnavailableError(f"Could not reach ACE-Step API at {url}") from exc
+        return self._unwrap(response, path)
 
     async def _query_result_item(self, job_id: str) -> dict[str, Any]:
         data = await self._post("/query_result", {"task_id_list": [job_id]})
