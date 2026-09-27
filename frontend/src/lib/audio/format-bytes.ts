@@ -21,3 +21,8 @@ export function downloadLabel(mediaType: string): string {
   const format = LABELS[mediaType];
   return format ? `Download ${format}` : "Download audio";
 }
+
+/** "MP3" for known formats, otherwise "Original" -- for labeling the canonical option in a format picker. */
+export function formatLabel(mediaType: string): string {
+  return LABELS[mediaType] ?? "Original";
+}

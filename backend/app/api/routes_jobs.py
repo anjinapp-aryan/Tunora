@@ -13,10 +13,12 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 from app.api.schemas import CreateJobRequest, JobResponse
+from app.audio.export import SUPPORTED_EXPORT_FORMATS
 from app.jobs.models import JobStatus
-from app.jobs.errors import AudioIntegrityError, AudioNotAvailableError, JobNotFoundError
+from app.jobs.errors import AudioIntegrityError, AudioNotAvailableError, ExportConversionError, JobNotFoundError
 from app.jobs.service import JobService
 from app.projects.errors import ProjectNotFoundError
 from app.songs.errors import InvalidIdError, SongNotFoundError
@@ -88,15 +90,43 @@ async def list_jobs(
 
 
 @router.get("/{job_id}/audio")
-async def get_job_audio(job_id: str, request: Request):
-    """Serve a COMPLETED job's audio. The only client input is the Tunora job id;
-    the file location comes from the trusted job record via AudioStorage.
-    Query parameters are deliberately ignored.
+async def get_job_audio(
+    job_id: str,
+    request: Request,
+    format: Optional[Literal["mp3", "wav"]] = Query(default=None, description="Export format (Phase 21): mp3 or wav. Omit for the canonical stored file."),
+):
+    """Serve a COMPLETED job's audio, or (with `?format=mp3|wav`) an on-demand export of it.
+
+    The only client input is the Tunora job id and the export format; the file location comes
+    from the trusted job record via AudioStorage. The canonical file (no `format`) is never
+    touched by an export request: exporting converts a copy to a temporary file, which is deleted
+    once the response has been sent, and creates no Version, Job or storage record.
     """
 
     service = _get_service(request)
+    if format is None:
+        try:
+            audio = service.resolve_audio(job_id)
+        except JobNotFoundError:
+            raise HTTPException(status_code=404, detail="Job not found.")
+        except AudioNotAvailableError:
+            raise HTTPException(status_code=409, detail="Audio is not available for this job.")
+        except AudioIntegrityError as exc:
+            logger.error("audio unavailable for a completed job: %s", exc)
+            raise HTTPException(status_code=500, detail="Audio is unavailable.")
+
+        # FileResponse (Starlette) provides Content-Length, ETag/Last-Modified and
+        # HTTP Range support. "inline" so a future <audio> element can play it.
+        return FileResponse(
+            audio.path,
+            media_type=audio.media_type,
+            filename=audio.filename,
+            content_disposition_type="inline",
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
+
     try:
-        audio = service.resolve_audio(job_id)
+        export = service.resolve_export_audio(job_id, format)
     except JobNotFoundError:
         raise HTTPException(status_code=404, detail="Job not found.")
     except AudioNotAvailableError:
@@ -104,13 +134,25 @@ async def get_job_audio(job_id: str, request: Request):
     except AudioIntegrityError as exc:
         logger.error("audio unavailable for a completed job: %s", exc)
         raise HTTPException(status_code=500, detail="Audio is unavailable.")
+    except ExportConversionError as exc:
+        logger.error("export conversion failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Could not create this export.")
 
-    # FileResponse (Starlette) provides Content-Length, ETag/Last-Modified and
-    # HTTP Range support. "inline" so a future <audio> element can play it.
+    # A real, unique temporary file (Phase 21) -- deleted once fully sent, success or client
+    # disconnect, via Starlette's BackgroundTask. "attachment" because an export is a download,
+    # never inline playback.
     return FileResponse(
-        audio.path,
-        media_type=audio.media_type,
-        filename=audio.filename,
-        content_disposition_type="inline",
+        export.path,
+        media_type=export.media_type,
+        filename=export.filename,
+        content_disposition_type="attachment",
         headers={"X-Content-Type-Options": "nosniff"},
+        background=BackgroundTask(_cleanup_export, export.path),
     )
+
+
+def _cleanup_export(path) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        logger.warning("could not remove temporary export file")

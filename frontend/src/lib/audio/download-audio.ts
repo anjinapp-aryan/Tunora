@@ -1,5 +1,8 @@
 import { isTunoraAudioUrl, type AudioResource } from "@/lib/api/jobs";
 
+/** On-demand export formats (Phase 21); the canonical file itself needs none of these. */
+export type ExportFormat = "mp3" | "wav";
+
 export type DownloadFailure = "not_found" | "not_ready" | "unavailable" | "network";
 
 export const DOWNLOAD_MESSAGES: Record<DownloadFailure, string> = {
@@ -33,21 +36,26 @@ export function saveBlob(blob: Blob, filename: string): void {
 
 /**
  * Downloads a completed job's audio through Tunora's own audio route, the same
- * trusted route the player uses (no second endpoint). Resolves only after the
- * server actually returned the audio and the save was handed to the browser;
- * anything else throws a DownloadError with a fixed message. The raw response,
- * status text and network error are only logged.
+ * trusted route the player uses (no second endpoint) -- optionally as an
+ * on-demand MP3/WAV export (Phase 21) rather than the canonical stored file.
+ * `format` is always one of the fixed literals above, never client-composed
+ * text, so appending it to the already-validated base URL is safe. Resolves
+ * only after the server actually returned the audio and the save was handed
+ * to the browser; anything else throws a DownloadError with a fixed message.
+ * The raw response, status text and network error are only logged.
  */
-export async function downloadAudio(resource: AudioResource): Promise<void> {
+export async function downloadAudio(resource: AudioResource, format?: ExportFormat): Promise<void> {
   if (!isTunoraAudioUrl(resource.url)) {
     console.error("refusing to download from a non-Tunora audio URL");
     throw new DownloadError("unavailable");
   }
+  const targetUrl = format ? `${resource.url}?format=${format}` : resource.url;
+  const targetFilename = format ? resource.filename.replace(/\.[^./]+$/, `.${format}`) : resource.filename;
 
   let response: Response;
   try {
     // no-store: ask the server, so a deleted or not-ready file is reported honestly.
-    response = await fetch(resource.url, { method: "GET", cache: "no-store" });
+    response = await fetch(targetUrl, { method: "GET", cache: "no-store" });
   } catch (error) {
     console.error("audio download network failure", error);
     throw new DownloadError("network");
@@ -72,5 +80,5 @@ export async function downloadAudio(resource: AudioResource): Promise<void> {
     throw new DownloadError("unavailable");
   }
 
-  saveBlob(blob, resource.filename);
+  saveBlob(blob, targetFilename);
 }

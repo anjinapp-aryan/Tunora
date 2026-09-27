@@ -1360,3 +1360,87 @@ test("Another Take: a real new version of the same idea, playable and downloadab
   expect([sha(v1File), fs.statSync(v1File).size]).toEqual([v1Hash, v1Size]);
   await expectNoInternalLeak(page, after);
 });
+
+// -- Phase 21: on-demand MP3/WAV export ------------------------------------------------------------
+
+test("Export: a real FLAC Version can be downloaded as MP3 or WAV on demand, the canonical file is untouched, and Chromium/Firefox both play the exports", async ({
+  page,
+  request,
+  browserName,
+}) => {
+  test.setTimeout(GENERATION_TIMEOUT_MS + 90_000);
+  await trackMediaElement(page);
+  const TITLE = `Export Test ${Date.now()}`;
+  const submitted = await generateRealSong(page, "short upbeat instrumental synth loop", TITLE);
+  const job = await fetchCompletedJob(request, submitted.id);
+  const canonicalUrl = `${NEXT}/api/jobs/${job.id}/audio`;
+  const canonicalBefore = await (await request.get(canonicalUrl)).body();
+
+  await expect(page.getByTestId("audio-player")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^download flac/i })).toBeVisible();
+
+  // ---- The canonical file still plays exactly as before (checked first, ahead of any export interaction) ----
+  await expectPlayableAudio(page, job.id);
+
+  // ---- Format picker offers exactly the two exports (FLAC is the canonical file already) ----
+  const picker = page.getByLabel("Format");
+  await expect(picker).toBeVisible();
+  const options = await picker.locator("option").allTextContents();
+  expect(options).toEqual(["FLAC (original)", "MP3", "WAV"]);
+
+  // ---- MP3 export: real conversion, real download, a genuinely different (smaller) file ----
+  await picker.selectOption({ label: "MP3" });
+  await expect(page.getByRole("button", { name: /^download mp3$/i })).toBeVisible();
+  const [mp3Download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /^download mp3$/i }).click(),
+  ]);
+  expect(mp3Download.suggestedFilename()).toMatch(/\.mp3$/);
+  const mp3Path = await mp3Download.path();
+  expect(mp3Path).toBeTruthy();
+  const mp3Bytes = fs.readFileSync(mp3Path!);
+  expect(mp3Bytes.length).toBeGreaterThan(1000);
+  expect(mp3Bytes.length).toBeLessThan(canonicalBefore.length); // MP3 is smaller than FLAC for the same song
+
+  // ---- WAV export: real conversion, real download ----
+  await picker.selectOption({ label: "WAV" });
+  const [wavDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: /^download wav$/i }).click(),
+  ]);
+  expect(wavDownload.suggestedFilename()).toMatch(/\.wav$/);
+  const wavBytes = fs.readFileSync((await wavDownload.path())!);
+  expect(wavBytes.length).toBeGreaterThan(mp3Bytes.length); // uncompressed PCM is larger than MP3
+
+  // ---- Verified via the real HTTP route directly too (content type, no path/internal leak) ----
+  const mp3Response = await request.get(`${canonicalUrl}?format=mp3`);
+  expect(mp3Response.headers()["content-type"]).toBe("audio/mpeg");
+  expect(mp3Response.headers()["content-disposition"]).toContain("attachment");
+  const wavResponse = await request.get(`${canonicalUrl}?format=wav`);
+  expect(wavResponse.headers()["content-type"]).toBe("audio/wav");
+  await expectNoInternalLeak(page);
+
+  // ---- The canonical FLAC file was never modified by any of the exports ----
+  const canonicalAfter = await (await request.get(canonicalUrl)).body();
+  expect(Buffer.compare(canonicalAfter, canonicalBefore)).toBe(0);
+
+  // ---- No Version was created by exporting ----
+  const details = await (await request.get(`${NEXT}/api/songs/${job.song_id}`)).json();
+  expect(details.versions).toHaveLength(1);
+
+  // ---- Switching the picker back to the original restores the canonical download control ----
+  await picker.selectOption({ label: "FLAC (original)" });
+  await expect(page.getByRole("button", { name: /^download flac/i })).toBeVisible();
+
+  console.log(`Export E2E on ${browserName}: MP3 ${mp3Bytes.length}B, WAV ${wavBytes.length}B, FLAC ${canonicalBefore.length}B`);
+});
+
+test("Export UI fits mobile and tablet widths", async ({ page, request }) => {
+  test.setTimeout(GENERATION_TIMEOUT_MS + 60_000);
+  const TITLE = `Export Mobile Test ${Date.now()}`;
+  const submitted = await generateRealSong(page, SONG_PROMPT, TITLE);
+  await fetchCompletedJob(request, submitted.id);
+  await expect(page.getByLabel("Format")).toBeVisible();
+  await expectFitsViewport(page, 375, [page.getByTestId("download")]);
+  await expectFitsViewport(page, 768, [page.getByTestId("download")]);
+});

@@ -133,4 +133,27 @@ describe("downloadAudio", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(clicks).toHaveLength(0);
   });
+
+  // -- Phase 21: on-demand MP3/WAV export --------------------------------------------------------
+
+  it("requests an export by appending the format to the same trusted route, under a renamed file", async () => {
+    fetchMock.mockResolvedValue(new Response("fLaC-bytes", { status: 200, headers: { "content-type": "audio/wav" } }));
+    await downloadAudio({ ...resource, filename: "tunora-1.flac", mediaType: "audio/flac" }, "wav");
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/jobs/tunora-1/audio?format=wav");
+    expect(clicks).toEqual([{ href: "blob:http://localhost/abc", download: "tunora-1.wav" }]);
+  });
+
+  it("without a format, downloads the canonical file exactly as before", async () => {
+    fetchMock.mockResolvedValue(audioResponse());
+    await downloadAudio(resource, undefined);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/jobs/tunora-1/audio");
+    expect(clicks).toEqual([{ href: "blob:http://localhost/abc", download: "tunora-1.mp3" }]);
+  });
+
+  it("an export failure reports the same fixed messages as a normal download", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 500 }));
+    expect((await downloadAudio(resource, "mp3").catch((e) => e)).kind).toBe("unavailable");
+    expect(clicks).toHaveLength(0);
+  });
 });

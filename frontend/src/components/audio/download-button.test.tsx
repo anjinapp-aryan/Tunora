@@ -120,6 +120,46 @@ describe("DownloadButton", () => {
     const { container } = render(<DownloadButton resource={resource} />);
     expect(container.innerHTML).not.toMatch(/C:\\|\/home\/|\/v1\/audio|8001|\.cache|absolute|tunora-1\/tunora-1/i);
   });
+
+  // -- Phase 21: on-demand MP3/WAV export --------------------------------------------------------
+
+  describe("format picker", () => {
+    it("offers only the exports that differ from the canonical file, keyboard-accessible", async () => {
+      const flac = { ...resource, filename: "tunora-2.flac", mediaType: "audio/flac", url: "/api/jobs/tunora-2/audio" };
+      render(<DownloadButton resource={flac} />);
+      const picker = screen.getByLabelText("Format");
+      expect(picker.tagName).toBe("SELECT"); // native control: keyboard-accessible with no extra wiring
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["FLAC (original)", "MP3", "WAV"]);
+    });
+
+    it("an MP3-canonical Version is not offered MP3 again, only WAV", () => {
+      render(<DownloadButton resource={resource} />); // resource.mediaType is audio/mpeg
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["MP3 (original)", "WAV"]);
+    });
+
+    it("selecting a format downloads that export, under the renamed file, and drops the known size", async () => {
+      fetchMock.mockResolvedValue(new Response("mp3-bytes", { status: 200, headers: { "content-type": "audio/mpeg" } }));
+      const flac = { ...resource, filename: "tunora-2.flac", mediaType: "audio/flac", url: "/api/jobs/tunora-2/audio" };
+      render(<DownloadButton resource={flac} />);
+
+      await userEvent.selectOptions(screen.getByLabelText("Format"), "MP3");
+      expect(screen.getByRole("button", { name: /^download mp3$/i })).toBeInTheDocument(); // no "(size)": unknown before conversion
+
+      await userEvent.click(screen.getByRole("button", { name: /^download mp3$/i }));
+
+      expect(await screen.findByRole("status")).toHaveTextContent("Download started.");
+      expect(fetchMock).toHaveBeenCalledWith("/api/jobs/tunora-2/audio?format=mp3", expect.objectContaining({ cache: "no-store" }));
+      expect(clicks).toEqual([{ download: "tunora-2.mp3" }]);
+    });
+
+    it("switching back to the original restores its download and known size", async () => {
+      const flac = { ...resource, filename: "tunora-2.flac", mediaType: "audio/flac", url: "/api/jobs/tunora-2/audio" };
+      render(<DownloadButton resource={flac} />);
+      await userEvent.selectOptions(screen.getByLabelText("Format"), "WAV");
+      await userEvent.selectOptions(screen.getByLabelText("Format"), "FLAC (original)");
+      expect(screen.getByRole("button", { name: /download flac \(157 kb\)/i })).toBeInTheDocument();
+    });
+  });
 });
 
 describe("DownloadButton notification", () => {

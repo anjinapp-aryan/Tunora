@@ -41,3 +41,15 @@ class AudioIntegrityError(Exception):
         super().__init__(f"Audio for job {job_id!r} is unavailable: {reason}")
         self.job_id = job_id
         self.reason = reason
+
+
+class ExportConversionError(Exception):
+    """A COMPLETED job's canonical audio could not be converted to the requested export format.
+
+    The reason is for logs only (never returned to clients): it may name provider/library internals.
+    """
+
+    def __init__(self, job_id: str, reason: str) -> None:
+        super().__init__(f"Export for job {job_id!r} failed: {reason}")
+        self.job_id = job_id
+        self.reason = reason

@@ -21,9 +21,11 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Optional
 
+from app.audio.export import ExportError, SUPPORTED_EXPORT_FORMATS, export_audio
 from app.jobs.errors import (
     AudioIntegrityError,
     AudioNotAvailableError,
+    ExportConversionError,
     InvalidTransitionError,
     JobNotFoundError,
 )
@@ -80,6 +82,20 @@ class AudioResource:
     media_type: str
     filename: str
     size_bytes: int
+
+
+@dataclass(frozen=True)
+class ExportedAudioResource:
+    """A servable MP3/WAV export, converted on demand from a COMPLETED job's canonical audio.
+
+    Always a temporary file (Phase 21): the caller must delete `path` once it has been sent. Has
+    no `size_bytes` — unlike the canonical file, this is decided only after conversion, so the
+    route reads it from the file it already has open (`path.stat()`), not from this resource.
+    """
+
+    path: Path
+    media_type: str
+    filename: str
 
 
 def _valid_seconds(value: object) -> bool:
@@ -450,6 +466,30 @@ class JobService:
             filename=safe_audio_filename(filename, job_id=job.id, media_type=media_type),
             size_bytes=size_bytes,
         )
+
+    def resolve_export_audio(self, job_id: str, export_format: str) -> "ExportedAudioResource":
+        """Convert a COMPLETED job's canonical audio to `export_format` (mp3/wav) on demand.
+
+        Reuses `resolve_audio` for the same trusted-path resolution and error semantics (a bad
+        job id, a job that isn't COMPLETED, or a corrupt/foreign audio record are all rejected the
+        same way as a plain download). The canonical file and the Version/Job records are never
+        touched: this only ever produces a temporary file, which the caller must delete once sent
+        (see `app.audio.export.export_audio`). Raises the same errors as `resolve_audio`, plus
+        `ExportConversionError` if the source cannot be decoded/encoded.
+        """
+
+        if export_format not in SUPPORTED_EXPORT_FORMATS:
+            raise ValueError(f"Unsupported export format {export_format!r}")
+        source = self.resolve_audio(job_id)
+        job = self.get(job_id)  # already validated COMPLETED by resolve_audio; used only for the title
+        try:
+            exported = export_audio(source.path, export_format, title=job.title or None)
+        except ExportError as exc:
+            raise ExportConversionError(job_id, str(exc)) from exc
+        raw_name = f"{job.title or job_id}-export.{export_format}"
+        filename = safe_audio_filename(raw_name, job_id=job_id, media_type=exported.media_type)
+        return ExportedAudioResource(path=exported.path, media_type=exported.media_type, filename=filename)
+
 
     def list(self, limit: int = 50) -> list[Job]:
         return self._repository.list(limit)
