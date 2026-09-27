@@ -473,3 +473,65 @@ class SongSpecPayload(BaseModel):
 class RefineSongPlanRequest(BaseModel):
     song_spec: SongSpecPayload
     instruction: str = Field(min_length=1, max_length=500)
+
+
+# -- Music Videos (Phase 23) -------------------------------------------------------------------
+# Allowlist: never a storage key, a filesystem path, the internal `error` text, or TimedLyrics
+# timing internals. `unmatched_lines` is the user's own stored lyric text that could not be
+# matched to the audio (so the UI can say so); the stored lyrics themselves are never modified.
+
+MUSIC_VIDEO_DIMENSIONS = {"9:16": (1080, 1920)}
+
+
+def music_video_url_for(music_video_id: str) -> str:
+    return f"/api/music-videos/{music_video_id}/video"
+
+
+class MusicVideoResponse(BaseModel):
+    id: str
+    song_id: str
+    source_version_id: str
+    source_version_number: Optional[int] = None
+    status: str
+    style: str
+    aspect_ratio: str
+    width: int
+    height: int
+    duration: Optional[float] = None
+    size_bytes: Optional[int] = None
+    video_url: Optional[str] = None
+    matched_line_count: int = 0
+    unmatched_lines: list[str] = Field(default_factory=list)
+    error: Optional[str] = None
+    created_at: str
+    updated_at: str
+    completed_at: Optional[str] = None
+
+
+class MusicVideoListResponse(BaseModel):
+    items: list[MusicVideoResponse]
+
+
+def music_video_response(video: Any, version_number: Optional[int], error: Optional[str]) -> MusicVideoResponse:
+    width, height = MUSIC_VIDEO_DIMENSIONS.get(video.aspect_ratio, (0, 0))
+    completed = video.status.value == "COMPLETED"
+    return MusicVideoResponse(
+        id=video.id,
+        song_id=video.song_id,
+        source_version_id=video.source_version_id,
+        source_version_number=version_number,
+        status=video.status.value,
+        style=video.style,
+        aspect_ratio=video.aspect_ratio,
+        width=width,
+        height=height,
+        duration=video.duration,
+        size_bytes=video.output_size_bytes if completed else None,
+        video_url=music_video_url_for(video.id) if completed else None,
+        matched_line_count=video.matched_line_count,
+        unmatched_lines=video.unmatched_lines,
+        error=error,
+        created_at=video.created_at.isoformat(),
+        updated_at=video.updated_at.isoformat(),
+        completed_at=video.completed_at.isoformat() if video.completed_at else None,
+    )

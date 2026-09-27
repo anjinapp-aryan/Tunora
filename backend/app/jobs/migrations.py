@@ -15,6 +15,8 @@ cannot both apply it. Steps never drop or rewrite existing user data.
           (existing songs become unassigned: project_id = NULL)
   4 -> 5  Song management (Phase 9): `songs.is_favorite`
           (existing songs become is_favorite = 0)
+  5 -> 6  Music Videos (Phase 23): a `music_videos` table -- presentation artifacts derived from
+          one Version; no existing row is read or changed
 """
 
 from __future__ import annotations
@@ -31,7 +33,7 @@ from app.providers.base import GenerationRequest
 
 logger = logging.getLogger(__name__)
 
-LATEST_VERSION = 5
+LATEST_VERSION = 6
 
 _JOB_ID = re.compile(r"^tunora-([0-9a-fA-F-]{36})$")
 _SPEC_FIELDS = tuple(GenerationRequest.__dataclass_fields__)
@@ -45,7 +47,7 @@ def migrate(conn: sqlite3.Connection) -> None:
         raise RuntimeError(
             f"Database schema version {current} is newer than this Tunora build supports ({LATEST_VERSION})."
         )
-    for target, step in ((1, _to_v1), (2, _to_v2), (3, _to_v3), (4, _to_v4), (5, _to_v5)):
+    for target, step in ((1, _to_v1), (2, _to_v2), (3, _to_v3), (4, _to_v4), (5, _to_v5), (6, _to_v6)):
         if current >= target:
             continue
         _run_step(conn, target, step)
@@ -224,6 +226,58 @@ def _to_v5(conn: sqlite3.Connection) -> None:
     # Library's own query already groups/orders by other indexed columns, so this
     # keeps the same "no accidental full scan" property the Phase 6 project index has).
     conn.execute("CREATE INDEX IF NOT EXISTS idx_songs_is_favorite ON songs(is_favorite)")
+
+
+def _to_v6(conn: sqlite3.Connection) -> None:
+    # A Music Video is NOT a Version: it references exactly one existing Version of the same Song
+    # and owns only its own files (background + rendered MP4). Deleting the Song or the Version
+    # removes the row with it (ON DELETE CASCADE); the service then removes the files.
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS music_videos (
+            id TEXT PRIMARY KEY,
+            song_id TEXT NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+            source_version_id TEXT NOT NULL REFERENCES versions(id) ON DELETE CASCADE,
+            status TEXT NOT NULL,
+            style TEXT NOT NULL,
+            aspect_ratio TEXT NOT NULL,
+            background_key TEXT NOT NULL,
+            background_media_type TEXT NOT NULL,
+            duration REAL,
+            output_key TEXT,
+            output_size_bytes INTEGER,
+            timed_lyrics_json TEXT,
+            error TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            completed_at TEXT
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_music_videos_song_id ON music_videos(song_id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_music_videos_status ON music_videos(status)")
+    # Which Version a Music Video was made from, and where its inputs live, never change.
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS music_videos_source_immutable
+        BEFORE UPDATE OF song_id, source_version_id, style, aspect_ratio, background_key,
+                         background_media_type, created_at ON music_videos
+        BEGIN
+            SELECT RAISE(ABORT, 'music video source is immutable');
+        END
+        """
+    )
+    # The source Version must belong to the same Song (enforced here, not only in code).
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS music_videos_source_same_song
+        BEFORE INSERT ON music_videos
+        WHEN (SELECT song_id FROM versions WHERE id = NEW.source_version_id) IS NOT NEW.song_id
+        BEGIN
+            SELECT RAISE(ABORT, 'source version must belong to the same song');
+        END
+        """
+    )
 
 
 def legacy_ids(job_id: str) -> tuple[str, str]:

@@ -197,6 +197,9 @@ async function expectPlayableAudio(page: Page, jobId: string): Promise<number> {
   await page.getByRole("button", { name: "Pause", exact: true }).click();
 
   // ---- Seek by clicking the waveform ----
+  // Raw mouse coordinates only hit the waveform if it is on screen: bring it into view first (a
+  // taller Song Details page -- Phase 23's Music Videos section -- can leave it just above the viewport).
+  await page.getByTestId("waveform").scrollIntoViewIfNeeded();
   const waveformBox = (await page.getByTestId("waveform").boundingBox())!;
   await page.mouse.click(waveformBox.x + waveformBox.width * 0.2, waveformBox.y + waveformBox.height / 2);
   await expect.poll(async () => (await media(page))!.currentTime, { timeout: 5000 }).toBeLessThan(total * 0.3);

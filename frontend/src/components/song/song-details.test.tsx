@@ -172,7 +172,8 @@ describe("SongDetailsView", () => {
     await userEvent.click(screen.getByRole("radio", { name: /version 2\b/i }));
     await userEvent.click(screen.getByRole("radio", { name: /version 3\b/i }));
     expect(fetchMock.mock.calls.every(([, init]) => !init || !init.method || init.method === "GET")).toBe(true);
-    expect(fetchMock.mock.calls.map(([u]) => String(u))).toEqual(["/api/songs/song-1"]);
+    // Phase 23: Song Details also reads (GET only) its Music Videos list once.
+    expect(fetchMock.mock.calls.map(([u]) => String(u))).toEqual(["/api/songs/song-1", "/api/songs/song-1/music-videos"]);
     await waitFor(() => expect(activeUrl()).toEqual(["/api/jobs/tunora-job-3/audio"]));
   });
 

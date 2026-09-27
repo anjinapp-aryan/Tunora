@@ -10,6 +10,7 @@ import { DownloadButton } from "@/components/audio/download-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MusicVideosSection } from "@/components/song/music-videos";
 import { VersionActions } from "@/components/song/version-actions";
 import { VersionComparison } from "@/components/song/version-comparison";
 import { ApiError, type GenerationJob } from "@/lib/api/jobs";
@@ -337,6 +338,9 @@ export function SongDetailsView({ songId }: { songId: string }) {
           {comparing && <VersionComparison versions={details.versions} />}
         </div>
       )}
+
+      {/* Phase 23: presentation artifacts made from a Version -- listed apart from the audio Versions. */}
+      <MusicVideosSection songId={details.id} versions={details.versions} />
     </div>
   );
 }

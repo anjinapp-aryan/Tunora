@@ -11,6 +11,12 @@ dependencies = [
     "soundfile>=0.14.0",
 ]
 
+[project.optional-dependencies]
+music-video = [
+    "openai-whisper>=20250625",
+    "stable-ts>=2.19",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",

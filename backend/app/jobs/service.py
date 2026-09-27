@@ -625,6 +625,34 @@ class JobService:
             except StorageError as exc:
                 logger.warning("could not delete audio for a deleted song: key=%s error=%s", key, exc)
 
+    def _source_audio_path(self, source: Version) -> Path:
+        """The verified audio file of an existing Version (trusted record -> AudioStorage).
+        Raises SourceAudioUnavailableError if it never got audio or the file is gone/empty."""
+
+        if source.audio is None:
+            raise SourceAudioUnavailableError("The source version has no audio.")
+        try:
+            source_path = self._storage.get_path(source.audio.key)
+        except StorageError as exc:
+            raise SourceAudioUnavailableError("The source audio is unavailable.") from exc
+        if not source_path.is_file() or source_path.stat().st_size == 0:
+            raise SourceAudioUnavailableError("The source audio is unavailable.")
+        return source_path
+
+    def resolve_version_audio(self, song_id: str, version_id: str) -> tuple[Version, Path]:
+        """A COMPLETED Version of `song_id` and its verified audio path, for read-only consumers
+        such as Music Videos (Phase 23). Same checks as a creative operation's source: raises
+        InvalidIdError, SongNotFoundError, SourceVersionNotFoundError (unknown, or another song's
+        version) or SourceAudioUnavailableError. Never modifies the Version."""
+
+        if not is_valid_id(song_id) or not is_valid_id(version_id):
+            raise InvalidIdError("Malformed id.")
+        self.get_song(song_id)
+        version = self._repository.get_version(version_id)
+        if version is None or version.song_id != song_id:
+            raise SourceVersionNotFoundError(version_id)
+        return version, self._source_audio_path(version)
+
     # -- creative operations (Phase 5B) ----------------------------------------------------------
 
     async def create_version_from_operation(
@@ -662,14 +690,7 @@ class JobService:
             raise UnsupportedOperationError(f"Operation {operation!r} is not supported by this provider")
         if operation == ops.ANOTHER_TAKE:
             return await self._create_another_take(song_id, source)
-        if source.audio is None:
-            raise SourceAudioUnavailableError("The source version has no audio.")
-        try:
-            source_path = self._storage.get_path(source.audio.key)
-        except StorageError as exc:
-            raise SourceAudioUnavailableError("The source audio is unavailable.") from exc
-        if not source_path.is_file() or source_path.stat().st_size == 0:
-            raise SourceAudioUnavailableError("The source audio is unavailable.")
+        source_path = self._source_audio_path(source)
 
         spec = source.spec
         new_prompt = (prompt or "").strip() or None

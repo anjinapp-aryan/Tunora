@@ -17,11 +17,15 @@ from fastapi import FastAPI
 
 from app.api.routes_director import router as director_router
 from app.api.routes_jobs import router as jobs_router
+from app.api.routes_music_videos import router as music_videos_router
 from app.api.routes_projects import router as projects_router
 from app.api.routes_songs import router as songs_router
 from app.director.ace_step import AceStepSongDirector
 from app.jobs.repository import SqliteJobRepository
 from app.jobs.service import JobService
+from app.music_videos.repository import SqliteMusicVideoRepository
+from app.music_videos.service import MusicVideoService
+from app.music_videos.storage import MusicVideoStorage
 from app.providers.ace_step import AceStepMusicGenerationProvider
 from app.storage.local import LocalAudioStorage
 
@@ -32,6 +36,8 @@ ACE_STEP_BASE_URL = os.environ.get("ACE_STEP_BASE_URL", "http://127.0.0.1:8001")
 # Canonical audio format for new Versions (Phase 17): "flac" (default) or "mp3" as a rollback lever.
 AUDIO_FORMAT = os.environ.get("TUNORA_AUDIO_FORMAT", AceStepMusicGenerationProvider.DEFAULT_AUDIO_FORMAT)
 STORAGE_ROOT = os.environ.get("TUNORA_STORAGE_ROOT", "./data/audio")
+# Music Videos (Phase 23) live in their own namespace, never inside the audio root.
+MUSIC_VIDEO_ROOT = os.environ.get("TUNORA_MUSIC_VIDEO_ROOT", "./data/music-videos")
 
 
 async def _recover_jobs(service: JobService) -> None:
@@ -51,6 +57,16 @@ async def lifespan(app: FastAPI):
     repository = SqliteJobRepository(DB_PATH)
     storage = LocalAudioStorage(STORAGE_ROOT)
     app.state.job_service = JobService(repository=repository, provider=provider, storage=storage)
+    app.state.music_video_service = MusicVideoService(
+        repository=SqliteMusicVideoRepository(DB_PATH),
+        jobs=app.state.job_service,
+        storage=MusicVideoStorage(MUSIC_VIDEO_ROOT),
+    )
+    # A render cannot resume after a restart: mark any interrupted Music Video FAILED (Phase 23).
+    try:
+        app.state.music_video_service.recover_interrupted()
+    except Exception:  # noqa: BLE001 -- never stop the API over this
+        logger.exception("music video recovery failed")
     # Resume jobs a previous process left in flight (Phase 16). Runs in the background so the API is
     # available immediately; it is cancelled on shutdown so no polling task is left behind.
     recovery = asyncio.create_task(_recover_jobs(app.state.job_service), name="job-recovery")
@@ -90,6 +106,7 @@ def create_app() -> FastAPI:
     app.include_router(director_router)
     app.include_router(songs_router)
     app.include_router(projects_router)
+    app.include_router(music_videos_router)
     return app
 
 
