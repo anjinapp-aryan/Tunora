@@ -56,7 +56,7 @@ async def create_music_video(
     background_tasks: BackgroundTasks,
     song_id: str = Path(max_length=80, pattern=_ID),
     source_version_id: str = Query(max_length=80, pattern=_ID),
-    style: Literal["minimal_white", "dreamy", "bold"] = Query("minimal_white"),
+    style: Literal["minimal_white", "dreamy", "bold", "cinematic", "karaoke"] = Query("minimal_white"),
     aspect_ratio: Literal["9:16"] = Query("9:16"),
 ):
     """Create a Music Video of one existing, completed Version of this Song. Returns 202 at once;

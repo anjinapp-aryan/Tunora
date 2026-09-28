@@ -90,7 +90,7 @@ test("Audio first, video later: finished song -> optional 'Create a music video'
   await form.getByText(/Lyrics \(from Version/).click();
   await expect(form.getByTestId("music-video-lyrics")).toContainText("I wake up to a brand new day");
   await form.getByLabel(/Background/).setInputFiles(path.join(FIXTURES, "music-video-background.mp4"));
-  await form.getByLabel("Style").selectOption("minimal_white");
+  await expect(form.getByLabel("Style")).toHaveValue("cinematic"); // Phase 25: the polished look is the default
 
   // Responsive: the whole section + form fits phone and tablet widths.
   for (const width of [375, 768]) await noOverflow(page, width);
@@ -108,7 +108,7 @@ test("Audio first, video later: finished song -> optional 'Create a music video'
   const card = section.getByTestId("music-video").first();
   await expect(card.getByTestId("music-video-status")).toHaveText(/Preparing|Aligning lyrics|Rendering|Completed/);
   await expect(card.getByTestId("music-video-status")).toHaveText("Completed", { timeout: RENDER_TIMEOUT_MS });
-  await expect(card.getByTestId("music-video-meta")).toContainText("From Version 1 · 9:16 · Minimal");
+  await expect(card.getByTestId("music-video-meta")).toContainText("From Version 1 · 9:16 · Cinematic");
   await expect(section.getByTestId("version-video-state")).toHaveText("Ready");
   await expect(card.getByRole("button", { name: "Retry Music Video" })).toHaveCount(0); // only failed videos retry
 
@@ -160,11 +160,11 @@ test("Music Video: an image background works, and a bad background is refused be
   await expect(form.getByRole("alert")).toHaveText(/JPG, PNG, MP4/);
 
   await form.getByLabel(/Background/).setInputFiles(path.join(FIXTURES, "music-video-background.jpg"));
-  await form.getByLabel("Style").selectOption("bold");
+  await form.getByLabel("Style").selectOption("karaoke");
   await form.getByRole("button", { name: "Generate Music Video" }).click();
   const card = section.getByTestId("music-video").first();
   await expect(card.getByTestId("music-video-status")).toHaveText("Completed", { timeout: RENDER_TIMEOUT_MS });
-  await expect(card.getByTestId("music-video-meta")).toContainText("9:16 · Bold");
+  await expect(card.getByTestId("music-video-meta")).toContainText("9:16 · Karaoke");
   await expect(card.getByTestId("music-video-player")).toBeVisible();
 
   // Deleting the Song removes its Music Videos too.

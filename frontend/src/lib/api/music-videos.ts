@@ -9,9 +9,14 @@ import { ApiError } from "@/lib/api/jobs";
 import { saveBlob } from "@/lib/audio/download-audio";
 
 export type MusicVideoStatus = "PENDING" | "ALIGNING" | "RENDERING" | "COMPLETED" | "FAILED";
-export type MusicVideoStyle = "minimal_white" | "dreamy" | "bold";
+export type MusicVideoStyle = "minimal_white" | "dreamy" | "bold" | "cinematic" | "karaoke";
+
+/** The form default (Phase 25): new videos get the most polished look without extra choices. */
+export const DEFAULT_MUSIC_VIDEO_STYLE: MusicVideoStyle = "cinematic";
 
 export const MUSIC_VIDEO_STYLES: { value: MusicVideoStyle; label: string }[] = [
+  { value: "cinematic", label: "Cinematic" },
+  { value: "karaoke", label: "Karaoke" },
   { value: "minimal_white", label: "Minimal" },
   { value: "dreamy", label: "Dreamy" },
   { value: "bold", label: "Bold" },

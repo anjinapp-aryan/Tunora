@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api/jobs";
 import {
   BACKGROUND_ACCEPT,
+  DEFAULT_MUSIC_VIDEO_STYLE,
   MUSIC_VIDEO_STYLES,
   createMusicVideo,
   deleteMusicVideo,
@@ -181,7 +182,7 @@ function CreateMusicVideoForm({
 }) {
   const ids = useId();
   const [versionId, setVersionId] = useState(defaultVersionId);
-  const [style, setStyle] = useState<MusicVideoStyle>("minimal_white");
+  const [style, setStyle] = useState<MusicVideoStyle>(DEFAULT_MUSIC_VIDEO_STYLE);
   const [background, setBackground] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

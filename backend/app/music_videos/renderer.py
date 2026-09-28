@@ -187,8 +187,14 @@ class FFmpegLibassRenderer(MusicVideoRenderer):
 
     def _command(self, audio: Path, bg: Path, is_video: bool, w: int, h: int, duration: float,
                  style: str, out: Path) -> list[str]:
-        dim = ass_builder.STYLES[style].dim
-        if is_video:
+        look = ass_builder.STYLES[style]
+        dim = look.dim
+        if is_video and look.drift:  # Phase 25: cover at 108 % and drift slowly, like images do
+            bw, bh = int(w * 1.08) // 2 * 2, int(h * 1.08) // 2 * 2
+            bg_in = ["-stream_loop", "-1", "-protocol_whitelist", "file", "-i", f"file:{bg}"]
+            fit = (f"fps={FPS},scale={bw}:{bh}:force_original_aspect_ratio=increase,crop={bw}:{bh},"
+                   f"crop={w}:{h}:x='(iw-ow)/2*(1+sin(2*PI*t/40))':y='(ih-oh)/2*(1+cos(2*PI*t/50))'")
+        elif is_video:
             bg_in = ["-stream_loop", "-1", "-protocol_whitelist", "file", "-i", f"file:{bg}"]
             fit = f"fps={FPS},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}"
         else:  # still image: cover at 112 % and pan slowly across the spare margin
@@ -200,7 +206,10 @@ class FFmpegLibassRenderer(MusicVideoRenderer):
         # Darken for readability without greying out the colours. LGPL filters only: FFmpeg's
         # `eq` filter is GPL-only and absent from the approved build.
         top = 1 - dim * 0.4
-        graph = (f"[0:v]{fit},setsar=1,colorlevels=romax={top:.3f}:gomax={top:.3f}:bomax={top:.3f},"
+        # Phase 25 vignette: applied on YUV before the RGB colour steps and without per-pixel
+        # dithering -- measured ~+0.6 s per 60 s this way, versus ~+11 s after colorlevels.
+        vignette = "format=yuv420p,vignette=angle=PI/5.5:dither=0," if look.vignette else ""
+        graph = (f"[0:v]{fit},{vignette}setsar=1,colorlevels=romax={top:.3f}:gomax={top:.3f}:bomax={top:.3f},"
                  f"hue=s=1.15,ass=lyrics.ass:fontsdir=fonts,scale=out_range=tv,format=yuv420p[v]")
         return [str(self._tools.ffmpeg), "-hide_banner", "-nostdin", "-y", *bg_in,
                 "-protocol_whitelist", "file", "-i", f"file:{audio}",

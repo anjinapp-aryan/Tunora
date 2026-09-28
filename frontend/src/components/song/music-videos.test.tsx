@@ -110,7 +110,10 @@ describe("MusicVideosSection", () => {
     expect(within(form).getByLabelText("Aspect ratio")).toBeDisabled();
     expect(within(form).getByLabelText("Aspect ratio")).toHaveDisplayValue("9:16 · 1080 × 1920");
     expect(within(form).getByLabelText(/Background/)).toHaveAttribute("accept", expect.stringContaining("video/mp4"));
-    expect(within(form).getByLabelText("Style")).toHaveDisplayValue("Minimal");
+    // Phase 25: new videos default to the polished Cinematic look; the Phase 23 styles stay available.
+    const styleSelect = within(form).getByLabelText("Style");
+    expect(styleSelect).toHaveDisplayValue("Cinematic");
+    expect(within(styleSelect).getAllByRole("option").map((o) => o.textContent)).toEqual(["Cinematic", "Karaoke", "Minimal", "Dreamy", "Bold"]);
     expect(screen.getByTestId("music-video-lyrics")).toHaveTextContent("I will rise");
   });
 
@@ -180,6 +183,14 @@ describe("MusicVideosSection", () => {
     render(<MusicVideosSection songId="song-1" versions={versions} selectedVersionId="ver-2" />);
     await screen.findByText("Rendering…");
     expect(screen.queryByTestId("music-video-actions")).toBeNull();
+  });
+
+  it("uses the Cinematic style by default when the user doesn't choose one", async () => {
+    render(<MusicVideosSection songId="song-1" versions={versions} selectedVersionId="ver-2" />);
+    await userEvent.click(screen.getByRole("button", CREATE_V2));
+    await userEvent.upload(screen.getByLabelText(/Background/), new File([new Uint8Array(8)], "a.jpg", { type: "image/jpeg" }));
+    await userEvent.click(screen.getByRole("button", GENERATE));
+    expect(posts[0].url).toBe("/api/songs/song-1/music-videos?source_version_id=ver-2&style=cinematic&aspect_ratio=9%3A16");
   });
 
   it("never plays a URL that is not Tunora's own", async () => {

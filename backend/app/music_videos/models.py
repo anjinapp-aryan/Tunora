@@ -23,7 +23,7 @@ class MusicVideoStatus(str, Enum):
 
 TERMINAL_MUSIC_VIDEO_STATUSES = frozenset({MusicVideoStatus.COMPLETED, MusicVideoStatus.FAILED})
 
-STYLES = ("minimal_white", "dreamy", "bold")
+STYLES = ("minimal_white", "dreamy", "bold", "cinematic", "karaoke")  # Phase 25 adds the last two
 ASPECT_RATIOS = ("9:16",)  # the only production path in Phase 23
 
 
