@@ -23,6 +23,7 @@ from app.music_videos.errors import (
     InvalidMusicVideoRequestError,
     MusicVideoInProgressError,
     MusicVideoNotFoundError,
+    MusicVideoStateError,
 )
 from app.music_videos.ffmpeg import FFmpegTools, approved_ffmpeg
 from app.music_videos.models import (
@@ -218,6 +219,34 @@ class MusicVideoService:
         failed = replace(current, status=MusicVideoStatus.FAILED, error=error[:2000], updated_at=utcnow())
         self._repository.update(failed)
         return failed
+
+    # -- retry / delete (Phase 24) -------------------------------------------------------------
+
+    def retry(self, music_video_id: str) -> MusicVideo:
+        """Retry a FAILED Music Video in place: same id, same source Version, style and stored
+        background; its previous attempt's result is cleared and it goes back to PENDING. The
+        caller schedules `generate(id)`. Audio is never regenerated and no Version or Job is
+        created. Raises MusicVideoNotFoundError, MusicVideoStateError, MusicVideoInProgressError,
+        or SourceAudioUnavailableError / SourceVersionNotFoundError if the source is gone."""
+
+        video = self.get(music_video_id)
+        if video.status != MusicVideoStatus.FAILED:
+            raise MusicVideoStateError("Only a failed music video can be retried.")
+        self._jobs.resolve_version_audio(video.song_id, video.source_version_id)
+        if not self._storage.get_path(video.background_key).is_file():
+            raise MusicVideoStateError("This video's background is no longer available. Create a new music video instead.")
+        retried = self._repository.retry(music_video_id, utcnow())
+        logger.info("music video %s retried (source version %s)", music_video_id, video.source_version_id)
+        return retried
+
+    def delete(self, music_video_id: str) -> None:
+        """Delete one finished Music Video and its files. Never touches the Song, the source
+        Version or its audio. Raises MusicVideoNotFoundError or MusicVideoStateError."""
+
+        self.get(music_video_id)
+        self._repository.delete(music_video_id)
+        self._storage.delete_video(music_video_id)
+        logger.info("music video %s deleted", music_video_id)
 
     # -- recovery ----------------------------------------------------------------------------
 

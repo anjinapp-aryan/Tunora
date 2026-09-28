@@ -27,3 +27,8 @@ class AlignmentError(RuntimeError):
 
 class RenderError(RuntimeError):
     """FFmpeg could not render the video. Message is internal (logs only)."""
+
+
+class MusicVideoStateError(Exception):
+    """The action is not allowed in the video's current state (retry a non-failed video, delete
+    one still being generated). Message is safe to show."""

@@ -4,6 +4,8 @@ POST /api/songs/{song_id}/music-videos           create (background file = reque
 GET  /api/songs/{song_id}/music-videos           list a Song's Music Videos (newest first)
 GET  /api/music-videos/{music_video_id}          one Music Video (status polling)
 GET  /api/music-videos/{music_video_id}/video    the rendered MP4 (Range/ETag via FileResponse)
+POST /api/music-videos/{music_video_id}/retry    retry a FAILED video in place (Phase 24)
+DELETE /api/music-videos/{music_video_id}        delete one finished video (Phase 24)
 
 The background is sent as the raw request body with its media type in Content-Type, and the other
 fields as query parameters. That keeps uploads streaming and size-capped without adding a multipart
@@ -24,6 +26,7 @@ from app.music_videos.errors import (
     InvalidMusicVideoRequestError,
     MusicVideoInProgressError,
     MusicVideoNotFoundError,
+    MusicVideoStateError,
 )
 from app.music_videos.models import MusicVideo
 from app.music_videos.service import BACKGROUND_TYPES, MusicVideoService, public_error
@@ -113,3 +116,36 @@ async def get_music_video_file(request: Request, music_video_id: str = Path(max_
         raise HTTPException(status_code=404, detail="Music video not found.")
     return FileResponse(path, media_type="video/mp4", filename=f"tunora-{video.id}.mp4",
                         content_disposition_type="inline", headers={"X-Content-Type-Options": "nosniff"})
+
+
+@router.post("/api/music-videos/{music_video_id}/retry", response_model=MusicVideoResponse, status_code=202)
+async def retry_music_video(request: Request, background_tasks: BackgroundTasks,
+                            music_video_id: str = Path(max_length=80, pattern=_ID)):
+    """Retry a failed Music Video from the same source Version and background (Phase 24).
+    Only video work is repeated: the audio is never regenerated and no Version is created."""
+
+    service = _service(request)
+    try:
+        video = service.retry(music_video_id)
+    except MusicVideoNotFoundError:
+        raise HTTPException(status_code=404, detail="Music video not found.")
+    except (SongNotFoundError, SourceVersionNotFoundError, SourceAudioUnavailableError):
+        raise HTTPException(status_code=409, detail="The source version's audio is no longer available.")
+    except MusicVideoInProgressError:
+        raise HTTPException(status_code=409, detail="A music video for this version is already being generated.")
+    except MusicVideoStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    background_tasks.add_task(service.generate, video.id)
+    return _respond(request, video)
+
+
+@router.delete("/api/music-videos/{music_video_id}", status_code=204)
+async def delete_music_video(request: Request, music_video_id: str = Path(max_length=80, pattern=_ID)):
+    """Delete one finished Music Video and its files. The Song, Version and audio are untouched."""
+
+    try:
+        _service(request).delete(music_video_id)
+    except MusicVideoNotFoundError:
+        raise HTTPException(status_code=404, detail="Music video not found.")
+    except MusicVideoStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))

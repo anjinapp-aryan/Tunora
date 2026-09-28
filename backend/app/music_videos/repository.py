@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.jobs.migrations import migrate
-from app.music_videos.errors import MusicVideoInProgressError, MusicVideoNotFoundError
+from app.music_videos.errors import MusicVideoInProgressError, MusicVideoNotFoundError, MusicVideoStateError
 from app.music_videos.models import TERMINAL_MUSIC_VIDEO_STATUSES, MusicVideo, MusicVideoStatus
 
 
@@ -43,6 +43,18 @@ class MusicVideoRepository(ABC):
     @abstractmethod
     def list_unfinished(self) -> list[MusicVideo]:
         """Every non-terminal Music Video (restart recovery)."""
+
+    @abstractmethod
+    def retry(self, music_video_id: str, now: datetime) -> MusicVideo:
+        """Atomically put a FAILED video back to PENDING (clearing its previous attempt's result),
+        keeping the same id, source Version, style and background. Raises MusicVideoNotFoundError,
+        MusicVideoStateError (not FAILED) or MusicVideoInProgressError (another video of the same
+        Version is in progress)."""
+
+    @abstractmethod
+    def delete(self, music_video_id: str) -> None:
+        """Delete one finished (COMPLETED/FAILED) video row. Never touches a Song, Version or
+        Job. Raises MusicVideoNotFoundError or MusicVideoStateError (still being generated)."""
 
 
 class InMemoryMusicVideoRepository(MusicVideoRepository):
@@ -84,6 +96,31 @@ class InMemoryMusicVideoRepository(MusicVideoRepository):
 
     def list_unfinished(self) -> list[MusicVideo]:
         return [v for v in self._videos.values() if v.status not in TERMINAL_MUSIC_VIDEO_STATUSES]
+
+    def retry(self, music_video_id: str, now: datetime) -> MusicVideo:
+        with self._lock:
+            current = self._videos.get(music_video_id)
+            if current is None:
+                raise MusicVideoNotFoundError(music_video_id)
+            if current.status != MusicVideoStatus.FAILED:
+                raise MusicVideoStateError("Only a failed music video can be retried.")
+            if any(v.source_version_id == current.source_version_id and v.status not in TERMINAL_MUSIC_VIDEO_STATUSES
+                   for v in self._videos.values()):
+                raise MusicVideoInProgressError(current.source_version_id)
+            retried = replace(current, status=MusicVideoStatus.PENDING, duration=None, output_key=None,
+                              output_size_bytes=None, timed_lyrics=None, error=None, updated_at=now,
+                              completed_at=None)
+            self._videos[music_video_id] = retried
+            return retried
+
+    def delete(self, music_video_id: str) -> None:
+        with self._lock:
+            current = self._videos.get(music_video_id)
+            if current is None:
+                raise MusicVideoNotFoundError(music_video_id)
+            if current.status not in TERMINAL_MUSIC_VIDEO_STATUSES:
+                raise MusicVideoStateError("This music video is still being generated.")
+            del self._videos[music_video_id]
 
 
 def _dt(value: Optional[datetime]) -> Optional[str]:
@@ -193,6 +230,54 @@ class SqliteMusicVideoRepository(MusicVideoRepository):
                 (MusicVideoStatus.COMPLETED.value, MusicVideoStatus.FAILED.value),
             ).fetchall()
             return [self._row(r) for r in rows]
+        finally:
+            conn.close()
+
+
+    def retry(self, music_video_id: str, now: datetime) -> MusicVideo:
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(f"SELECT {_COLUMNS} FROM music_videos WHERE id = ?", (music_video_id,)).fetchone()
+            if row is None:
+                raise MusicVideoNotFoundError(music_video_id)
+            current = self._row(row)
+            if current.status != MusicVideoStatus.FAILED:
+                raise MusicVideoStateError("Only a failed music video can be retried.")
+            active = conn.execute(
+                "SELECT 1 FROM music_videos WHERE source_version_id = ? AND status NOT IN (?, ?)",
+                (current.source_version_id, MusicVideoStatus.COMPLETED.value, MusicVideoStatus.FAILED.value),
+            ).fetchone()
+            if active is not None:
+                raise MusicVideoInProgressError(current.source_version_id)
+            conn.execute(
+                "UPDATE music_videos SET status = ?, duration = NULL, output_key = NULL, output_size_bytes = NULL, "
+                "timed_lyrics_json = NULL, error = NULL, updated_at = ?, completed_at = NULL WHERE id = ?",
+                (MusicVideoStatus.PENDING.value, _dt(now), music_video_id),
+            )
+            conn.commit()
+            return replace(current, status=MusicVideoStatus.PENDING, duration=None, output_key=None,
+                           output_size_bytes=None, timed_lyrics=None, error=None, updated_at=now, completed_at=None)
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def delete(self, music_video_id: str) -> None:
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT status FROM music_videos WHERE id = ?", (music_video_id,)).fetchone()
+            if row is None:
+                raise MusicVideoNotFoundError(music_video_id)
+            if row["status"] not in (MusicVideoStatus.COMPLETED.value, MusicVideoStatus.FAILED.value):
+                raise MusicVideoStateError("This music video is still being generated.")
+            conn.execute("DELETE FROM music_videos WHERE id = ?", (music_video_id,))
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
         finally:
             conn.close()
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { DownloadIcon, Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,10 @@ import {
   BACKGROUND_ACCEPT,
   MUSIC_VIDEO_STYLES,
   createMusicVideo,
+  deleteMusicVideo,
   downloadMusicVideo,
   isTunoraMusicVideoUrl,
+  retryMusicVideo,
   validateBackground,
   type MusicVideo,
   type MusicVideoStatus,
@@ -38,43 +40,101 @@ function styleLabel(style: MusicVideoStyle): string {
   return MUSIC_VIDEO_STYLES.find((s) => s.value === style)?.label ?? style;
 }
 
+/** Why a Version can't be the source of a music video, or null when it can. */
+export function ineligibleReason(v: SongVersion): string | null {
+  if (!v.audio) return "This version has no audio yet.";
+  if (v.instrumental) return "This version is instrumental, so it has no lyrics to show.";
+  if (!v.lyrics.trim()) return "This version has no lyrics to show.";
+  return null;
+}
+
+/** The music video state of ONE version, kept separate from its audio state (Phase 24). */
+export function videoStateFor(videos: MusicVideo[], versionId: string): string {
+  const mine = videos.filter((v) => v.source_version_id === versionId);
+  if (mine.length === 0) return "Not created";
+  if (mine.some((v) => v.status === "PENDING" || v.status === "ALIGNING" || v.status === "RENDERING")) return "In progress…";
+  const ready = mine.filter((v) => v.status === "COMPLETED").length;
+  if (ready > 0) return ready === 1 ? "Ready" : `Ready (${ready})`;
+  return "Failed";
+}
+
 /**
- * Song Details → Music Videos (Phase 23). Music Videos are listed separately from the audio
- * Versions: each is a 9:16 lyric video made from exactly one Version, which is never changed.
+ * Song Details → Music Videos (Phase 23, workflow clarified in Phase 24). Audio is the primary
+ * asset; a music video is an optional 9:16 lyric video made FROM one Version, which is never
+ * changed. The create action always starts from the Version currently selected on the page.
  */
-export function MusicVideosSection({ songId, versions }: { songId: string; versions: SongVersion[] }) {
+export function MusicVideosSection({
+  songId,
+  versions,
+  selectedVersionId,
+}: {
+  songId: string;
+  versions: SongVersion[];
+  selectedVersionId?: string | null;
+}) {
   const { videos, error, connectionProblem, reload } = useMusicVideos(songId);
-  const [creating, setCreating] = useState(false);
+  // Arriving from "Create Music Video" on a finished song opens the form straight away.
+  const [creating, setCreating] = useState(
+    () => typeof window !== "undefined" && window.location.hash === "#create-music-video",
+  );
   const eligible = eligibleVersions(versions);
+  const selected = versions.find((v) => v.id === selectedVersionId) ?? null;
+  const selectedReason = selected ? ineligibleReason(selected) : null;
+  const defaultVersionId = selected && !selectedReason ? selected.id : eligible[0]?.id;
   // Numbered oldest-first so a video keeps its number as new ones are added.
   const numbers = useMemo(() => {
     const byAge = [...(videos ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at));
     return new Map(byAge.map((v, i) => [v.id, i + 1]));
   }, [videos]);
 
+  useEffect(() => {
+    if (window.location.hash === "#create-music-video" || window.location.hash === "#music-videos") {
+      document.getElementById("music-videos")?.scrollIntoView({ block: "start" });
+    }
+  }, []);
+
   return (
-    <section aria-labelledby="music-videos-heading" className="flex flex-col gap-4" data-testid="music-videos">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section id="music-videos" aria-labelledby="music-videos-heading" className="flex flex-col gap-4 scroll-mt-4" data-testid="music-videos">
+      <div>
         <h2 id="music-videos-heading" className="text-lg font-medium">
           Music Videos
         </h2>
-        {!creating && eligible.length > 0 && (
-          <Button type="button" size="sm" variant="outline" onClick={() => setCreating(true)} data-testid="create-music-video">
-            Create Music Video
-          </Button>
-        )}
+        <p className="mt-1 text-sm text-muted-foreground">
+          Optional. Turn a version into a 9:16 lyric video. The version and its audio are never changed.
+        </p>
       </div>
 
-      {eligible.length === 0 && (
-        <p className="text-sm text-muted-foreground" data-testid="music-video-unavailable">
-          A music video needs a finished version with lyrics.
-        </p>
+      {selected && (
+        <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3 text-sm" data-testid="version-video-status">
+          <p className="font-medium">Version {selected.version_number}</p>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+            <dt className="text-muted-foreground">Audio</dt>
+            <dd data-testid="version-audio-state">{selected.audio ? "Ready" : "Not available"}</dd>
+            <dt className="text-muted-foreground">Music video</dt>
+            <dd data-testid="version-video-state">{videos ? videoStateFor(videos, selected.id) : "…"}</dd>
+          </dl>
+          {selectedReason ? (
+            <p className="text-muted-foreground" data-testid="music-video-unavailable">
+              {selectedReason}
+            </p>
+          ) : (
+            !creating && (
+              <Button type="button" size="sm" variant="outline" className="w-fit" onClick={() => setCreating(true)} data-testid="create-music-video">
+                {videos?.some((v) => v.source_version_id === selected.id)
+                  ? `Create another video from Version ${selected.version_number}`
+                  : `Create Music Video from Version ${selected.version_number}`}
+              </Button>
+            )
+          )}
+        </div>
       )}
 
-      {creating && (
+      {creating && defaultVersionId && (
         <CreateMusicVideoForm
+          key={defaultVersionId}
           songId={songId}
           versions={eligible}
+          defaultVersionId={defaultVersionId}
           onCancel={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
@@ -100,7 +160,7 @@ export function MusicVideosSection({ songId, versions }: { songId: string; versi
         </p>
       )}
       {videos?.map((video) => (
-        <MusicVideoCard key={video.id} video={video} number={numbers.get(video.id) ?? 0} />
+        <MusicVideoCard key={video.id} video={video} number={numbers.get(video.id) ?? 0} onChanged={reload} />
       ))}
     </section>
   );
@@ -109,16 +169,18 @@ export function MusicVideosSection({ songId, versions }: { songId: string; versi
 function CreateMusicVideoForm({
   songId,
   versions,
+  defaultVersionId,
   onCancel,
   onCreated,
 }: {
   songId: string;
   versions: SongVersion[];
+  defaultVersionId: string;
   onCancel: () => void;
   onCreated: (video: MusicVideo) => void;
 }) {
   const ids = useId();
-  const [versionId, setVersionId] = useState(versions[0]?.id ?? "");
+  const [versionId, setVersionId] = useState(defaultVersionId);
   const [style, setStyle] = useState<MusicVideoStyle>("minimal_white");
   const [background, setBackground] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -153,8 +215,11 @@ function CreateMusicVideoForm({
       onKeyDown={(e) => e.key === "Escape" && onCancel()}
       data-testid="music-video-form"
     >
+      <p className="text-sm text-muted-foreground">
+        The video is made from the chosen version&apos;s own audio and lyrics. No new audio is generated.
+      </p>
       <label className="flex flex-col gap-1 text-sm" htmlFor={`${ids}-version`}>
-        Version
+        Source version
         <select
           id={`${ids}-version`}
           className="h-8 w-fit max-w-full rounded-lg border border-input bg-transparent px-2 text-sm"
@@ -236,7 +301,7 @@ function CreateMusicVideoForm({
 
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={busy} aria-busy={busy} data-testid="music-video-generate">
-          {busy ? "Uploading…" : "Generate"}
+          {busy ? "Uploading…" : "Generate Music Video"}
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={onCancel}>
           Cancel
@@ -246,7 +311,36 @@ function CreateMusicVideoForm({
   );
 }
 
-function MusicVideoCard({ video, number }: { video: MusicVideo; number: number }) {
+function MusicVideoCard({ video, number, onChanged }: { video: MusicVideo; number: number; onChanged: () => void }) {
+  const [action, setAction] = useState<"idle" | "retrying" | "confirm-delete" | "deleting">("idle");
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  async function retry() {
+    if (action !== "idle") return;
+    setAction("retrying");
+    setActionError(null);
+    try {
+      await retryMusicVideo(video.id);
+      onChanged();
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : "Could not retry the music video. Please try again.");
+    } finally {
+      setAction("idle");
+    }
+  }
+
+  async function remove() {
+    setAction("deleting");
+    setActionError(null);
+    try {
+      await deleteMusicVideo(video.id);
+      onChanged();
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : "Could not delete the music video. Please try again.");
+      setAction("idle");
+    }
+  }
+
   const [downloadState, setDownloadState] = useState<"idle" | "busy" | "error" | "started">("idle");
   const playable = video.status === "COMPLETED" && isTunoraMusicVideoUrl(video.video_url);
   const working = video.status === "PENDING" || video.status === "ALIGNING" || video.status === "RENDERING";
@@ -342,6 +436,36 @@ function MusicVideoCard({ video, number }: { video: MusicVideo; number: number }
             )}
           </div>
         </>
+      )}
+
+      {!working && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="music-video-actions">
+          {video.status === "FAILED" && (
+            <Button type="button" size="sm" onClick={retry} disabled={action !== "idle"} aria-busy={action === "retrying"} data-testid="music-video-retry">
+              {action === "retrying" ? "Retrying…" : "Retry Music Video"}
+            </Button>
+          )}
+          {action === "confirm-delete" || action === "deleting" ? (
+            <>
+              <span className="text-sm">Delete this video? The song and its audio stay.</span>
+              <Button type="button" size="sm" variant="destructive" onClick={remove} disabled={action === "deleting"} data-testid="music-video-delete-confirm">
+                {action === "deleting" ? "Deleting…" : "Delete video"}
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setAction("idle")} disabled={action === "deleting"}>
+                Keep
+              </Button>
+            </>
+          ) : (
+            <Button type="button" size="sm" variant="ghost" onClick={() => setAction("confirm-delete")} disabled={action !== "idle"} data-testid="music-video-delete">
+              Delete video
+            </Button>
+          )}
+        </div>
+      )}
+      {actionError && (
+        <p role="alert" className="text-sm text-destructive" data-testid="music-video-action-error">
+          {actionError}
+        </p>
       )}
     </article>
   );

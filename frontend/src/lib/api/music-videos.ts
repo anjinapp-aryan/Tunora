@@ -157,3 +157,46 @@ export async function downloadMusicVideo(video: MusicVideo): Promise<void> {
   const blob = await response.blob();
   saveBlob(blob, `tunora-music-video-${video.id.replace(/[^A-Za-z0-9-]/g, "")}.mp4`);
 }
+
+async function safeDetail(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await response.json()) as { detail?: unknown };
+    return typeof body.detail === "string" && body.detail.length < 200 ? body.detail : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Retry a FAILED music video from the same source Version and background (Phase 24). Only the
+ * video work is repeated -- never the audio, never a new Version.
+ */
+export async function retryMusicVideo(id: string): Promise<MusicVideo> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/music-videos/${encodeURIComponent(id)}/retry`, { method: "POST" });
+  } catch (error) {
+    console.error("music video retry network failure", error);
+    throw new ApiError("network", NETWORK);
+  }
+  if (response.ok) return (await response.json()) as MusicVideo;
+  if (response.status === 404) throw new ApiError("not_found", "This music video no longer exists.");
+  if (response.status === 409) throw new ApiError("validation", await safeDetail(response, "This music video can't be retried."));
+  console.error("music video retry failed", response.status);
+  throw new ApiError("server", "Could not retry the music video. Please try again.");
+}
+
+/** Delete one finished music video. The song, its versions and their audio are not affected. */
+export async function deleteMusicVideo(id: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/music-videos/${encodeURIComponent(id)}`, { method: "DELETE" });
+  } catch (error) {
+    console.error("music video delete network failure", error);
+    throw new ApiError("network", NETWORK);
+  }
+  if (response.ok || response.status === 404) return; // already gone is fine
+  if (response.status === 409) throw new ApiError("validation", await safeDetail(response, "This music video is still being generated."));
+  console.error("music video delete failed", response.status);
+  throw new ApiError("server", "Could not delete the music video. Please try again.");
+}

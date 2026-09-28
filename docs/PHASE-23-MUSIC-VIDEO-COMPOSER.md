@@ -60,6 +60,8 @@ A Version is only ever read. Nothing in this phase changes the Song/Version/Job 
 | GET | `/api/songs/{song_id}/music-videos` | `{items: [...]}`, newest first |
 | GET | `/api/music-videos/{id}` | one Music Video (the UI polls this state through the list) |
 | GET | `/api/music-videos/{id}/video` | the MP4 (`FileResponse`: Range, ETag, `nosniff`, inline) |
+| POST | `/api/music-videos/{id}/retry` | *(Phase 24)* retry a FAILED video in place; audio is never regenerated |
+| DELETE | `/api/music-videos/{id}` | *(Phase 24)* delete one finished video and its files; the Song, Version and audio stay |
 
 **Upload format.** The background is the raw request body, and `Content-Type` must be one of `image/jpeg`, `image/png`, `video/mp4`, `video/quicktime` or `video/webm`. This avoids adding a multipart-parser dependency, and it streams with an early size cap.
 

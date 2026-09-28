@@ -178,6 +178,17 @@ export function JobTracker({ jobId }: { jobId: string }) {
         <>
           <AudioPlayer src={audio.url} />
           <DownloadButton resource={audio} />
+          {job?.song_id && (
+            // Phase 24: audio is the finished product; a music video is an optional next step, never automatic.
+            <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm" data-testid="next-steps">
+              <Link href={`/songs/${encodeURIComponent(job.song_id)}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                Open song
+              </Link>
+              <Link href={`/songs/${encodeURIComponent(job.song_id)}#create-music-video`} className="underline underline-offset-4" data-testid="create-music-video-link">
+                Create a music video (optional)
+              </Link>
+            </div>
+          )}
         </>
       )}
 

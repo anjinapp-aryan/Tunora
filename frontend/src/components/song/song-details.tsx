@@ -340,7 +340,7 @@ export function SongDetailsView({ songId }: { songId: string }) {
       )}
 
       {/* Phase 23: presentation artifacts made from a Version -- listed apart from the audio Versions. */}
-      <MusicVideosSection songId={details.id} versions={details.versions} />
+      <MusicVideosSection songId={details.id} versions={details.versions} selectedVersionId={active?.id ?? null} />
     </div>
   );
 }

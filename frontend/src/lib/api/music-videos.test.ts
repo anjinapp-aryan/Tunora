@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createMusicVideo,
+  deleteMusicVideo,
+  retryMusicVideo,
   downloadMusicVideo,
   isTunoraMusicVideoUrl,
   listMusicVideos,
@@ -117,5 +119,30 @@ describe("downloadMusicVideo", () => {
     expect(clicks).toEqual(["tunora-music-video-mv-1.mp4"]);
     await expect(downloadMusicVideo({ ...completed, video_url: "https://evil.example/x.mp4" })).rejects.toBeDefined();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("retryMusicVideo / deleteMusicVideo (Phase 24)", () => {
+  it("retry POSTs only to the video's own retry route", async () => {
+    fetchMock.mockResolvedValue(json({ ...completed, status: "PENDING" }, 202));
+    expect((await retryMusicVideo("mv-1")).status).toBe("PENDING");
+    expect(fetchMock.mock.calls).toEqual([["/api/music-videos/mv-1/retry", { method: "POST" }]]);
+  });
+
+  it("retry shows the backend's safe 409 sentence and a fixed message otherwise", async () => {
+    fetchMock.mockResolvedValueOnce(json({ detail: "Only a failed music video can be retried." }, 409));
+    await expect(retryMusicVideo("mv-1")).rejects.toThrow("Only a failed music video can be retried.");
+    fetchMock.mockResolvedValueOnce(json({ detail: "Traceback C:\\secret" }, 500));
+    await expect(retryMusicVideo("mv-1")).rejects.toThrow("Could not retry the music video. Please try again.");
+  });
+
+  it("delete sends DELETE for that video only; already-gone is not an error", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await deleteMusicVideo("mv-1");
+    expect(fetchMock.mock.calls[0]).toEqual(["/api/music-videos/mv-1", { method: "DELETE" }]);
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }));
+    await expect(deleteMusicVideo("mv-1")).resolves.toBeUndefined();
+    fetchMock.mockResolvedValueOnce(json({ detail: "This music video is still being generated." }, 409));
+    await expect(deleteMusicVideo("mv-1")).rejects.toThrow("still being generated");
   });
 });

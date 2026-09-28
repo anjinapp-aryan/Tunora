@@ -106,6 +106,18 @@ def check_background(tools: FFmpegTools, path: Path) -> MediaInfo:
         raise InvalidMusicVideoRequestError("The background resolution is not supported.")
     if is_video and info.duration <= 0:
         raise InvalidMusicVideoRequestError("The background video has no duration.")
+    # ffprobe only reads headers. A file with a valid header but undecodable pixel data (e.g. a
+    # PNG with a corrupt IDAT) would pass the checks above and then make the looped render retry
+    # the decode forever (Phase 24 finding). Decode one real frame, failing on the first error.
+    try:
+        decoded = subprocess.run(
+            [str(tools.ffmpeg), "-hide_banner", "-nostdin", "-v", "error", "-xerror",
+             "-protocol_whitelist", "file", "-i", f"file:{path}", "-map", "0:v:0", "-frames:v", "1",
+             "-f", "null", "-"], capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        raise InvalidMusicVideoRequestError("The background file could not be decoded.") from None
+    if decoded.returncode != 0:
+        raise InvalidMusicVideoRequestError("The background file could not be decoded.")
     return info
 
 

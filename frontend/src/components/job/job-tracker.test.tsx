@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { rememberJobPrompt } from "@/lib/jobs/job-summary";
@@ -159,6 +159,25 @@ describe("JobTracker", () => {
       /tunora-1\.mp3|audio\/mpeg|tunora-1\/tunora-1|C:\\|\/home\/|\.cache|v1\/audio/,
     );
     expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  // Phase 24: audio is the finished product; a music video is an optional next step, never automatic.
+  it("after COMPLETED offers opening the song and an OPTIONAL music video, and starts nothing by itself", async () => {
+    fetchMock.mockResolvedValue(ok(job("COMPLETED", { song_id: "song-9", version_id: "ver-9", result: completedResult() })));
+    await renderTracker();
+    const steps = screen.getByTestId("next-steps");
+    expect(within(steps).getByRole("link", { name: "Open song" })).toHaveAttribute("href", "/songs/song-9");
+    expect(within(steps).getByRole("link", { name: /create a music video \(optional\)/i })).toHaveAttribute(
+      "href",
+      "/songs/song-9#create-music-video",
+    );
+    expect(fetchMock.mock.calls.every(([u, init]) => String(u) === "/api/jobs/tunora-1" && (!init?.method || init.method === "GET"))).toBe(true);
+  });
+
+  it("offers no music video step while the song is still generating or when it failed", async () => {
+    fetchMock.mockResolvedValue(ok(job("RUNNING", { song_id: "song-9" })));
+    await renderTracker();
+    expect(screen.queryByTestId("next-steps")).toBeNull();
   });
 
   it("gives the player only Tunora's own URL", async () => {
