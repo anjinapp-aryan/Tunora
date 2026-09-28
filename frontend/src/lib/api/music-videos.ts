@@ -8,7 +8,7 @@
 import { ApiError } from "@/lib/api/jobs";
 import { saveBlob } from "@/lib/audio/download-audio";
 
-export type MusicVideoStatus = "PENDING" | "ALIGNING" | "RENDERING" | "COMPLETED" | "FAILED";
+export type MusicVideoStatus = "WAITING_FOR_AUDIO" | "PENDING" | "ALIGNING" | "RENDERING" | "COMPLETED" | "FAILED";
 export type MusicVideoStyle = "minimal_white" | "dreamy" | "bold" | "cinematic" | "karaoke";
 
 /** The form default (Phase 25): new videos get the most polished look without extra choices. */
@@ -111,11 +111,18 @@ export async function listMusicVideos(songId: string, options: { signal?: AbortS
 
 export async function createMusicVideo(
   songId: string,
-  input: { sourceVersionId: string; style: MusicVideoStyle; background: File },
+  input: {
+    sourceVersionId: string;
+    style: MusicVideoStyle;
+    background: File;
+    /** Phase 26: the Version was just created with its song and may still be generating its audio. */
+    waitForAudio?: boolean;
+  },
 ): Promise<MusicVideo> {
   const problem = validateBackground(input.background);
   if (problem) throw new ApiError("validation", problem);
   const params = new URLSearchParams({ source_version_id: input.sourceVersionId, style: input.style, aspect_ratio: "9:16" });
+  if (input.waitForAudio) params.set("wait_for_audio", "true");
   let response: Response;
   try {
     response = await fetch(`/api/songs/${encodeURIComponent(songId)}/music-videos?${params.toString()}`, {

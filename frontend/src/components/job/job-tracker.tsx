@@ -7,6 +7,7 @@ import { CheckIcon, CircleIcon, Loader2Icon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AudioPlayer } from "@/components/audio/audio-player";
 import { DownloadButton } from "@/components/audio/download-button";
+import { JobMusicVideo } from "@/components/job/job-music-video";
 import { buttonVariants } from "@/components/ui/button";
 import { getAudioResource, type JobStatus } from "@/lib/api/jobs";
 import { recallJobPrompt } from "@/lib/jobs/job-summary";
@@ -190,6 +191,11 @@ export function JobTracker({ jobId }: { jobId: string }) {
             </div>
           )}
         </>
+      )}
+
+      {job?.song_id && job.version_id && (
+        // Phase 26: a video requested together with this song, shown as its own stage after the audio.
+        <JobMusicVideo jobId={jobId} songId={job.song_id} versionId={job.version_id} audioFailed={failed} />
       )}
 
       {connectionProblem && (

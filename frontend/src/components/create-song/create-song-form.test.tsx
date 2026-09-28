@@ -54,7 +54,7 @@ describe("CreateSongForm", () => {
     render(<CreateSongForm />);
     expect(screen.getByRole("form", { name: /create song/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/^describe your song$/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/lyrics/i)).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /lyrics/i })).toBeInTheDocument();
     expect(within(mainForm()).getByLabelText(/^language$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/duration/i)).toBeInTheDocument();
     expect(screen.getByRole("group", { name: /vocals/i })).toBeInTheDocument();
@@ -129,14 +129,14 @@ describe("CreateSongForm", () => {
   it("disables lyrics when instrumental is on", async () => {
     render(<CreateSongForm />);
     await userEvent.click(screen.getByRole("radio", { name: /instrumental/i }));
-    expect(screen.getByLabelText(/lyrics/i)).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: /lyrics/i })).toBeDisabled();
   });
 
   it("POSTs the real Tunora contract to /api/jobs and navigates to the job", async () => {
     fetchMock.mockImplementation(() => Promise.resolve(jobResponse()));
     render(<CreateSongForm />);
     await fillPrompt();
-    await userEvent.click(screen.getByLabelText(/lyrics/i));
+    await userEvent.click(screen.getByRole("textbox", { name: /lyrics/i }));
     await userEvent.paste("[Verse] la la");
     await userEvent.selectOptions(within(mainForm()).getByLabelText(/^language$/i), "kn");
     await userEvent.selectOptions(screen.getByLabelText(/duration/i), "60");
@@ -164,7 +164,7 @@ describe("CreateSongForm", () => {
     fetchMock.mockImplementation(() => Promise.resolve(jobResponse()));
     render(<CreateSongForm />);
     await fillPrompt();
-    await userEvent.type(screen.getByLabelText(/lyrics/i), "will be dropped");
+    await userEvent.type(screen.getByRole("textbox", { name: /lyrics/i }), "will be dropped");
     await userEvent.click(screen.getByRole("radio", { name: /instrumental/i }));
     await userEvent.click(screen.getByRole("button", { name: /generate song/i }));
 

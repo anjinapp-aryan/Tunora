@@ -65,6 +65,7 @@ async def lifespan(app: FastAPI):
     # A render cannot resume after a restart: mark any interrupted Music Video FAILED (Phase 23).
     try:
         app.state.music_video_service.recover_interrupted()
+        app.state.music_video_service.resume_waiting()  # Phase 26: videos waiting for their audio
     except Exception:  # noqa: BLE001 -- never stop the API over this
         logger.exception("music video recovery failed")
     # Resume jobs a previous process left in flight (Phase 16). Runs in the background so the API is
@@ -76,6 +77,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        app.state.music_video_service.stop()
         recovery.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await recovery

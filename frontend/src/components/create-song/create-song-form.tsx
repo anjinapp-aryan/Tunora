@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2Icon, MusicIcon } from "lucide-react";
+import { ClapperboardIcon, Loader2Icon, MusicIcon } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -21,11 +21,22 @@ import {
   NativeSelectOption,
 } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { CreationIntentPicker, CreationVideoOptions } from "@/components/create-song/creation-intent-picker";
 import { SongDirectorPanel } from "@/components/create-song/song-director-panel";
 import { SongRefinePanel } from "@/components/create-song/song-refine-panel";
 import { ApiError, createJob } from "@/lib/api/jobs";
 import type { SongPlan, SongSpecPayload } from "@/lib/api/director";
+import { createMusicVideo, validateBackground, type MusicVideoStyle } from "@/lib/api/music-videos";
 import { listProjects, type ProjectSummary } from "@/lib/api/projects";
+import {
+  creationIntentOption,
+  DEFAULT_CREATION_INTENT,
+  intentMakesVideo,
+  rememberJobVideoError,
+  styleForIntent,
+  videoIneligibleReason,
+  type CreationIntent,
+} from "@/lib/creation-intent";
 import { rememberJobPrompt } from "@/lib/jobs/job-summary";
 import {
   createSongSchema,
@@ -65,6 +76,13 @@ export function CreateSongForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  // Phase 26: what to create. Only decides which requests are sent; never stored.
+  const [intent, setIntent] = useState<CreationIntent>(DEFAULT_CREATION_INTENT);
+  const [videoStyle, setVideoStyle] = useState<MusicVideoStyle | null>(null);
+  const [background, setBackground] = useState<File | null>(null);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const makesVideo = intentMakesVideo(intent);
+  const intentOption = creationIntentOption(intent);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -92,6 +110,15 @@ export function CreateSongForm() {
   });
 
   const instrumental = useWatch({ control, name: "vocals" }) === "instrumental";
+  const lyricsValue = useWatch({ control, name: "lyrics" });
+  // A lyric video can't be made from an instrumental or lyric-less song (the backend re-checks).
+  const videoBlocker = makesVideo ? videoIneligibleReason({ vocals: instrumental ? "instrumental" : "vocal", lyrics: lyricsValue }) : null;
+
+  function chooseIntent(next: CreationIntent) {
+    setIntent(next);
+    setVideoStyle(null); // each intent starts from its own default style
+    setVideoError(null);
+  }
   const promptLength = useWatch({ control, name: "prompt" }).length;
 
   function applyPlan(plan: SongPlan, previous: SongPlan | null = null) {
@@ -128,6 +155,16 @@ export function CreateSongForm() {
 
   async function onSubmit(values: CreateSongValues) {
     setSubmitError(null);
+    setVideoError(null);
+    const style = styleForIntent(intent, videoStyle);
+    if (makesVideo) {
+      // Checked before the song starts, so a bad choice never costs an audio generation.
+      const problem = videoIneligibleReason(values) ?? validateBackground(background);
+      if (problem) {
+        setVideoError(problem);
+        return;
+      }
+    }
     try {
       const isInstrumental = values.vocals === "instrumental";
       const job = await createJob({
@@ -146,6 +183,19 @@ export function CreateSongForm() {
         return;
       }
       rememberJobPrompt(job.id, values.prompt.trim());
+      if (makesVideo && style && background) {
+        // Audio -> this exact Version -> Music Video. The song is already running; a video
+        // problem is reported on the job page and never stops or changes the audio.
+        try {
+          if (!job.song_id || !job.version_id) throw new ApiError("server", "The new song version is not known yet.");
+          await createMusicVideo(job.song_id, { sourceVersionId: job.version_id, style, background, waitForAudio: true });
+        } catch (error) {
+          rememberJobVideoError(
+            job.id,
+            `The music video could not be started${error instanceof ApiError ? `: ${error.message}` : "."} Your song is still being generated; you can create a video from the song page once it is ready.`,
+          );
+        }
+      }
       router.push(`/jobs/${encodeURIComponent(job.id)}`);
     } catch (error) {
       setSubmitError(
@@ -156,6 +206,8 @@ export function CreateSongForm() {
 
   return (
     <div className="flex flex-col gap-6">
+      <CreationIntentPicker value={intent} onChange={chooseIntent} disabled={isSubmitting} />
+
       <SongDirectorPanel disabled={isSubmitting} onPlan={applyPlan} />
 
       {appliedPlan && (
@@ -222,7 +274,7 @@ export function CreateSongForm() {
           </Field>
 
           <Field data-invalid={!!errors.lyrics} data-disabled={instrumental}>
-            <FieldLabel htmlFor="lyrics">Lyrics (optional)</FieldLabel>
+            <FieldLabel htmlFor="lyrics">{makesVideo ? "Lyrics" : "Lyrics (optional)"}</FieldLabel>
             <Textarea
               id="lyrics"
               rows={6}
@@ -235,7 +287,9 @@ export function CreateSongForm() {
             <FieldDescription id="lyrics-help">
               {instrumental
                 ? "Lyrics are ignored for instrumental songs."
-                : `Leave empty to let the model write the vocals. Up to ${LYRICS_MAX} characters.`}
+                : makesVideo
+                  ? `The video shows these lyrics as they are sung. Up to ${LYRICS_MAX} characters.`
+                  : `Leave empty to let the model write the vocals. Up to ${LYRICS_MAX} characters.`}
             </FieldDescription>
             <FieldError errors={[errors.lyrics]} />
           </Field>
@@ -293,12 +347,30 @@ export function CreateSongForm() {
                   type="radio"
                   value="instrumental"
                   className={RADIO_CLASS}
+                  disabled={makesVideo && !instrumental}
                   {...register("vocals")}
                 />
                 Instrumental
               </label>
             </div>
+            {makesVideo && (
+              <p className="text-xs text-muted-foreground">A lyric video needs vocals, so Instrumental is not available here.</p>
+            )}
           </fieldset>
+
+          {makesVideo && (
+            <CreationVideoOptions
+              intent={intent}
+              style={styleForIntent(intent, videoStyle) ?? "cinematic"}
+              onStyleChange={setVideoStyle}
+              onBackgroundChange={(file) => {
+                setBackground(file);
+                setVideoError(null);
+              }}
+              error={videoError ?? videoBlocker}
+              disabled={isSubmitting}
+            />
+          )}
 
           <details
             className="rounded-lg border border-border/60 px-3 py-2"
@@ -381,7 +453,8 @@ export function CreateSongForm() {
             </>
           ) : (
             <>
-              <MusicIcon aria-hidden="true" /> Generate Song
+              {makesVideo ? <ClapperboardIcon aria-hidden="true" /> : <MusicIcon aria-hidden="true" />}{" "}
+              {intentOption.submitLabel}
             </>
           )}
         </Button>

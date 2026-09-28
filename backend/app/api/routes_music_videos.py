@@ -1,6 +1,7 @@
 """Music Video API (Phase 23).
 
-POST /api/songs/{song_id}/music-videos           create (background file = request body)
+POST /api/songs/{song_id}/music-videos           create (background file = request body;
+                                                 ?wait_for_audio=true: Phase 26, Audio + Video)
 GET  /api/songs/{song_id}/music-videos           list a Song's Music Videos (newest first)
 GET  /api/music-videos/{music_video_id}          one Music Video (status polling)
 GET  /api/music-videos/{music_video_id}/video    the rendered MP4 (Range/ETag via FileResponse)
@@ -28,7 +29,7 @@ from app.music_videos.errors import (
     MusicVideoNotFoundError,
     MusicVideoStateError,
 )
-from app.music_videos.models import MusicVideo
+from app.music_videos.models import MusicVideo, MusicVideoStatus
 from app.music_videos.service import BACKGROUND_TYPES, MusicVideoService, public_error
 from app.songs.errors import InvalidIdError, SongNotFoundError, SourceAudioUnavailableError, SourceVersionNotFoundError
 
@@ -58,9 +59,12 @@ async def create_music_video(
     source_version_id: str = Query(max_length=80, pattern=_ID),
     style: Literal["minimal_white", "dreamy", "bold", "cinematic", "karaoke"] = Query("minimal_white"),
     aspect_ratio: Literal["9:16"] = Query("9:16"),
+    wait_for_audio: bool = Query(False),
 ):
     """Create a Music Video of one existing, completed Version of this Song. Returns 202 at once;
-    poll GET /api/music-videos/{id} until COMPLETED or FAILED."""
+    poll GET /api/music-videos/{id} until COMPLETED or FAILED. With wait_for_audio=true (Phase 26:
+    Audio + Video in one request) the Version may still be generating: the video starts as
+    WAITING_FOR_AUDIO and renders once that exact Version has audio."""
 
     declared = request.headers.get("content-length")
     if declared is not None and (not declared.isdigit() or int(declared) > _MAX_UPLOAD):
@@ -69,7 +73,8 @@ async def create_music_video(
     try:
         video = await service.create(
             song_id, source_version_id=source_version_id, style=style, aspect_ratio=aspect_ratio,
-            media_type=request.headers.get("content-type", ""), chunks=request.stream())
+            media_type=request.headers.get("content-type", ""), chunks=request.stream(),
+            wait_for_audio=wait_for_audio)
     except (InvalidIdError, SongNotFoundError):
         raise HTTPException(status_code=404, detail="Song not found.")
     except SourceVersionNotFoundError:
@@ -83,7 +88,10 @@ async def create_music_video(
     except FFmpegPolicyError as exc:
         logger.error("music video unavailable: %s", exc)
         raise HTTPException(status_code=503, detail="Music video rendering is not available on this server.")
-    background_tasks.add_task(service.generate, video.id)
+    if video.status == MusicVideoStatus.WAITING_FOR_AUDIO:
+        service.start_waiting(video.id)
+    else:
+        background_tasks.add_task(service.generate, video.id)
     return _respond(request, video)
 
 

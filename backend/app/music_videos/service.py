@@ -6,6 +6,13 @@ result as a separate Music Video. Execution follows Tunora's existing model: Fas
 BackgroundTasks in-process (no queue, no Redis/Celery), one render at a time (a lock -- rendering
 is CPU-bound), and a restart marks interrupted videos FAILED (a render subprocess cannot resume;
 nothing is ever re-run or duplicated automatically).
+
+Phase 26 (Audio + Video in one request): a video may be created for the exact Version a song
+generation has just created, before that Version has audio. It is recorded as WAITING_FOR_AUDIO
+and waits -- outside the render lock, never regenerating or touching the audio -- until the
+Version's own job finishes: with audio it continues as a normal render; without audio it becomes
+FAILED ("source_failed") and the Version/audio side is unaffected. A waiting video has no
+subprocess, so a restart resumes its wait instead of failing it.
 """
 
 from __future__ import annotations
@@ -63,6 +70,7 @@ FAILURE_MESSAGES = {
     "no_lyrics_matched": "None of this version's lyrics could be matched to its audio.",
     "interrupted": "Generation was interrupted when Tunora restarted. Please generate it again.",
     "source_unavailable": "The source version's audio is no longer available.",
+    "source_failed": "The song's audio could not be generated, so this video was not made.",
     "failed": "Music video generation failed.",
 }
 
@@ -98,6 +106,7 @@ class MusicVideoService:
         renderer_factory: Optional[Callable[[FFmpegTools], MusicVideoRenderer]] = None,
         background_checker: Optional[Callable[[FFmpegTools, Path], object]] = None,
         id_factory: Callable[[], str] = new_music_video_id,
+        audio_poll_seconds: float = 2.0,
     ) -> None:
         self._repository = repository
         self._jobs = jobs
@@ -108,13 +117,17 @@ class MusicVideoService:
         self._check_background = background_checker or renderer_module.check_background
         self._id_factory = id_factory
         self._render_lock = threading.Lock()
+        self._audio_poll_seconds = audio_poll_seconds
+        self._stopping = threading.Event()
 
     # -- create ------------------------------------------------------------------------------
 
     async def create(self, song_id: str, *, source_version_id: str, style: str, aspect_ratio: str,
-                     media_type: str, chunks: AsyncIterator[bytes]) -> MusicVideo:
+                     media_type: str, chunks: AsyncIterator[bytes], wait_for_audio: bool = False) -> MusicVideo:
         """Validate everything, store the background, and record a PENDING Music Video.
-        The caller schedules `generate(id)`. Raises InvalidIdError, SongNotFoundError,
+        With `wait_for_audio` (Phase 26) the exact source Version may still be generating its
+        audio; the video is then recorded as WAITING_FOR_AUDIO and the caller uses
+        `start_waiting(id)`. Otherwise the caller schedules `generate(id)`. Raises InvalidIdError, SongNotFoundError,
         SourceVersionNotFoundError, SourceAudioUnavailableError, InvalidMusicVideoRequestError,
         MusicVideoInProgressError or FFmpegPolicyError."""
 
@@ -125,7 +138,15 @@ class MusicVideoService:
         media_type = (media_type or "").split(";", 1)[0].strip().lower()
         if media_type not in BACKGROUND_TYPES:
             raise InvalidMusicVideoRequestError("Background must be a JPG, PNG, MP4, MOV or WebM file.")
-        version, _ = self._jobs.resolve_version_audio(song_id, source_version_id)
+        status = MusicVideoStatus.PENDING
+        if wait_for_audio:
+            version, state = self._jobs.version_audio_state(song_id, source_version_id)
+            if state == "failed":
+                raise SourceAudioUnavailableError("The source version has no audio.")
+            if state == "pending":
+                status = MusicVideoStatus.WAITING_FOR_AUDIO
+        else:
+            version, _ = self._jobs.resolve_version_audio(song_id, source_version_id)
         if version.spec.instrumental or not version.spec.lyrics.strip():
             raise InvalidMusicVideoRequestError("This version has no lyrics to show in a music video.")
         if any(v.source_version_id == source_version_id and v.status not in TERMINAL_MUSIC_VIDEO_STATUSES
@@ -146,7 +167,7 @@ class MusicVideoService:
             now = utcnow()
             video = MusicVideo(
                 id=video_id, song_id=song_id, source_version_id=source_version_id,
-                status=MusicVideoStatus.PENDING, style=style, aspect_ratio=aspect_ratio,
+                status=status, style=style, aspect_ratio=aspect_ratio,
                 background_key=key, background_media_type=media_type, created_at=now, updated_at=now,
             )
             self._repository.create(video)
@@ -159,8 +180,12 @@ class MusicVideoService:
     # -- generate (background task) ----------------------------------------------------------
 
     def generate(self, music_video_id: str) -> MusicVideo:
-        """Align, then render. Runs in the API process's worker thread; one render at a time."""
+        """Align, then render. Runs in the API process's worker thread; one render at a time.
+        A WAITING_FOR_AUDIO video first waits (without holding the render lock) for its source
+        Version's audio."""
 
+        if not self._await_audio(music_video_id):
+            return self._repository.get(music_video_id)
         with self._render_lock:
             video = self._repository.get(music_video_id)
             if video is None or video.status in TERMINAL_MUSIC_VIDEO_STATUSES:
@@ -171,6 +196,51 @@ class MusicVideoService:
                 code = "source_unavailable" if isinstance(exc, _SOURCE_GONE) else "failed"
                 logger.exception("music video %s failed", music_video_id)
                 return self._fail(music_video_id, f"{code}: {exc.__class__.__name__}: {exc}")
+
+    def _await_audio(self, music_video_id: str) -> bool:
+        """Block until a WAITING_FOR_AUDIO video's source Version has audio (-> PENDING, True), its
+        generation ended without audio (-> FAILED "source_failed", False), the video/song was
+        deleted (False) or the service is stopping (stays WAITING_FOR_AUDIO for the next start,
+        False). A video that is not waiting returns True at once. Never touches the audio."""
+
+        while True:
+            video = self._repository.get(music_video_id)
+            if video is None:
+                return False
+            if video.status != MusicVideoStatus.WAITING_FOR_AUDIO:
+                return True
+            try:
+                _, state = self._jobs.version_audio_state(video.song_id, video.source_version_id)
+            except (InvalidIdError, *_SOURCE_GONE):
+                state = "failed"
+            if state == "ready":
+                try:
+                    self._save(replace(video, status=MusicVideoStatus.PENDING))
+                except MusicVideoNotFoundError:
+                    return False
+                logger.info("music video %s: source audio ready", music_video_id)
+                return True
+            if state == "failed":
+                self._fail(music_video_id, "source_failed: the source version's generation ended without audio")
+                logger.warning("music video %s failed: its source audio was not generated", music_video_id)
+                return False
+            if self._stopping.wait(self._audio_poll_seconds):
+                return False
+
+    def start_waiting(self, music_video_id: str) -> threading.Thread:
+        """Run `generate(id)` for a WAITING_FOR_AUDIO video on a daemon thread. Waiting can take
+        minutes, so it is not tied to a request's BackgroundTask (which would hold up a server
+        shutdown); `stop()` ends every wait promptly and leaves the video resumable."""
+
+        thread = threading.Thread(target=self.generate, args=(music_video_id,),
+                                  name=f"music-video-wait-{music_video_id}", daemon=True)
+        thread.start()
+        return thread
+
+    def stop(self) -> None:
+        """Called at shutdown: every waiting video stops waiting and stays WAITING_FOR_AUDIO."""
+
+        self._stopping.set()
 
     def _generate(self, video: MusicVideo) -> MusicVideo:
         tools = self._tools_provider()
@@ -252,14 +322,27 @@ class MusicVideoService:
 
     def recover_interrupted(self) -> int:
         """At startup: a render/alignment subprocess cannot be resumed, so every Music Video left
-        non-terminal by a previous process becomes FAILED (never silently re-run, so no duplicate).
-        Returns how many were marked."""
+        PENDING/ALIGNING/RENDERING by a previous process becomes FAILED (never silently re-run, so
+        no duplicate). WAITING_FOR_AUDIO videos never started any work and are left for
+        `resume_waiting()`. Returns how many were marked FAILED."""
 
-        unfinished = self._repository.list_unfinished()
-        for video in unfinished:
+        interrupted = [v for v in self._repository.list_unfinished()
+                       if v.status != MusicVideoStatus.WAITING_FOR_AUDIO]
+        for video in interrupted:
             self._fail(video.id, "interrupted: the backend restarted during generation")
             logger.warning("music video %s was interrupted by a restart; marked FAILED", video.id)
-        return len(unfinished)
+        return len(interrupted)
+
+    def resume_waiting(self) -> list[str]:
+        """At startup, after `recover_interrupted()`: wait again for every video that was
+        WAITING_FOR_AUDIO (job recovery resumes its song's job). Returns their ids."""
+
+        waiting = [v.id for v in self._repository.list_unfinished()
+                   if v.status == MusicVideoStatus.WAITING_FOR_AUDIO]
+        for video_id in waiting:
+            self.start_waiting(video_id)
+            logger.info("music video %s: waiting for its source audio again after a restart", video_id)
+        return waiting
 
     # -- reads ---------------------------------------------------------------------------------
 

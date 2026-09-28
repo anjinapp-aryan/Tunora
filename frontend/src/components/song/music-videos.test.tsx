@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MusicVideo } from "@/lib/api/music-videos";
 import type { SongVersion } from "@/lib/api/songs";
 
-import { MusicVideosSection, eligibleVersions } from "./music-videos";
+import { MusicVideosSection, eligibleVersions, videoStateFor } from "./music-videos";
 
 const fetchMock = vi.fn();
 const json = (body: unknown, status = 200) =>
@@ -61,6 +61,14 @@ describe("eligibleVersions", () => {
 
 const CREATE_V2 = { name: "Create Music Video from Version 2" };
 const GENERATE = { name: "Generate Music Video" };
+
+describe("videoStateFor (Phase 26)", () => {
+  it("counts a video waiting for its song's audio as in progress for that version only", () => {
+    const waiting = { source_version_id: "v1", status: "WAITING_FOR_AUDIO" } as MusicVideo;
+    expect(videoStateFor([waiting], "v1")).toBe("In progress…");
+    expect(videoStateFor([waiting], "v2")).toBe("Not created");
+  });
+});
 
 describe("MusicVideosSection", () => {
   it("is its own optional section, separate from versions, and says when there are none", async () => {

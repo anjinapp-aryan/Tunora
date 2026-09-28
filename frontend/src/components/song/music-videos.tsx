@@ -12,6 +12,7 @@ import {
   createMusicVideo,
   deleteMusicVideo,
   downloadMusicVideo,
+  isMusicVideoTerminal,
   isTunoraMusicVideoUrl,
   retryMusicVideo,
   validateBackground,
@@ -25,6 +26,7 @@ import { formatDate } from "@/lib/format-date";
 import { useMusicVideos } from "@/lib/music-videos/use-music-videos";
 
 const STATUS_LABEL: Record<MusicVideoStatus, string> = {
+  WAITING_FOR_AUDIO: "Waiting for the audio…",
   PENDING: "Preparing…",
   ALIGNING: "Aligning lyrics…",
   RENDERING: "Rendering…",
@@ -53,7 +55,7 @@ export function ineligibleReason(v: SongVersion): string | null {
 export function videoStateFor(videos: MusicVideo[], versionId: string): string {
   const mine = videos.filter((v) => v.source_version_id === versionId);
   if (mine.length === 0) return "Not created";
-  if (mine.some((v) => v.status === "PENDING" || v.status === "ALIGNING" || v.status === "RENDERING")) return "In progress…";
+  if (mine.some((v) => !isMusicVideoTerminal(v.status))) return "In progress…";
   const ready = mine.filter((v) => v.status === "COMPLETED").length;
   if (ready > 0) return ready === 1 ? "Ready" : `Ready (${ready})`;
   return "Failed";
@@ -312,7 +314,22 @@ function CreateMusicVideoForm({
   );
 }
 
-function MusicVideoCard({ video, number, onChanged }: { video: MusicVideo; number: number; onChanged: () => void }) {
+/**
+ * One Music Video with its own status, player, download, Retry and Delete. Also used on the job
+ * page for a video requested together with its song (Phase 26), where `canRetry` is false once
+ * the song's audio itself failed (there is nothing to render from).
+ */
+export function MusicVideoCard({
+  video,
+  number,
+  onChanged,
+  canRetry = true,
+}: {
+  video: MusicVideo;
+  number: number;
+  onChanged: () => void;
+  canRetry?: boolean;
+}) {
   const [action, setAction] = useState<"idle" | "retrying" | "confirm-delete" | "deleting">("idle");
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -344,7 +361,7 @@ function MusicVideoCard({ video, number, onChanged }: { video: MusicVideo; numbe
 
   const [downloadState, setDownloadState] = useState<"idle" | "busy" | "error" | "started">("idle");
   const playable = video.status === "COMPLETED" && isTunoraMusicVideoUrl(video.video_url);
-  const working = video.status === "PENDING" || video.status === "ALIGNING" || video.status === "RENDERING";
+  const working = !isMusicVideoTerminal(video.status);
 
   async function download() {
     if (downloadState === "busy") return;
@@ -441,7 +458,7 @@ function MusicVideoCard({ video, number, onChanged }: { video: MusicVideo; numbe
 
       {!working && (
         <div className="flex flex-wrap items-center gap-2" data-testid="music-video-actions">
-          {video.status === "FAILED" && (
+          {video.status === "FAILED" && canRetry && (
             <Button type="button" size="sm" onClick={retry} disabled={action !== "idle"} aria-busy={action === "retrying"} data-testid="music-video-retry">
               {action === "retrying" ? "Retrying…" : "Retry Music Video"}
             </Button>

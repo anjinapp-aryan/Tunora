@@ -12,8 +12,11 @@ from app.songs.models import utcnow
 
 class MusicVideoStatus(str, Enum):
     """PENDING (accepted, waiting for the renderer) -> ALIGNING (timing the lyrics) ->
-    RENDERING (composing the MP4) -> COMPLETED; any non-terminal state can become FAILED."""
+    RENDERING (composing the MP4) -> COMPLETED; any non-terminal state can become FAILED.
+    WAITING_FOR_AUDIO (Phase 26) comes before PENDING when a video is requested together with its
+    song: the exact source Version exists, but its audio is still being generated."""
 
+    WAITING_FOR_AUDIO = "WAITING_FOR_AUDIO"
     PENDING = "PENDING"
     ALIGNING = "ALIGNING"
     RENDERING = "RENDERING"

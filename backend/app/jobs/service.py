@@ -653,6 +653,30 @@ class JobService:
             raise SourceVersionNotFoundError(version_id)
         return version, self._source_audio_path(version)
 
+    def version_audio_state(self, song_id: str, version_id: str) -> tuple[Version, str]:
+        """Where one exact Version of `song_id` is in its audio lifecycle (Phase 26), for a Music
+        Video requested together with its song: "ready" (verified audio), "pending" (its job is
+        still running) or "failed" (its job ended without audio, or the file is gone). Raises
+        InvalidIdError, SongNotFoundError or SourceVersionNotFoundError (unknown, or another
+        song's version). Never modifies anything."""
+
+        if not is_valid_id(song_id) or not is_valid_id(version_id):
+            raise InvalidIdError("Malformed id.")
+        self.get_song(song_id)
+        entry = next((e for e in self._repository.list_version_entries(song_id) if e.version.id == version_id), None)
+        if entry is None:
+            raise SourceVersionNotFoundError(version_id)
+        if entry.version.audio is not None:
+            try:
+                self._source_audio_path(entry.version)
+            except SourceAudioUnavailableError:
+                return entry.version, "failed"
+            return entry.version, "ready"
+        terminal = {status.value for status in TERMINAL_STATUSES}
+        if entry.job_status is not None and entry.job_status not in terminal:
+            return entry.version, "pending"
+        return entry.version, "failed"
+
     # -- creative operations (Phase 5B) ----------------------------------------------------------
 
     async def create_version_from_operation(
