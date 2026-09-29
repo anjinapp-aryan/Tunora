@@ -1,4 +1,5 @@
-"""MusicVideoService (Phase 23): Song Version -> TimedLyrics -> 9:16 MP4.
+"""MusicVideoService (Phase 23): Song Version -> TimedLyrics -> MP4 in one output profile
+(9:16 until Phase 27; now any profile in profiles.py -- 9:16/16:9/1:1, HD or 4K).
 
 Orchestration only. It reads a Version (never changes it), stores the user's background, aligns
 the Version's stored lyrics locally, renders with the policy-checked LGPL FFmpeg, and records the
@@ -34,12 +35,12 @@ from app.music_videos.errors import (
 )
 from app.music_videos.ffmpeg import FFmpegTools, approved_ffmpeg
 from app.music_videos.models import (
-    ASPECT_RATIOS,
     STYLES,
     TERMINAL_MUSIC_VIDEO_STATUSES,
     MusicVideo,
     MusicVideoStatus,
 )
+from app.music_videos.profiles import DEFAULT_PROFILE_ID, get_profile
 from app.music_videos.renderer import FFmpegLibassRenderer, MusicVideoRenderer
 from app.music_videos.repository import MusicVideoRepository
 from app.music_videos.storage import MusicVideoStorage
@@ -122,8 +123,9 @@ class MusicVideoService:
 
     # -- create ------------------------------------------------------------------------------
 
-    async def create(self, song_id: str, *, source_version_id: str, style: str, aspect_ratio: str,
-                     media_type: str, chunks: AsyncIterator[bytes], wait_for_audio: bool = False) -> MusicVideo:
+    async def create(self, song_id: str, *, source_version_id: str, style: str,
+                     aspect_ratio: Optional[str] = None, media_type: str, chunks: AsyncIterator[bytes],
+                     wait_for_audio: bool = False, output_profile: str = DEFAULT_PROFILE_ID) -> MusicVideo:
         """Validate everything, store the background, and record a PENDING Music Video.
         With `wait_for_audio` (Phase 26) the exact source Version may still be generating its
         audio; the video is then recorded as WAITING_FOR_AUDIO and the caller uses
@@ -133,8 +135,11 @@ class MusicVideoService:
 
         if style not in STYLES:
             raise InvalidMusicVideoRequestError("Unknown style.")
-        if aspect_ratio not in ASPECT_RATIOS:
-            raise InvalidMusicVideoRequestError("Only 9:16 is supported.")
+        # Phase 27: the output profile is the format contract; `aspect_ratio` is only accepted (from
+        # Phase 23-26 clients) when it agrees with the profile.
+        profile = get_profile(output_profile)
+        if aspect_ratio is not None and aspect_ratio != profile.aspect_ratio:
+            raise InvalidMusicVideoRequestError(f"aspect_ratio must match the output profile ({profile.aspect_ratio}).")
         media_type = (media_type or "").split(";", 1)[0].strip().lower()
         if media_type not in BACKGROUND_TYPES:
             raise InvalidMusicVideoRequestError("Background must be a JPG, PNG, MP4, MOV or WebM file.")
@@ -167,7 +172,7 @@ class MusicVideoService:
             now = utcnow()
             video = MusicVideo(
                 id=video_id, song_id=song_id, source_version_id=source_version_id,
-                status=status, style=style, aspect_ratio=aspect_ratio,
+                status=status, style=style, aspect_ratio=profile.aspect_ratio, output_profile=profile.id,
                 background_key=key, background_media_type=media_type, created_at=now, updated_at=now,
             )
             self._repository.create(video)
@@ -263,7 +268,7 @@ class MusicVideoService:
         output_key = self._storage.output_key(video.id)
         result = self._renderer_factory(tools).render(
             audio_path, timed, self._storage.get_path(video.background_key), video.style,
-            video.aspect_ratio, self._storage.get_path(output_key), title=song.title)
+            video.output_profile, self._storage.get_path(output_key), title=song.title)
         now = utcnow()
         completed = replace(video, status=MusicVideoStatus.COMPLETED, duration=timed.duration,
                             output_key=output_key, output_size_bytes=result.size_bytes,

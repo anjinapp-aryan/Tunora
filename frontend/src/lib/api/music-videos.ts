@@ -22,6 +22,52 @@ export const MUSIC_VIDEO_STYLES: { value: MusicVideoStyle; label: string }[] = [
   { value: "bold", label: "Bold" },
 ];
 
+/**
+ * Output formats (Phase 27). Mirrors backend/app/music_videos/profiles.py, which owns the mapping:
+ * only the id is ever sent; the backend validates it and decides the real width/height (and
+ * returns them on every MusicVideo). These values are for labelling the choices only.
+ */
+export type VideoOutputProfileId = "vertical_hd" | "vertical_4k" | "landscape_hd" | "landscape_4k" | "square_hd";
+export type VideoAspectRatio = "9:16" | "16:9" | "1:1";
+
+export interface VideoOutputProfile {
+  id: VideoOutputProfileId;
+  aspectRatio: VideoAspectRatio;
+  resolution: "HD" | "4K";
+  width: number;
+  height: number;
+}
+
+export const VIDEO_OUTPUT_PROFILES: readonly VideoOutputProfile[] = [
+  { id: "vertical_hd", aspectRatio: "9:16", resolution: "HD", width: 1080, height: 1920 },
+  { id: "vertical_4k", aspectRatio: "9:16", resolution: "4K", width: 2160, height: 3840 },
+  { id: "landscape_hd", aspectRatio: "16:9", resolution: "HD", width: 1920, height: 1080 },
+  { id: "landscape_4k", aspectRatio: "16:9", resolution: "4K", width: 3840, height: 2160 },
+  { id: "square_hd", aspectRatio: "1:1", resolution: "HD", width: 1080, height: 1080 },
+];
+
+export const VIDEO_ASPECT_RATIOS: readonly { value: VideoAspectRatio; label: string }[] = [
+  { value: "9:16", label: "Vertical" },
+  { value: "16:9", label: "Landscape" },
+  { value: "1:1", label: "Square" },
+];
+
+/** The default everywhere, unchanged since Phase 23: 9:16 vertical, 1080 x 1920. */
+export const DEFAULT_VIDEO_OUTPUT_PROFILE: VideoOutputProfileId = "vertical_hd";
+
+export function videoOutputProfile(id: string): VideoOutputProfile {
+  return VIDEO_OUTPUT_PROFILES.find((p) => p.id === id) ?? VIDEO_OUTPUT_PROFILES[0];
+}
+
+export function profilesForAspect(aspect: VideoAspectRatio): VideoOutputProfile[] {
+  return VIDEO_OUTPUT_PROFILES.filter((p) => p.aspectRatio === aspect);
+}
+
+/** "1080 × 1920" */
+export function formatDimensions(width: number, height: number): string {
+  return `${width} × ${height}`;
+}
+
 /** Background types the backend accepts, with its size limits (bytes). */
 export const BACKGROUND_TYPES: Record<string, number> = {
   "image/jpeg": 20 * 1024 * 1024,
@@ -39,7 +85,10 @@ export interface MusicVideo {
   source_version_number: number | null;
   status: MusicVideoStatus;
   style: MusicVideoStyle;
-  aspect_ratio: "9:16";
+  aspect_ratio: VideoAspectRatio;
+  /** Phase 27: the canonical output format; width/height/resolution are the backend's. */
+  output_profile: VideoOutputProfileId;
+  resolution: "HD" | "4K";
   width: number;
   height: number;
   duration: number | null;
@@ -117,11 +166,17 @@ export async function createMusicVideo(
     background: File;
     /** Phase 26: the Version was just created with its song and may still be generating its audio. */
     waitForAudio?: boolean;
+    /** Phase 27: an allowlisted profile id; never width/height. Defaults to 9:16 HD. */
+    outputProfile?: VideoOutputProfileId;
   },
 ): Promise<MusicVideo> {
   const problem = validateBackground(input.background);
   if (problem) throw new ApiError("validation", problem);
-  const params = new URLSearchParams({ source_version_id: input.sourceVersionId, style: input.style, aspect_ratio: "9:16" });
+  const params = new URLSearchParams({
+    source_version_id: input.sourceVersionId,
+    style: input.style,
+    output_profile: videoOutputProfile(input.outputProfile ?? DEFAULT_VIDEO_OUTPUT_PROFILE).id,
+  });
   if (input.waitForAudio) params.set("wait_for_audio", "true");
   let response: Response;
   try {

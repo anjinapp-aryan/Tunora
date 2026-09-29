@@ -1,7 +1,8 @@
 """Music Video API (Phase 23).
 
 POST /api/songs/{song_id}/music-videos           create (background file = request body;
-                                                 ?wait_for_audio=true: Phase 26, Audio + Video)
+                                                 ?wait_for_audio=true: Phase 26, Audio + Video;
+                                                 ?output_profile=<id>: Phase 27, default vertical_hd)
 GET  /api/songs/{song_id}/music-videos           list a Song's Music Videos (newest first)
 GET  /api/music-videos/{music_video_id}          one Music Video (status polling)
 GET  /api/music-videos/{music_video_id}/video    the rendered MP4 (Range/ETag via FileResponse)
@@ -58,7 +59,10 @@ async def create_music_video(
     song_id: str = Path(max_length=80, pattern=_ID),
     source_version_id: str = Query(max_length=80, pattern=_ID),
     style: Literal["minimal_white", "dreamy", "bold", "cinematic", "karaoke"] = Query("minimal_white"),
-    aspect_ratio: Literal["9:16"] = Query("9:16"),
+    # Phase 27: the output format is an allowlisted profile id (see app/music_videos/profiles.py);
+    # width/height are never accepted. `aspect_ratio` is kept for Phase 23-26 clients and must agree.
+    output_profile: Literal["vertical_hd", "vertical_4k", "landscape_hd", "landscape_4k", "square_hd"] = Query("vertical_hd"),
+    aspect_ratio: Optional[Literal["9:16", "16:9", "1:1"]] = Query(None),
     wait_for_audio: bool = Query(False),
 ):
     """Create a Music Video of one existing, completed Version of this Song. Returns 202 at once;
@@ -73,6 +77,7 @@ async def create_music_video(
     try:
         video = await service.create(
             song_id, source_version_id=source_version_id, style=style, aspect_ratio=aspect_ratio,
+            output_profile=output_profile,
             media_type=request.headers.get("content-type", ""), chunks=request.stream(),
             wait_for_audio=wait_for_audio)
     except (InvalidIdError, SongNotFoundError):

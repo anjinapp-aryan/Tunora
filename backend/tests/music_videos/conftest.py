@@ -61,9 +61,9 @@ class FakeRenderer:
     error: Exception | None = None
     calls: list = field(default_factory=list)
 
-    def render(self, audio_path, timed_lyrics, background_path, style, aspect_ratio, output_path, title=None):
+    def render(self, audio_path, timed_lyrics, background_path, style, output_profile, output_path, title=None):
         self.calls.append(dict(audio=Path(audio_path), lines=len(timed_lyrics.lines), background=Path(background_path),
-                               style=style, aspect=aspect_ratio, output=Path(output_path), title=title))
+                               style=style, profile=output_profile, output=Path(output_path), title=title))
         if self.error:
             raise self.error
         Path(output_path).write_bytes(b"\x00\x00\x00\x18ftypisom fake mp4")

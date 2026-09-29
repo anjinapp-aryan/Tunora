@@ -26,7 +26,13 @@ import { SongDirectorPanel } from "@/components/create-song/song-director-panel"
 import { SongRefinePanel } from "@/components/create-song/song-refine-panel";
 import { ApiError, createJob } from "@/lib/api/jobs";
 import type { SongPlan, SongSpecPayload } from "@/lib/api/director";
-import { createMusicVideo, validateBackground, type MusicVideoStyle } from "@/lib/api/music-videos";
+import {
+  createMusicVideo,
+  DEFAULT_VIDEO_OUTPUT_PROFILE,
+  validateBackground,
+  type MusicVideoStyle,
+  type VideoOutputProfileId,
+} from "@/lib/api/music-videos";
 import { listProjects, type ProjectSummary } from "@/lib/api/projects";
 import {
   creationIntentOption,
@@ -79,6 +85,7 @@ export function CreateSongForm() {
   // Phase 26: what to create. Only decides which requests are sent; never stored.
   const [intent, setIntent] = useState<CreationIntent>(DEFAULT_CREATION_INTENT);
   const [videoStyle, setVideoStyle] = useState<MusicVideoStyle | null>(null);
+  const [videoProfile, setVideoProfile] = useState<VideoOutputProfileId>(DEFAULT_VIDEO_OUTPUT_PROFILE);
   const [background, setBackground] = useState<File | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
   const makesVideo = intentMakesVideo(intent);
@@ -188,7 +195,13 @@ export function CreateSongForm() {
         // problem is reported on the job page and never stops or changes the audio.
         try {
           if (!job.song_id || !job.version_id) throw new ApiError("server", "The new song version is not known yet.");
-          await createMusicVideo(job.song_id, { sourceVersionId: job.version_id, style, background, waitForAudio: true });
+          await createMusicVideo(job.song_id, {
+            sourceVersionId: job.version_id,
+            style,
+            background,
+            waitForAudio: true,
+            outputProfile: videoProfile,
+          });
         } catch (error) {
           rememberJobVideoError(
             job.id,
@@ -361,6 +374,8 @@ export function CreateSongForm() {
           {makesVideo && (
             <CreationVideoOptions
               intent={intent}
+              profile={videoProfile}
+              onProfileChange={setVideoProfile}
               style={styleForIntent(intent, videoStyle) ?? "cinematic"}
               onStyleChange={setVideoStyle}
               onBackgroundChange={(file) => {

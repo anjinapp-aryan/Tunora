@@ -86,7 +86,9 @@ test("Audio first, video later: finished song -> optional 'Create a music video'
 
   const form = page.getByRole("form", { name: "Create Music Video" });
   await expect(form.getByLabel("Source version")).toHaveValue(job.version_id);
-  await expect(form.getByLabel("Aspect ratio")).toHaveValue("9:16");
+  // Phase 27: the format is chosen as aspect ratio + resolution; 9:16 HD stays the default.
+  await expect(form.getByRole("radio", { name: /9:16 vertical/i })).toBeChecked();
+  await expect(form.getByRole("radio", { name: /HD — 1080 × 1920/ })).toBeChecked();
   await form.getByText(/Lyrics \(from Version/).click();
   await expect(form.getByTestId("music-video-lyrics")).toContainText("I wake up to a brand new day");
   await form.getByLabel(/Background/).setInputFiles(path.join(FIXTURES, "music-video-background.mp4"));

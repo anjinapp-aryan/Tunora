@@ -17,6 +17,12 @@ byte-identical to before.
 Style values adapted from dcmcand/dynamic-typography-videos src/styles/presets.ts (Apache-2.0).
 The per-word pop technique is adapted from sebetancurch/auto-caption autocaption/ass_builder.py
 (MIT). Lyric text is untrusted: ASS override syntax ({, }, \\) is neutralised before it is written.
+
+Phase 27: layout is aspect-aware (`Layout`). Every position is derived from the canvas size and
+normalised safe-zone fractions -- side margins 1/12 of the width, vertical margins 8 % of the height,
+text and title centred -- and text sizes are scaled per orientation so wrapped lyrics stay inside
+the safe area of a landscape or square frame. The portrait layout (1080x1920) is the original one,
+so its output is byte-identical to Phase 25. 4K profiles use their HD canvas; libass scales it.
 """
 
 from __future__ import annotations
@@ -100,10 +106,50 @@ def _ts(seconds: float) -> str:
     return f"{cs // 360000}:{cs // 6000 % 60:02d}:{cs // 100 % 60:02d}.{cs % 100:02d}"
 
 
+# -- Phase 27: aspect-aware layout ---------------------------------------------------------------------
+
+SAFE_SIDE = 1 / 12        # side safe margin as a fraction of the width (= the original 90 px at 1080)
+SAFE_VERTICAL = 0.08      # top/bottom safe margin as a fraction of the height (the original value)
+# Text size relative to the portrait design, per orientation. Landscape and square frames are only
+# 1080 canvas px tall, so a long lyric that wraps to several rows must still fit between the
+# vertical safe margins (checked with real renders, docs/PHASE-27-MULTI-FORMAT-MUSIC-VIDEO.md).
+TEXT_SCALE = {"portrait": 1.0, "landscape": 0.9, "square": 0.85}
+
+
+@dataclass(frozen=True)
+class Layout:
+    """Where things go on one canvas (the ASS PlayRes), in canvas pixels."""
+
+    width: int
+    height: int
+    orientation: str
+    text_scale: float
+    margin_x: int
+    margin_v: int
+
+    @property
+    def center(self) -> tuple[int, int]:
+        return self.width // 2, self.height // 2
+
+    def size(self, px: float) -> int:
+        return round(px * self.text_scale)
+
+
+def layout_for(width: int, height: int, s: Style | None = None) -> Layout:
+    """The aspect-aware layout of a canvas. For a 1080-wide portrait canvas this reproduces the
+    Phase 23-25 values exactly (side margins 90, vertical 8 % of the height, unscaled text)."""
+    orientation = "portrait" if height > width else "landscape" if width > height else "square"
+    side = s.margin_x / 1080 if s is not None else SAFE_SIDE
+    return Layout(width, height, orientation, TEXT_SCALE[orientation],
+                  round(width * side), int(height * SAFE_VERTICAL))
+
+
 def build(lyrics: TimedLyrics, style_name: str, width: int, height: int,
           title: str | None = None) -> str:
+    """The ASS script for `lyrics` on a `width` x `height` canvas (an output profile's canvas)."""
     s = STYLES[style_name]
-    margin_v = int(height * 0.08)
+    lay = layout_for(width, height, s)
+    margin_v, mx = lay.margin_v, lay.margin_x
     header = [
         "[Script Info]", "ScriptType: v4.00+", f"PlayResX: {width}", f"PlayResY: {height}",
         "WrapStyle: 0", "ScaledBorderAndShadow: yes", "",
@@ -111,20 +157,20 @@ def build(lyrics: TimedLyrics, style_name: str, width: int, height: int,
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, "
         "Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Active,{s.font},{s.active_size},{_colour(s.sung)},{_colour(s.unsung, s.unsung_alpha)},"
+        f"Style: Active,{s.font},{lay.size(s.active_size)},{_colour(s.sung)},{_colour(s.unsung, s.unsung_alpha)},"
         f"{_colour('000000', 0x40)},{_colour('000000', 0x50)},0,0,0,0,100,100,0,0,1,{s.outline},{s.shadow},"
-        f"5,{s.margin_x},{s.margin_x},{margin_v},1",
-        f"Style: Next,{s.font},{s.next_size},{_colour('FFFFFF', s.next_alpha)},{_colour('FFFFFF', s.next_alpha)},"
+        f"5,{mx},{mx},{margin_v},1",
+        f"Style: Next,{s.font},{lay.size(s.next_size)},{_colour('FFFFFF', s.next_alpha)},{_colour('FFFFFF', s.next_alpha)},"
         f"{_colour('000000', 0x60)},{_colour('000000', 0x70)},0,0,0,0,100,100,0,0,1,2,2,"
-        f"5,{s.margin_x},{s.margin_x},{margin_v},1",
-        f"Style: Title,{s.font},{s.active_size + 8},{_colour('FFFFFF')},{_colour('FFFFFF')},"
+        f"5,{mx},{mx},{margin_v},1",
+        f"Style: Title,{s.font},{lay.size(s.active_size + 8)},{_colour('FFFFFF')},{_colour('FFFFFF')},"
         f"{_colour('000000', 0x60)},{_colour('000000', 0x80)},0,0,0,0,100,100,2,0,1,{s.outline},{s.shadow},"
-        f"5,{s.margin_x},{s.margin_x},{margin_v},1",
+        f"5,{mx},{mx},{margin_v},1",
         "", "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
     if uses_primitives(s):
-        return "\n".join(header + _styled_events(lyrics, s, width, height, title)) + "\n"
+        return "\n".join(header + _styled_events(lyrics, s, lay, title)) + "\n"
     events = []
     lines = lyrics.lines
     if title and lines and lines[0].start >= 3.0:
@@ -194,10 +240,11 @@ def _cards(lyrics: TimedLyrics, s: Style, windows: list, cx: int, cy: int, title
     return events
 
 
-def _styled_events(lyrics: TimedLyrics, s: Style, width: int, height: int, title: str | None) -> list[str]:
-    cx, cy = width // 2, height // 2
+def _styled_events(lyrics: TimedLyrics, s: Style, lay: Layout, title: str | None) -> list[str]:
+    cx, cy = lay.center
+    rise = lay.size(s.rise)
     look = (f"\\blur{s.glow:g}" if s.glow else "") + (f"\\fsp{s.spacing:g}" if s.spacing else "")
-    enter = f"\\an5\\move({cx},{cy + s.rise},{cx},{cy},0,320)" if s.rise else f"\\an5\\pos({cx},{cy})"
+    enter = f"\\an5\\move({cx},{cy + rise},{cx},{cy},0,320)" if rise else f"\\an5\\pos({cx},{cy})"
     still = f"\\an5\\pos({cx},{cy})"
     windows = _windows(lyrics)
     events = _cards(lyrics, s, windows, cx, cy, title) if title and s.title_card == "cinematic" else []

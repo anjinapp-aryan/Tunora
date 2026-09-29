@@ -40,7 +40,7 @@ def test_a_v5_database_upgrades_to_v6_without_touching_existing_rows(tmp_path):
     SqliteJobRepository(db)  # and again: idempotent
 
     conn = sqlite3.connect(db)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 6 == migrations.LATEST_VERSION
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 7 == migrations.LATEST_VERSION  # Phase 27 added v7
     after = [tuple(r) for r in conn.execute("SELECT * FROM songs")] + [tuple(r) for r in conn.execute("SELECT * FROM versions")]
     assert after == before
     assert conn.execute("SELECT count(*) FROM music_videos").fetchone()[0] == 0

@@ -24,7 +24,7 @@ function version(n: number, overrides: Partial<SongVersion> = {}): SongVersion {
 function video(overrides: Partial<MusicVideo> = {}): MusicVideo {
   return {
     id: "mv-1", song_id: "song-1", source_version_id: "ver-2", source_version_number: 2, status: "COMPLETED",
-    style: "minimal_white", aspect_ratio: "9:16", width: 1080, height: 1920, duration: 60, size_bytes: 10,
+    style: "minimal_white", aspect_ratio: "9:16", output_profile: "vertical_hd", resolution: "HD", width: 1080, height: 1920, duration: 60, size_bytes: 10,
     video_url: "/api/music-videos/mv-1/video", matched_line_count: 1, unmatched_lines: [], error: null,
     created_at: "2026-09-27T10:00:00+00:00", updated_at: "2026-09-27T10:00:00+00:00", completed_at: "2026-09-27T10:00:05+00:00",
     ...overrides,
@@ -115,8 +115,9 @@ describe("MusicVideosSection", () => {
     expect(versionSelect).toHaveValue("ver-1");
     expect(within(versionSelect).getAllByRole("option").map((o) => o.textContent)).toEqual(["Version 2 (latest) · 01:00", "Version 1 · 01:00"]);
     expect(within(form).getByText(/No new audio is generated/)).toBeInTheDocument();
-    expect(within(form).getByLabelText("Aspect ratio")).toBeDisabled();
-    expect(within(form).getByLabelText("Aspect ratio")).toHaveDisplayValue("9:16 · 1080 × 1920");
+    // Phase 27: the format is chosen (aspect ratio, then resolution); 9:16 HD stays the default.
+    expect(within(form).getByRole("radio", { name: /9:16 vertical/i })).toBeChecked();
+    expect(within(form).getByRole("radio", { name: /HD — 1080 × 1920/ })).toBeChecked();
     expect(within(form).getByLabelText(/Background/)).toHaveAttribute("accept", expect.stringContaining("video/mp4"));
     // Phase 25: new videos default to the polished Cinematic look; the Phase 23 styles stay available.
     const styleSelect = within(form).getByLabelText("Style");
@@ -145,7 +146,7 @@ describe("MusicVideosSection", () => {
     await userEvent.click(screen.getByRole("button", GENERATE));
 
     expect(posts).toHaveLength(1); // exactly one request, and it creates a music video -- never a song/job
-    expect(posts[0].url).toBe("/api/songs/song-1/music-videos?source_version_id=ver-1&style=bold&aspect_ratio=9%3A16");
+    expect(posts[0].url).toBe("/api/songs/song-1/music-videos?source_version_id=ver-1&style=bold&output_profile=vertical_hd");
     expect(posts[0].init.body).toBe(bg);
     expect(fetchMock.mock.calls.some(([u]) => String(u).startsWith("/api/jobs"))).toBe(false);
     expect(await screen.findByText("Aligning lyrics…")).toBeInTheDocument();
@@ -153,7 +154,7 @@ describe("MusicVideosSection", () => {
     const player = await screen.findByTestId("music-video-player", undefined, { timeout: 5000 });
     expect(player).toHaveAttribute("src", "/api/music-videos/mv-1/video");
     const card = screen.getByTestId("music-video");
-    expect(within(card).getByTestId("music-video-meta")).toHaveTextContent("From Version 2 · 9:16 · Minimal · 01:00");
+    expect(within(card).getByTestId("music-video-meta")).toHaveTextContent("From Version 2 · 9:16 · Minimal · 1080 × 1920 HD · 01:00");
     expect(within(card).getByTestId("music-video-unmatched")).toHaveTextContent("1 lyric line could not be matched to the audio and is not shown");
 
     await userEvent.click(within(card).getByRole("button", { name: "Download MP4" }));
@@ -198,7 +199,7 @@ describe("MusicVideosSection", () => {
     await userEvent.click(screen.getByRole("button", CREATE_V2));
     await userEvent.upload(screen.getByLabelText(/Background/), new File([new Uint8Array(8)], "a.jpg", { type: "image/jpeg" }));
     await userEvent.click(screen.getByRole("button", GENERATE));
-    expect(posts[0].url).toBe("/api/songs/song-1/music-videos?source_version_id=ver-2&style=cinematic&aspect_ratio=9%3A16");
+    expect(posts[0].url).toBe("/api/songs/song-1/music-videos?source_version_id=ver-2&style=cinematic&output_profile=vertical_hd");
   });
 
   it("never plays a URL that is not Tunora's own", async () => {

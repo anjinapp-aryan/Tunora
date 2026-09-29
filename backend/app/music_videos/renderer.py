@@ -1,11 +1,13 @@
-"""MusicVideoRenderer: audio + TimedLyrics + background + style -> 9:16 MP4 (Phase 23).
+"""MusicVideoRenderer: audio + TimedLyrics + background + style -> MP4 (Phase 23; any output
+profile since Phase 27 -- see profiles.py).
 
 Adapted from the validated Phase 22B prototype (`render.py`); the filter graph, encoder settings
 and safety rules are unchanged. Changes: the FFmpeg binaries come from `ffmpeg.approved_ffmpeg()`
-(policy-checked), 9:16 with OpenH264 is the only production path, and FFmpeg has a timeout.
+(policy-checked), OpenH264 is the only encoder, and FFmpeg has a timeout.
 
 Composition only -- no AI model, no network, no API key:
-    background (image: slow pan, or video: looped) -> scale/crop to 1080x1920
+    background (image: slow pan, or video: looped) -> scale-to-cover + crop to the profile's frame
+    (never stretched: aspect ratio is preserved and only the overflow is cropped)
     -> colour-preserving darkening -> lyrics via libass -> H.264 (OpenH264) + AAC.
 
 Safety rules:
@@ -33,9 +35,9 @@ from typing import Optional
 from app.music_videos import ass_builder
 from app.music_videos.errors import InvalidMusicVideoRequestError, RenderError
 from app.music_videos.ffmpeg import FFmpegTools
+from app.music_videos.profiles import PROFILES, VideoOutputProfile, renderer_profile
 from app.music_videos.timed_lyrics import TimedLyrics
 
-ASPECTS = {"9:16": (1080, 1920)}
 FPS = 30
 FONTS_DIR = Path(__file__).resolve().parent / "fonts"
 AUDIO_EXT = {".flac", ".mp3", ".wav"}
@@ -45,8 +47,15 @@ IMAGE_CODECS = {"mjpeg", "png"}
 VIDEO_EXT = {".mp4", ".mov", ".webm"}
 VIDEO_CODECS = {"h264", "hevc", "vp8", "vp9", "av1", "mpeg4"}
 MAX_BACKGROUND_PIXELS = 7680 * 4320  # refuse decompression bombs
-ENCODER_ARGS = ["-c:v", "libopenh264", "-profile:v", "high", "-b:v", "8M", "-maxrate", "10M",
-                "-bufsize", "16M"]
+
+
+def encoder_args(profile: VideoOutputProfile) -> list[str]:
+    """OpenH264 High at the profile's bitrate (8 Mb/s for HD -- the Phase 23 settings)."""
+    return ["-c:v", "libopenh264", "-profile:v", "high", "-b:v", profile.video_bitrate,
+            "-maxrate", profile.max_bitrate, "-bufsize", profile.buffer_size]
+
+
+ENCODER_ARGS = encoder_args(PROFILES["vertical_hd"])
 
 
 @dataclass(frozen=True)
@@ -68,7 +77,8 @@ class MediaInfo:
 class MusicVideoRenderer(ABC):
     @abstractmethod
     def render(self, audio_path: Path, timed_lyrics: TimedLyrics, background_path: Path, style: str,
-               aspect_ratio: str, output_path: Path, title: Optional[str] = None) -> RenderResult: ...
+               output_profile: str, output_path: Path, title: Optional[str] = None) -> RenderResult:
+        """`output_profile` is a profiles.py id (the legacy value "9:16" means vertical_hd)."""
 
 
 def probe(tools: FFmpegTools, path: Path, kind: str) -> MediaInfo:
@@ -142,12 +152,13 @@ class FFmpegLibassRenderer(MusicVideoRenderer):
         return resolved
 
     def render(self, audio_path: Path, timed_lyrics: TimedLyrics, background_path: Path, style: str,
-               aspect_ratio: str, output_path: Path, title: Optional[str] = None) -> RenderResult:
-        if aspect_ratio not in ASPECTS:
-            raise RenderError("unsupported aspect ratio")
+               output_profile: str, output_path: Path, title: Optional[str] = None) -> RenderResult:
+        profile = renderer_profile(output_profile)
+        if profile is None:
+            raise RenderError("unsupported output profile / aspect ratio")
         if style not in ass_builder.STYLES:
             raise RenderError("unknown style")
-        width, height = ASPECTS[aspect_ratio]
+        width, height = profile.width, profile.height
 
         audio = self._input(audio_path, AUDIO_EXT, "audio")
         a = probe(self._tools, audio, "audio")
@@ -168,15 +179,17 @@ class FFmpegLibassRenderer(MusicVideoRenderer):
 
         with tempfile.TemporaryDirectory(prefix="tunora-mv-") as work:
             work_dir = Path(work)
+            # The script is laid out on the profile's canvas; libass scales it to the frame.
             (work_dir / "lyrics.ass").write_text(
-                ass_builder.build(timed_lyrics, style, width, height, title), encoding="utf-8")
+                ass_builder.build(timed_lyrics, style, profile.canvas_width, profile.canvas_height, title),
+                encoding="utf-8")
             shutil.copytree(self._fonts_dir, work_dir / "fonts")
             args = self._command(audio, background, is_video, width, height, a.duration, style,
-                                 work_dir / "out.mp4")
+                                 work_dir / "out.mp4", encoder=encoder_args(profile))
             started = time.monotonic()
             try:
                 proc = subprocess.run(args, cwd=work_dir, capture_output=True, text=True,
-                                      timeout=max(300.0, a.duration * 10))
+                                      timeout=max(300.0, a.duration * 10 * max(1.0, profile.pixel_factor)))
             except subprocess.TimeoutExpired as exc:
                 raise RenderError("ffmpeg timed out") from exc
             seconds = time.monotonic() - started
@@ -186,7 +199,7 @@ class FFmpegLibassRenderer(MusicVideoRenderer):
         return RenderResult(output, round(seconds, 1), output.stat().st_size, len(timed_lyrics.lines))
 
     def _command(self, audio: Path, bg: Path, is_video: bool, w: int, h: int, duration: float,
-                 style: str, out: Path) -> list[str]:
+                 style: str, out: Path, encoder: Optional[list[str]] = None) -> list[str]:
         look = ass_builder.STYLES[style]
         dim = look.dim
         if is_video and look.drift:  # Phase 25: cover at 108 % and drift slowly, like images do
@@ -214,6 +227,6 @@ class FFmpegLibassRenderer(MusicVideoRenderer):
         return [str(self._tools.ffmpeg), "-hide_banner", "-nostdin", "-y", *bg_in,
                 "-protocol_whitelist", "file", "-i", f"file:{audio}",
                 "-filter_complex", graph, "-map", "[v]", "-map", "1:a:0",
-                *ENCODER_ARGS, "-color_range", "tv", "-g", str(FPS * 2), "-r", str(FPS),
+                *(encoder or ENCODER_ARGS), "-color_range", "tv", "-g", str(FPS * 2), "-r", str(FPS),
                 "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
                 "-t", f"{duration:.3f}", "-movflags", "+faststart", str(out)]

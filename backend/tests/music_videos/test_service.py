@@ -153,7 +153,8 @@ async def test_generate_aligns_the_stored_lyrics_then_renders_and_completes(mvh)
     audio_path, lyrics, language = mvh.aligner.calls[0]
     assert audio_path == mvh.storage.get_path(version.audio.key) and lyrics == LYRICS and language == "en"
     call = mvh.renderer.calls[0]
-    assert (call["style"], call["aspect"], call["title"], call["lines"]) == ("bold", "9:16", mvh.repository.get_song(version.song_id).title, 1)
+    # Phase 27: the renderer receives the canonical output profile (the default is vertical_hd).
+    assert (call["style"], call["profile"], call["title"], call["lines"]) == ("bold", "vertical_hd", mvh.repository.get_song(version.song_id).title, 1)
     assert call["background"] == mvh.mv_storage.get_path(video.background_key)
     stored = mvh.mv_repository.get(video.id)
     assert stored.output_key == f"{video.id}/{video.id}.mp4" and stored.duration == 12.5 and stored.completed_at

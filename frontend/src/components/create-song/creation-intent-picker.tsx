@@ -3,7 +3,13 @@
 import { ClapperboardIcon, MicVocalIcon, MusicIcon, type LucideIcon } from "lucide-react";
 
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
-import { BACKGROUND_ACCEPT, MUSIC_VIDEO_STYLES, type MusicVideoStyle } from "@/lib/api/music-videos";
+import { VideoFormatPicker } from "@/components/song/video-format-picker";
+import {
+  BACKGROUND_ACCEPT,
+  MUSIC_VIDEO_STYLES,
+  type MusicVideoStyle,
+  type VideoOutputProfileId,
+} from "@/lib/api/music-videos";
 import { CREATION_INTENTS, creationIntentOption, type CreationIntent } from "@/lib/creation-intent";
 import { cn } from "@/lib/utils";
 
@@ -65,9 +71,11 @@ export function CreationIntentPicker({
   );
 }
 
-/** The video settings a video intent adds to the Create form: background and style only. */
+/** The video settings a video intent adds to the Create form: format, background and style. */
 export function CreationVideoOptions({
   intent,
+  profile,
+  onProfileChange,
   style,
   onStyleChange,
   onBackgroundChange,
@@ -75,6 +83,8 @@ export function CreationVideoOptions({
   disabled,
 }: {
   intent: CreationIntent;
+  profile: VideoOutputProfileId;
+  onProfileChange: (profile: VideoOutputProfileId) => void;
   style: MusicVideoStyle;
   onStyleChange: (style: MusicVideoStyle) => void;
   onBackgroundChange: (file: File | null) => void;
@@ -88,9 +98,10 @@ export function CreationVideoOptions({
     <fieldset className="flex min-w-0 flex-col gap-4 rounded-lg border border-border/60 p-4" disabled={disabled} data-testid="creation-video-options">
       <legend className="px-1 text-sm font-medium">{option.label} settings</legend>
       <p className="text-sm text-muted-foreground">
-        9:16 vertical video. It is made from this song&apos;s exact new version as soon as its audio is ready — the audio is
-        saved first and is never changed by the video.
+        The video is made from this song&apos;s exact new version as soon as its audio is ready — the audio is saved
+        first and is never changed by the video.
       </p>
+      <VideoFormatPicker value={profile} onChange={onProfileChange} disabled={disabled} />
       <div className="flex min-w-0 flex-col gap-1.5">
         <label htmlFor="creation-background" className="text-sm font-medium">
           Background image or video

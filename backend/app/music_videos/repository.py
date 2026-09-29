@@ -133,7 +133,7 @@ def _parse_dt(value: Optional[str]) -> Optional[datetime]:
 
 _COLUMNS = ("id, song_id, source_version_id, status, style, aspect_ratio, background_key, "
             "background_media_type, duration, output_key, output_size_bytes, timed_lyrics_json, "
-            "error, created_at, updated_at, completed_at")
+            "error, created_at, updated_at, completed_at, output_profile")
 
 
 class SqliteMusicVideoRepository(MusicVideoRepository):
@@ -160,7 +160,7 @@ class SqliteMusicVideoRepository(MusicVideoRepository):
             duration=row["duration"], output_key=row["output_key"], output_size_bytes=row["output_size_bytes"],
             timed_lyrics=json.loads(row["timed_lyrics_json"]) if row["timed_lyrics_json"] else None,
             error=row["error"], created_at=_parse_dt(row["created_at"]), updated_at=_parse_dt(row["updated_at"]),
-            completed_at=_parse_dt(row["completed_at"]),
+            completed_at=_parse_dt(row["completed_at"]), output_profile=row["output_profile"],
         )
 
     def create(self, video: MusicVideo) -> None:
@@ -174,12 +174,13 @@ class SqliteMusicVideoRepository(MusicVideoRepository):
             if active is not None:
                 raise MusicVideoInProgressError(video.source_version_id)
             conn.execute(
-                f"INSERT INTO music_videos ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                f"INSERT INTO music_videos ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (video.id, video.song_id, video.source_version_id, video.status.value, video.style,
                  video.aspect_ratio, video.background_key, video.background_media_type, video.duration,
                  video.output_key, video.output_size_bytes,
                  json.dumps(video.timed_lyrics) if video.timed_lyrics is not None else None,
-                 video.error, _dt(video.created_at), _dt(video.updated_at), _dt(video.completed_at)),
+                 video.error, _dt(video.created_at), _dt(video.updated_at), _dt(video.completed_at),
+                 video.output_profile),
             )
             conn.commit()
         except BaseException:

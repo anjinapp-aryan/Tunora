@@ -4,11 +4,14 @@ import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { DownloadIcon, Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { VideoFormatPicker } from "@/components/song/video-format-picker";
 import { ApiError } from "@/lib/api/jobs";
 import {
   BACKGROUND_ACCEPT,
   DEFAULT_MUSIC_VIDEO_STYLE,
+  DEFAULT_VIDEO_OUTPUT_PROFILE,
   MUSIC_VIDEO_STYLES,
+  formatDimensions,
   createMusicVideo,
   deleteMusicVideo,
   downloadMusicVideo,
@@ -19,6 +22,7 @@ import {
   type MusicVideo,
   type MusicVideoStatus,
   type MusicVideoStyle,
+  type VideoOutputProfileId,
 } from "@/lib/api/music-videos";
 import type { SongVersion } from "@/lib/api/songs";
 import { formatTime } from "@/lib/audio/format-time";
@@ -63,7 +67,7 @@ export function videoStateFor(videos: MusicVideo[], versionId: string): string {
 
 /**
  * Song Details → Music Videos (Phase 23, workflow clarified in Phase 24). Audio is the primary
- * asset; a music video is an optional 9:16 lyric video made FROM one Version, which is never
+ * asset; a music video is an optional lyric video (9:16, 16:9 or 1:1) made FROM one Version, which is never
  * changed. The create action always starts from the Version currently selected on the page.
  */
 export function MusicVideosSection({
@@ -103,7 +107,7 @@ export function MusicVideosSection({
           Music Videos
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Optional. Turn a version into a 9:16 lyric video. The version and its audio are never changed.
+          Optional. Turn a version into a lyric video — vertical, landscape or square. The version and its audio are never changed.
         </p>
       </div>
 
@@ -185,6 +189,7 @@ function CreateMusicVideoForm({
   const ids = useId();
   const [versionId, setVersionId] = useState(defaultVersionId);
   const [style, setStyle] = useState<MusicVideoStyle>(DEFAULT_MUSIC_VIDEO_STYLE);
+  const [profile, setProfile] = useState<VideoOutputProfileId>(DEFAULT_VIDEO_OUTPUT_PROFILE);
   const [background, setBackground] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -201,7 +206,12 @@ function CreateMusicVideoForm({
     setBusy(true);
     setError(null);
     try {
-      const video = await createMusicVideo(songId, { sourceVersionId: version.id, style, background: background as File });
+      const video = await createMusicVideo(songId, {
+        sourceVersionId: version.id,
+        style,
+        background: background as File,
+        outputProfile: profile,
+      });
       onCreated(video);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Could not start the music video. Please try again.");
@@ -241,12 +251,7 @@ function CreateMusicVideoForm({
         </select>
       </label>
 
-      <label className="flex flex-col gap-1 text-sm" htmlFor={`${ids}-aspect`}>
-        Aspect ratio
-        <select id={`${ids}-aspect`} className="h-8 w-fit rounded-lg border border-input bg-transparent px-2 text-sm" value="9:16" disabled>
-          <option value="9:16">9:16 · 1080 × 1920</option>
-        </select>
-      </label>
+      <VideoFormatPicker value={profile} onChange={setProfile} disabled={busy} />
 
       {version && (
         <details className="text-sm">
@@ -312,6 +317,12 @@ function CreateMusicVideoForm({
       </div>
     </form>
   );
+}
+
+function playerWidth(video: MusicVideo): string {
+  if (video.width > video.height) return "max-w-2xl";
+  if (video.width === video.height) return "max-w-sm";
+  return "max-w-xs";
 }
 
 /**
@@ -395,6 +406,7 @@ export function MusicVideoCard({
           video.source_version_number ? `From Version ${video.source_version_number}` : "",
           video.aspect_ratio,
           styleLabel(video.style),
+          `${formatDimensions(video.width, video.height)} ${video.resolution}`,
           video.duration ? formatTime(video.duration) : "",
           formatDate(video.created_at),
         ]
@@ -425,7 +437,9 @@ export function MusicVideoCard({
       {playable && (
         <>
           <video
-            className="aspect-[9/16] max-h-[70vh] w-full max-w-xs rounded-lg bg-black"
+            // Phase 27: the frame keeps the video's own shape (9:16, 16:9 or 1:1).
+            className={`max-h-[70vh] w-full rounded-lg bg-black ${playerWidth(video)}`}
+            style={{ aspectRatio: `${video.width || 9} / ${video.height || 16}` }}
             src={video.video_url as string}
             controls
             playsInline

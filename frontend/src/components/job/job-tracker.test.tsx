@@ -181,7 +181,7 @@ describe("JobTracker", () => {
   describe("Phase 26: a music video requested with the song", () => {
     function video(status: string, extra: Record<string, unknown> = {}) {
       return { id: "mv-1", song_id: "song-9", source_version_id: "ver-9", source_version_number: 1, status, style: "cinematic",
-        aspect_ratio: "9:16", width: 1080, height: 1920, duration: null, size_bytes: null, video_url: null,
+        aspect_ratio: "9:16", output_profile: "vertical_hd", resolution: "HD", width: 1080, height: 1920, duration: null, size_bytes: null, video_url: null,
         matched_line_count: 0, unmatched_lines: [], error: null, created_at: "2026-09-28T00:00:00+00:00",
         updated_at: "2026-09-28T00:00:00+00:00", completed_at: null, ...extra };
     }

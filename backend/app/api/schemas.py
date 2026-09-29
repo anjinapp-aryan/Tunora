@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.jobs.models import Job, JobStatus
 from app.jobs.titles import derive_title
 from app.director.spec import SongSpec
+from app.music_videos.profiles import DEFAULT_PROFILE_ID, PROFILES
 from app.projects.models import Project, ProjectSongEntry, ProjectSummary
 from app.songs.models import Song, SongSummary, Version, VersionEntry
 from app.storage.filenames import safe_audio_filename
@@ -480,7 +481,6 @@ class RefineSongPlanRequest(BaseModel):
 # timing internals. `unmatched_lines` is the user's own stored lyric text that could not be
 # matched to the audio (so the UI can say so); the stored lyrics themselves are never modified.
 
-MUSIC_VIDEO_DIMENSIONS = {"9:16": (1080, 1920)}
 
 
 def music_video_url_for(music_video_id: str) -> str:
@@ -495,6 +495,9 @@ class MusicVideoResponse(BaseModel):
     status: str
     style: str
     aspect_ratio: str
+    # Phase 27: the canonical output format; width/height/resolution come from it.
+    output_profile: str
+    resolution: str
     width: int
     height: int
     duration: Optional[float] = None
@@ -513,7 +516,7 @@ class MusicVideoListResponse(BaseModel):
 
 
 def music_video_response(video: Any, version_number: Optional[int], error: Optional[str]) -> MusicVideoResponse:
-    width, height = MUSIC_VIDEO_DIMENSIONS.get(video.aspect_ratio, (0, 0))
+    profile = PROFILES.get(video.output_profile) or PROFILES[DEFAULT_PROFILE_ID]
     completed = video.status.value == "COMPLETED"
     return MusicVideoResponse(
         id=video.id,
@@ -522,9 +525,11 @@ def music_video_response(video: Any, version_number: Optional[int], error: Optio
         source_version_number=version_number,
         status=video.status.value,
         style=video.style,
-        aspect_ratio=video.aspect_ratio,
-        width=width,
-        height=height,
+        aspect_ratio=profile.aspect_ratio,
+        output_profile=profile.id,
+        resolution=profile.resolution_class,
+        width=profile.width,
+        height=profile.height,
         duration=video.duration,
         size_bytes=video.output_size_bytes if completed else None,
         video_url=music_video_url_for(video.id) if completed else None,

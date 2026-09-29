@@ -24,6 +24,8 @@ export const completed: MusicVideo = {
   status: "COMPLETED",
   style: "minimal_white",
   aspect_ratio: "9:16",
+  output_profile: "vertical_hd",
+  resolution: "HD",
   width: 1080,
   height: 1920,
   duration: 60,
@@ -72,7 +74,7 @@ describe("createMusicVideo", () => {
     const background = file("video/mp4");
     await createMusicVideo("song-1", { sourceVersionId: "ver-1", style: "bold", background });
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("/api/songs/song-1/music-videos?source_version_id=ver-1&style=bold&aspect_ratio=9%3A16");
+    expect(url).toBe("/api/songs/song-1/music-videos?source_version_id=ver-1&style=bold&output_profile=vertical_hd");
     expect(init).toMatchObject({ method: "POST", headers: { "Content-Type": "video/mp4" }, body: background });
   });
 

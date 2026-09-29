@@ -119,6 +119,23 @@ describe("Create page intents", () => {
     expect(JSON.parse(calls("/api/jobs")[0][1].body).instrumental).toBe(false);
   });
 
+  it("Phase 27: the chosen video format travels as output_profile (never width/height)", async () => {
+    route();
+    render(<CreateSongForm />);
+    expect(screen.queryByTestId("video-format")).toBeNull(); // Audio Only: no format to choose
+    await userEvent.click(screen.getByRole("radio", { name: /audio \+ video/i }));
+    expect(screen.getByRole("radio", { name: /9:16 vertical/i })).toBeChecked(); // default unchanged
+    await userEvent.click(screen.getByRole("radio", { name: /16:9 landscape/i }));
+    await userEvent.click(screen.getByRole("radio", { name: /4K — 3840 × 2160/ }));
+    await fillSong();
+    await userEvent.upload(screen.getByLabelText(/background image or video/i), JPEG());
+    await userEvent.click(screen.getByRole("button", { name: /generate song \+ video/i }));
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    const params = new URL(String(calls("/api/songs/")[0][0]), "http://x").searchParams;
+    expect(params.get("output_profile")).toBe("landscape_4k");
+    expect([params.has("width"), params.has("height"), params.has("aspect_ratio")]).toEqual([false, false, false]);
+  });
+
   it("Lyrics Video uses the karaoke preset and only lyric-first styles", async () => {
     route();
     render(<CreateSongForm />);
@@ -131,6 +148,7 @@ describe("Create page intents", () => {
     await userEvent.click(screen.getByRole("button", { name: /generate song \+ lyrics video/i }));
     await waitFor(() => expect(push).toHaveBeenCalled());
     expect(new URL(String(calls("/api/songs/")[0][0]), "http://x").searchParams.get("style")).toBe("karaoke");
+    expect(new URL(String(calls("/api/songs/")[0][0]), "http://x").searchParams.get("output_profile")).toBe("vertical_hd");
   });
 
   it("blocks a video without a background or lyrics before any generation starts", async () => {

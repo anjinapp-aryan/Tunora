@@ -17,6 +17,9 @@ cannot both apply it. Steps never drop or rewrite existing user data.
           (existing songs become is_favorite = 0)
   5 -> 6  Music Videos (Phase 23): a `music_videos` table -- presentation artifacts derived from
           one Version; no existing row is read or changed
+  6 -> 7  Music Video output profiles (Phase 27): `music_videos.output_profile`, immutable like the
+          other creation inputs (existing videos were all 1080x1920 9:16 and become 'vertical_hd';
+          their files are not touched)
 """
 
 from __future__ import annotations
@@ -33,7 +36,7 @@ from app.providers.base import GenerationRequest
 
 logger = logging.getLogger(__name__)
 
-LATEST_VERSION = 6
+LATEST_VERSION = 7
 
 _JOB_ID = re.compile(r"^tunora-([0-9a-fA-F-]{36})$")
 _SPEC_FIELDS = tuple(GenerationRequest.__dataclass_fields__)
@@ -47,7 +50,7 @@ def migrate(conn: sqlite3.Connection) -> None:
         raise RuntimeError(
             f"Database schema version {current} is newer than this Tunora build supports ({LATEST_VERSION})."
         )
-    for target, step in ((1, _to_v1), (2, _to_v2), (3, _to_v3), (4, _to_v4), (5, _to_v5), (6, _to_v6)):
+    for target, step in ((1, _to_v1), (2, _to_v2), (3, _to_v3), (4, _to_v4), (5, _to_v5), (6, _to_v6), (7, _to_v7)):
         if current >= target:
             continue
         _run_step(conn, target, step)
@@ -275,6 +278,23 @@ def _to_v6(conn: sqlite3.Connection) -> None:
         WHEN (SELECT song_id FROM versions WHERE id = NEW.source_version_id) IS NOT NEW.song_id
         BEGIN
             SELECT RAISE(ABORT, 'source version must belong to the same song');
+        END
+        """
+    )
+
+
+def _to_v7(conn: sqlite3.Connection) -> None:
+    # The profile id is the canonical output format (width/height/ratio derive from it), so it is the
+    # only thing stored. Every video made before Phase 27 was rendered at 1080x1920 9:16.
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(music_videos)")}
+    if "output_profile" not in columns:
+        conn.execute("ALTER TABLE music_videos ADD COLUMN output_profile TEXT NOT NULL DEFAULT 'vertical_hd'")
+    conn.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS music_videos_profile_immutable
+        BEFORE UPDATE OF output_profile ON music_videos
+        BEGIN
+            SELECT RAISE(ABORT, 'music video output profile is immutable');
         END
         """
     )

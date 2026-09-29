@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
+from app.music_videos.profiles import ASPECT_RATIOS, DEFAULT_PROFILE_ID  # noqa: F401 -- re-exported
 from app.songs.models import utcnow
 
 
@@ -27,14 +28,14 @@ class MusicVideoStatus(str, Enum):
 TERMINAL_MUSIC_VIDEO_STATUSES = frozenset({MusicVideoStatus.COMPLETED, MusicVideoStatus.FAILED})
 
 STYLES = ("minimal_white", "dreamy", "bold", "cinematic", "karaoke")  # Phase 25 adds the last two
-ASPECT_RATIOS = ("9:16",)  # the only production path in Phase 23
 
 
 @dataclass(frozen=True)
 class MusicVideo:
-    """`song_id`, `source_version_id`, `style`, `aspect_ratio` and the background never change
-    after creation (a DB trigger enforces it). `timed_lyrics` is the TimedLyrics document the
-    video was rendered from -- including the lines that could NOT be matched to the audio -- so
+    """`song_id`, `source_version_id`, `style`, `aspect_ratio`, `output_profile` (Phase 27; the
+    canonical format, see profiles.py -- `aspect_ratio` is always that profile's ratio) and the
+    background never change after creation (a DB trigger enforces it). `timed_lyrics` is the
+    TimedLyrics document the video was rendered from -- including the lines that could NOT be matched to the audio -- so
     a future manual-timing provider can start from it. `error` is internal (logs only)."""
 
     id: str
@@ -45,6 +46,7 @@ class MusicVideo:
     aspect_ratio: str
     background_key: str
     background_media_type: str
+    output_profile: str = DEFAULT_PROFILE_ID
     duration: Optional[float] = None
     output_key: Optional[str] = None
     output_size_bytes: Optional[int] = None
