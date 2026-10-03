@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Free, open-source-first, self-hostable AI Music Studio: describe a song (optionally lyrics/language/duration), generate it with a local open-source model, play it in the browser with a waveform, download it, and browse it in a Library. Suno/Udio are UX benchmarks only; no proprietary code, models, weights, datasets or branding may be used.
 
-Repo layout: `backend/` (FastAPI), `frontend/` (Next.js), `docs/` (decisions and per-phase write-ups), `ACE-Step-1.5/` (git **submodule**: the upstream model server, treated as an external dependency; never add Tunora code there and never commit its local/untracked files), `start-tunora.ps1`.
+Repo layout: `backend/` (FastAPI), `frontend/` (Next.js), `docs/` (decisions and per-phase write-ups), `ACE-Step-1.5/` (git **submodule**: the upstream model server, treated as an external dependency; never add Tunora code there and never commit its local/untracked files), `start-tunora.ps1`/`stop-tunora.ps1`/`restart-tunora.ps1`/`tunora-services.ps1` (service management, see `docs/TUNORA-SERVICE-MANAGEMENT.md`).
 
-State: the vertical slice Create → Generate → Track → Save → Play/Seek → Download → Song-oriented Library → Song Details (`/songs/{id}`, version history and selection) works end to end and is tested. Song → Version → Audio domain exists (Phases 4–5A); there is no UI to create a new version, Projects, or Extend/Remix/Repaint yet. Read the latest `docs/PHASE-*.md` / `docs/MILESTONE-*.md` before assuming what exists; they record what was actually verified and known limitations.
+State (through Phase 21): Create → Generate → Track → Save → Play/Seek → Download (FLAC canonical, MP3/WAV on-demand export) → Song-oriented Library → Song Details (`/songs/{id}`, version history and selection) → Extend/Remix/Repaint (new Versions of an existing Song) → Projects (organizational grouping of Songs) → AI Song Director (natural language → reviewable `SongSpec` → generation) all work end to end. Read the latest `docs/PHASE-*.md` / `docs/MILESTONE-*.md` before assuming what exists; they record what was actually verified and known limitations — phase numbering is not contiguous across doc types (`*-IMPLEMENTATION.md` vs `*-PRODUCT-CAPABILITY-GAP-AUDIT.md`).
 
 ## The rule that governs everything: Reuse-First Law
 
@@ -19,8 +19,12 @@ State: the vertical slice Create → Generate → Track → Save → Play/Seek �
 Everything runs locally on Windows (PowerShell/Git Bash). `uv` for Python, `npm` for the frontend.
 
 ```bash
-# Start all three services (ACE-Step :8001, backend :8000, frontend :3000), each in its own window
+# Start/stop/restart all three services (ACE-Step :8001, backend :8000, frontend :3000), each in its own window.
+# Safe by construction: only the process actually listening on 8001/8000/3000 is ever touched, never by name.
 powershell -File start-tunora.ps1 [-OpenBrowser] [-NoWait]
+powershell -File stop-tunora.ps1
+powershell -File restart-tunora.ps1 [-NoBrowser]
+# tunora-services.ps1 is shared helpers, dot-sourced by the three above; never run it directly.
 
 # Backend (cd backend)
 uv sync
@@ -59,6 +63,8 @@ Browser -> Next.js (/api/* rewrite) -> FastAPI routes -> JobService -> JobReposi
 - **Audio is served only through `GET /api/jobs/{id}/audio`** (Starlette `FileResponse`: Range, ETag, Content-Length). The client sends only a job id; the file is resolved from the trusted job record via `AudioStorage` with ownership/media-type/containment checks in `JobService.resolve_audio`. Downloads reuse that same route on the client (fetch + Blob + `<a download>`); there is deliberately no second endpoint. Filenames are sanitized once in `app/storage/filenames.py`.
 - **Public API is an allowlist** (`app/api/schemas.py`): `absolute_path`, storage key internals, `Job.error` (returns a fixed "Generation failed."), provider task ids and ACE-Step URLs must never appear in a response, page, or log shown to users. Tests assert this; keep it that way for every new endpoint (validate ids with `app/songs/ids.py`, never accept paths).
 - **Frontend** (`frontend/src`): `lib/api/jobs.ts` is the only API client and the only place audio URLs are built (`isTunoraAudioUrl` guards every use). Job tracking is a hand-written polling hook (`lib/jobs/use-job-status.ts`: recursive timeout, no overlap, backoff, stops on terminal state/404/unmount). The single player is `components/audio/audio-player.tsx` on WaveSurfer.js: it downloads and decodes the whole file once and plays from a blob, so it makes one plain GET (no Range); Range support exists and is tested for future direct streaming. shadcn/ui components live in `components/ui` (Base UI based).
+- **Projects** (`app/projects`, Phase 6): a `Project` is pure organizational metadata over `Song` (`Song.project_id`) — it owns no audio and no Version. Deleting a Project never touches a Song, Version, or audio file.
+- **AI Song Director** (`app/director`, Phases 7–8): `SongDirector` turns a natural-language request into a provider-neutral, reviewable `SongSpec` (`create_plan`/`refine`) — deliberately "small and boring": one method, no tools, no multi-step planning, no autonomy, and it never generates audio itself. Fields the user supplied explicitly (`REQUESTABLE_FIELDS`) are tracked in `requested_fields` and the Director must never overwrite them with an AI guess. A plan only becomes a Song/Version/Job through the existing, unchanged `POST /api/jobs`.
 
 ## Testing conventions
 
@@ -75,3 +81,5 @@ Backend uses `FakeProvider`/`FakeAudioStorage` (`tests/jobs/fakes.py`) for unit 
 ## Environment notes
 
 Windows. Some long-lived local processes (a `next dev`, a backend, the ACE-Step server) may hold ports 3000/8000/8001 and refuse `taskkill` (access denied); use alternate ports/`E2E_DIST_DIR` rather than fighting them. Only one `next dev` can use a given `distDir` (`NEXT_DIST_DIR`) at a time. The frontend, backend and ACE-Step each need their own dependency install (`npm install`, `uv sync` in `backend` and in `ACE-Step-1.5`).
+
+ACE-Step must be started with `ACESTEP_CONFIG_PATH2=acestep-v15-base` (a second model slot, done by `tunora-services.ps1`) for Extract to work — turbo (the default model) doesn't support the `extract` task and ACE-Step **silently** falls back to the turbo handler instead of erroring. Tunora checks the returned `dit_model` and fails the job visibly rather than saving a wrong result, but a manually-started ACE-Step without that env var breaks Extract while leaving Create/Extend/Remix/Repaint/Another Take unaffected.
