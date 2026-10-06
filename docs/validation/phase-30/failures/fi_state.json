@@ -1,0 +1,225 @@
+{
+ "shots": {
+  "fi_01": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 41.6
+    }
+   ]
+  },
+  "fi_02": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 41.8
+    }
+   ]
+  },
+  "fi_03": {
+   "status": "FAILED",
+   "attempts": 2,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 1,
+     "termination": "exited",
+     "valid": false,
+     "failure_reason": "exit_code:1",
+     "wall_seconds": 0.1
+    },
+    {
+     "attempt": 2,
+     "exit_code": 1,
+     "termination": "exited",
+     "valid": false,
+     "failure_reason": "exit_code:1",
+     "wall_seconds": 0.1
+    }
+   ]
+  },
+  "fi_04": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 41.8
+    }
+   ]
+  },
+  "fi_05": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 41.7
+    }
+   ]
+  },
+  "fi_06": {
+   "status": "COMPLETED",
+   "attempts": 2,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 3,
+     "termination": "exited",
+     "valid": false,
+     "failure_reason": "exit_code:3",
+     "wall_seconds": 12.2
+    },
+    {
+     "attempt": 2,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 39.5
+    }
+   ]
+  },
+  "fi_07": {
+   "status": "FAILED",
+   "attempts": 2,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 1,
+     "termination": "timeout:graceful",
+     "valid": false,
+     "failure_reason": "timeout:graceful",
+     "wall_seconds": 100.8
+    },
+    {
+     "attempt": 2,
+     "exit_code": 1,
+     "termination": "timeout:graceful",
+     "valid": false,
+     "failure_reason": "timeout:graceful",
+     "wall_seconds": 100.8
+    }
+   ]
+  },
+  "fi_08": {
+   "status": "FAILED",
+   "attempts": 2,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": false,
+     "failure_reason": "missing_output",
+     "wall_seconds": 0.1
+    },
+    {
+     "attempt": 2,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": false,
+     "failure_reason": "missing_output",
+     "wall_seconds": 0.1
+    }
+   ]
+  },
+  "fi_09": {
+   "status": "FAILED",
+   "attempts": 2,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": false,
+     "failure_reason": "invalid_image:UnidentifiedImageError",
+     "wall_seconds": 0.1
+    },
+    {
+     "attempt": 2,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": false,
+     "failure_reason": "invalid_image:UnidentifiedImageError",
+     "wall_seconds": 0.1
+    }
+   ]
+  },
+  "fi_10": {
+   "status": "COMPLETED",
+   "attempts": 2,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": false,
+     "failure_reason": "invalid_video:decode",
+     "wall_seconds": 214.3
+    },
+    {
+     "attempt": 2,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.1
+    }
+   ]
+  },
+  "fi_11": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 47.3
+    }
+   ]
+  }
+ },
+ "events": [
+  {
+   "time": "2026-10-05 21:41:04",
+   "type": "controller_start",
+   "pid": 12916,
+   "workload": "E10 failure injection",
+   "shots": 11
+  },
+  {
+   "time": "2026-10-05 21:56:37",
+   "type": "controller_done",
+   "summary": {
+    "COMPLETED": 7,
+    "FAILED": 4,
+    "PENDING": 0,
+    "BLOCKED_DISK": 0
+   }
+  }
+ ]
+}

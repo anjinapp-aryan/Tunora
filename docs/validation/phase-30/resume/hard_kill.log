@@ -1,0 +1,1 @@
+{"time": "2026-10-06 08:05:23", "shot_running": "clip_s26", "killed_controller_pid": 7668, "worker_pids_left_running": [23896, 25752], "taskkill": [0, "SUCCESS: The process with PID 7668 has been terminated."], "controller_alive_after": false, "workers_alive_after": [23896, 25752]}

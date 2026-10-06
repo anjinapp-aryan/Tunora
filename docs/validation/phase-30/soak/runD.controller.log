@@ -1,0 +1,8 @@
+[controller] clip_s26 attempt=2 rc=0 exited valid=True  wall=216.9s vram 605->15997->687 rss_peak=15.86GB min_avail=0.93GB
+[controller] clip_s27 attempt=1 rc=0 exited valid=True  wall=214.3s vram 687->15909->580 rss_peak=16.07GB min_avail=0.93GB
+[controller] clip_s28 attempt=1 rc=0 exited valid=True  wall=214.1s vram 580->15939->588 rss_peak=16.32GB min_avail=0.93GB
+[controller] clip_s29 attempt=1 rc=0 exited valid=True  wall=214.1s vram 588->15910->581 rss_peak=16.12GB min_avail=0.93GB
+[controller] clip_s30 attempt=1 rc=1 timeout:graceful valid=False timeout:graceful wall=8032.0s vram 581->15910->896 rss_peak=16.69GB min_avail=0.93GB
+[controller] clip_s30 attempt=2 rc=0 exited valid=True  wall=216.2s vram 896->15914->549 rss_peak=15.77GB min_avail=0.93GB
+[controller] clip_s31 attempt=1 rc=0 exited valid=True  wall=429.2s vram 549->15858->674 rss_peak=16.99GB min_avail=0.93GB
+rc=1

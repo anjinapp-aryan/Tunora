@@ -1,0 +1,12 @@
+[controller] clip_s11 attempt=1 rc=0 exited valid=True  wall=222.1s vram 787->15873->706 rss_peak=16.55GB min_avail=0.93GB
+[controller] clip_s12 attempt=1 rc=0 exited valid=True  wall=224.9s vram 730->16002->763 rss_peak=15.74GB min_avail=0.93GB
+[controller] clip_s13 attempt=1 rc=0 exited valid=True  wall=230.4s vram 763->16000->1021 rss_peak=16.16GB min_avail=0.93GB
+[controller] clip_s14 attempt=1 rc=0 exited valid=True  wall=228.6s vram 1021->16015->723 rss_peak=16.01GB min_avail=0.93GB
+[controller] clip_s15 attempt=1 rc=0 exited valid=True  wall=216.9s vram 723->15999->493 rss_peak=16.09GB min_avail=0.93GB
+[controller] clip_s16 attempt=1 rc=0 exited valid=True  wall=218.3s vram 493->15928->666 rss_peak=15.9GB min_avail=0.93GB
+[controller] clip_s17 attempt=1 rc=0 exited valid=True  wall=217.8s vram 666->15921->572 rss_peak=15.72GB min_avail=0.93GB
+[controller] clip_s18 attempt=1 rc=0 exited valid=True  wall=225.1s vram 572->16000->832 rss_peak=15.92GB min_avail=0.93GB
+[controller] clip_s19 attempt=1 rc=0 exited valid=True  wall=221.0s vram 832->16027->771 rss_peak=16.32GB min_avail=0.93GB
+[controller] clip_s20 attempt=1 rc=0 exited valid=True  wall=216.4s vram 771->15940->675 rss_peak=16.4GB min_avail=0.93GB
+[controller] clip_s21 attempt=1 rc=0 exited valid=True  wall=231.2s vram 675->16009->835 rss_peak=15.74GB min_avail=0.93GB
+[controller] clip_s22 attempt=1 rc=0 exited valid=True  wall=223.1s vram 835->16017->994 rss_peak=16.43GB min_avail=0.93GB
