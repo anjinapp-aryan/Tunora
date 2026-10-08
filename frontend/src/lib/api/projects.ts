@@ -49,6 +49,7 @@ async function request<T>(
   try {
     response = await fetch(url, { cache: "no-store", ...init });
   } catch (error) {
+    if (init?.signal?.aborted) throw error;
     console.error("project request network failure", error);
     throw new ApiError("network", NETWORK_ERROR);
   }

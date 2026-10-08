@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
     // proxied request body up to this size (default 10 MB) and fails larger ones; match the
     // backend's own cap (200 MB for a background video) so the backend stays the one enforcing it.
     proxyClientMaxBodySize: "201mb",
+    // The /api rewrite proxy aborts a request after 30 s by default and answers 500. The AI Song
+    // Director's plan/refine calls run ACE-Step's LM (observed up to ~90 s, longer on the first call
+    // while the LM loads; the backend allows 180 s), so keep the proxy above the backend's own limit.
+    proxyTimeout: 240_000,
   },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${TUNORA_API_URL}/api/:path*` }];
