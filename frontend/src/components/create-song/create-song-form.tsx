@@ -44,6 +44,7 @@ import {
   type CreationIntent,
 } from "@/lib/creation-intent";
 import { rememberJobPrompt } from "@/lib/jobs/job-summary";
+import { revisionDefaults, type RevisionSource } from "@/lib/revision";
 import {
   createSongSchema,
   DEFAULT_VALUES,
@@ -77,10 +78,16 @@ function diffPlanFields(before: SongPlan, after: SongPlan): string[] {
     .map(([label]) => label);
 }
 
-export function CreateSongForm() {
+/**
+ * The one creation form. Without `source` it creates a new song (unchanged behaviour). With a
+ * `source` (Phase 28) it is the Revise / Retry form: prefilled from that Version, and Generate
+ * creates a NEW Version of the same song from it -- the source Version is never changed.
+ */
+export function CreateSongForm({ source }: { source?: RevisionSource } = {}) {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  // A revision's stored seed lives under Advanced options: show it rather than hide a prefilled value.
+  const [advancedOpen, setAdvancedOpen] = useState(() => source?.version.seed != null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   // Phase 26: what to create. Only decides which requests are sent; never stored.
   const [intent, setIntent] = useState<CreationIntent>(DEFAULT_CREATION_INTENT);
@@ -92,6 +99,7 @@ export function CreateSongForm() {
   const intentOption = creationIntentOption(intent);
 
   useEffect(() => {
+    if (source) return; // a revision stays in its song's project; no project choice to offer
     const controller = new AbortController();
     listProjects({ sort: "title", signal: controller.signal })
       .then(setProjects)
@@ -99,7 +107,7 @@ export function CreateSongForm() {
         /* the Project field just stays empty; creating a song must still work without it */
       });
     return () => controller.abort();
-  }, []);
+  }, [source]);
 
   const [appliedPlan, setAppliedPlan] = useState<SongPlan | null>(null);
   const [changedFields, setChangedFields] = useState<string[]>([]);
@@ -113,7 +121,7 @@ export function CreateSongForm() {
     formState: { errors, isSubmitting },
   } = useForm<CreateSongValues>({
     resolver: zodResolver(createSongSchema),
-    defaultValues: DEFAULT_VALUES,
+    defaultValues: source ? revisionDefaults(source.version) : DEFAULT_VALUES,
   });
 
   const instrumental = useWatch({ control, name: "vocals" }) === "instrumental";
@@ -175,8 +183,9 @@ export function CreateSongForm() {
     try {
       const isInstrumental = values.vocals === "instrumental";
       const job = await createJob({
-        title: values.title || null,
-        project_id: values.projectId || null,
+        ...(source
+          ? { song_id: source.songId, source_version_id: source.version.id }
+          : { title: values.title || null, project_id: values.projectId || null }),
         prompt: values.prompt.trim(),
         lyrics: isInstrumental ? "" : values.lyrics,
         language: values.language,
@@ -219,9 +228,18 @@ export function CreateSongForm() {
 
   return (
     <div className="flex flex-col gap-6">
+      {source && (
+        <p role="status" className="rounded-lg border border-border/60 p-3 text-sm" data-testid="revision-context">
+          {source.mode === "RETRY" ? "Retrying" : "Revising"}{" "}
+          <span className="font-medium [overflow-wrap:anywhere]">{source.songTitle}</span> from Version{" "}
+          {source.version.version_number}. The fields below are that version&apos;s own settings — change anything, then
+          generate. This creates a new version of the same song; Version {source.version.version_number} is not changed.
+        </p>
+      )}
+
       <CreationIntentPicker value={intent} onChange={chooseIntent} disabled={isSubmitting} />
 
-      <SongDirectorPanel disabled={isSubmitting} onPlan={applyPlan} />
+      {!source && <SongDirectorPanel disabled={isSubmitting} onPlan={applyPlan} />}
 
       {appliedPlan && (
         <p
@@ -254,7 +272,7 @@ export function CreateSongForm() {
         </p>
       )}
 
-      {appliedPlan && (
+      {(appliedPlan || source) && (
         <SongRefinePanel
           disabled={isSubmitting}
           getCurrentSpec={currentSpec}
@@ -418,18 +436,21 @@ export function CreateSongForm() {
                   </FieldDescription>
                 </Field>
               )}
-              <Field data-invalid={!!errors.title}>
-                <FieldLabel htmlFor="title">Song title (optional)</FieldLabel>
-                <Input
-                  id="title"
-                  maxLength={TITLE_MAX + 20}
-                  placeholder="Auto: from your description"
-                  aria-invalid={!!errors.title}
-                  disabled={isSubmitting}
-                  {...register("title")}
-                />
-                <FieldError errors={[errors.title]} />
-              </Field>
+              {/* A revision is a new Version of an existing song: the song keeps its title. */}
+              {!source && (
+                <Field data-invalid={!!errors.title}>
+                  <FieldLabel htmlFor="title">Song title (optional)</FieldLabel>
+                  <Input
+                    id="title"
+                    maxLength={TITLE_MAX + 20}
+                    placeholder="Auto: from your description"
+                    aria-invalid={!!errors.title}
+                    disabled={isSubmitting}
+                    {...register("title")}
+                  />
+                  <FieldError errors={[errors.title]} />
+                </Field>
+              )}
               <Field data-invalid={!!errors.seed}>
                 <FieldLabel htmlFor="seed">Seed (optional)</FieldLabel>
                 <Input
@@ -469,7 +490,11 @@ export function CreateSongForm() {
           ) : (
             <>
               {makesVideo ? <ClapperboardIcon aria-hidden="true" /> : <MusicIcon aria-hidden="true" />}{" "}
-              {intentOption.submitLabel}
+              {source && !makesVideo
+                ? source.mode === "RETRY"
+                  ? "Retry Generation"
+                  : "Generate New Version"
+                : intentOption.submitLabel}
             </>
           )}
         </Button>

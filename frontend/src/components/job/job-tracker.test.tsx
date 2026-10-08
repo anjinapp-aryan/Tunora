@@ -297,7 +297,8 @@ describe("JobTracker", () => {
     expect(screen.getByRole("heading", { name: /generation failed/i })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/couldn't complete this generation/i);
     expect(container.textContent).not.toMatch(/traceback|ProviderResponseError|query_result|C:\\|\.cache|out\.mp3/i);
-    expect(screen.getByRole("link", { name: /back to create song/i })).toHaveAttribute("href", "/create");
+    // Phase 28 renamed the fresh-start link (Retry / Revise is the primary action when the job has a version).
+    expect(screen.getByRole("link", { name: /start a new song instead/i })).toHaveAttribute("href", "/create");
   });
 
   it("does not expose provider or internal details", async () => {
@@ -368,6 +369,15 @@ describe("JobTracker", () => {
 
     await advance(RETRY_DELAYS_MS[0]);
     expect(screen.queryByTestId("connection-problem")).toBeNull();
+  });
+
+  it("Phase 28: a failed job offers Retry / Revise on its own version, keeping the inputs", async () => {
+    fetchMock.mockResolvedValue(ok(job("FAILED", { song_id: "song-9", version_id: "ver-9" })));
+    await renderTracker();
+    const retry = within(screen.getByTestId("retry-revise")).getByRole("link", { name: "Retry / Revise" });
+    expect(retry).toHaveAttribute("href", "/create?song=song-9&version=ver-9");
+    expect(screen.getByTestId("retry-revise")).toHaveTextContent(/description, lyrics and settings are kept/i);
+    expect(screen.getByRole("link", { name: /start a new song instead/i })).toHaveAttribute("href", "/create");
   });
 
   it("shows 'Job not found' on 404 and stops polling", async () => {

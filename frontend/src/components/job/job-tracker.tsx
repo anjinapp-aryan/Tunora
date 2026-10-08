@@ -11,6 +11,7 @@ import { JobMusicVideo } from "@/components/job/job-music-video";
 import { buttonVariants } from "@/components/ui/button";
 import { getAudioResource, type JobStatus } from "@/lib/api/jobs";
 import { recallJobPrompt } from "@/lib/jobs/job-summary";
+import { revisionHref } from "@/lib/revision";
 import { useJobStatus } from "@/lib/jobs/use-job-status";
 import { cn } from "@/lib/utils";
 
@@ -162,6 +163,20 @@ export function JobTracker({ jobId }: { jobId: string }) {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       )}
+      {failed && job?.song_id && job.version_id && (
+        // Phase 28: nothing is lost -- reopen the form with this attempt's own inputs.
+        <div className="mt-4 flex flex-col gap-2" data-testid="retry-revise">
+          <Link
+            href={revisionHref(job.song_id, job.version_id)}
+            className={cn(buttonVariants({ variant: "default" }), "w-fit")}
+          >
+            Retry / Revise
+          </Link>
+          <p className="text-sm text-muted-foreground">
+            Your description, lyrics and settings are kept. Try again as they are, or change them first.
+          </p>
+        </div>
+      )}
 
       {status && !failed && <StepList status={status} />}
 
@@ -206,7 +221,7 @@ export function JobTracker({ jobId }: { jobId: string }) {
 
       {idLine}
 
-      {(failed || completed) && <BackToCreate label={failed ? "Back to Create Song" : "Create another song"} />}
+      {(failed || completed) && <BackToCreate label={failed ? "Start a new song instead" : "Create another song"} />}
     </section>
   );
 }

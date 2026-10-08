@@ -16,7 +16,14 @@ EXTRACT = "EXTRACT"
 ANOTHER_TAKE = "ANOTHER_TAKE"
 
 CREATIVE_OPERATIONS = (EXTEND, REMIX, REPAINT, EXTRACT, ANOTHER_TAKE)
-ALL_OPERATIONS = (ORIGINAL, *CREATIVE_OPERATIONS)
+# Phase 28: a fresh text-to-music generation from one explicit Version's inputs, as the user
+# edited them (a revision) or left them unchanged (a retry, typically of a failed Version). No
+# source audio is read. It takes a full spec, so it goes through POST /api/jobs (song_id +
+# source_version_id), not the per-operation route used by CREATIVE_OPERATIONS.
+REVISE = "REVISE"
+# The user-facing generation settings a revision may change (all of a Version's stored spec).
+REVISABLE_FIELDS = ("prompt", "lyrics", "language", "duration", "seed", "instrumental")
+ALL_OPERATIONS = (ORIGINAL, *CREATIVE_OPERATIONS, REVISE)
 
 # Limits come from the provider's documented repaint range (3-90 s) and are enforced server-side.
 EXTEND_MIN_SECONDS = 5.0

@@ -26,6 +26,9 @@ class CreateJobRequest(BaseModel):
     title: Optional[str] = None
     # Generate another Version of an existing Song instead of a new Song.
     song_id: Optional[str] = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$")
+    # Phase 28 (Revise / Retry): the explicit Version of `song_id` whose inputs this request edits.
+    # The new Version records it as its source; it must belong to `song_id` (checked server-side).
+    source_version_id: Optional[str] = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$")
     # Optional: put a brand-new Song in this Project (Phase 6). Ignored when song_id is set.
     project_id: Optional[str] = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$")
     prompt: str
@@ -167,6 +170,9 @@ class VersionResponse(BaseModel):
     status: str
     created_at: str
     duration: Optional[float] = None
+    # Phase 28: the duration that was REQUESTED (the stored spec), so a failed or unfinished version
+    # can be revised with its own settings; `duration` above is the measured audio length.
+    requested_duration: Optional[float] = None
     # Null when the version has no stored audio (failed, still generating, or never completed).
     audio: Optional[VersionAudioResponse] = None
     prompt: str
@@ -254,6 +260,7 @@ def song_details_response(
                 status=entry.job_status or "CREATED",
                 created_at=v.created_at.isoformat(),
                 duration=v.audio.duration if v.audio else None,
+                requested_duration=v.spec.duration,
                 audio=audio,
                 prompt=v.spec.prompt,
                 lyrics=v.spec.lyrics,

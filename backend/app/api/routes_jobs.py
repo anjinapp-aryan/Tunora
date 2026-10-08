@@ -21,7 +21,7 @@ from app.jobs.models import JobStatus
 from app.jobs.errors import AudioIntegrityError, AudioNotAvailableError, ExportConversionError, JobNotFoundError
 from app.jobs.service import JobService
 from app.projects.errors import ProjectNotFoundError
-from app.songs.errors import InvalidIdError, SongNotFoundError
+from app.songs.errors import InvalidIdError, InvalidOperationError, SongNotFoundError, SourceVersionNotFoundError
 from app.providers.base import GenerationRequest
 
 logger = logging.getLogger(__name__)
@@ -45,12 +45,22 @@ async def create_job(payload: CreateJobRequest, request: Request, background_tas
         instrumental=payload.instrumental,
         batch_size=payload.batch_size,
     )
+    if payload.source_version_id is not None and payload.song_id is None:
+        raise HTTPException(status_code=422, detail="source_version_id needs the song_id it belongs to.")
     try:
-        job = await service.create_and_submit(
-            generation_request, title=payload.title, song_id=payload.song_id, project_id=payload.project_id
-        )
+        if payload.source_version_id is not None:
+            # Phase 28: Revise / Retry -- a new Version of this song from one explicit Version's inputs.
+            job = await service.create_revision(payload.song_id, payload.source_version_id, generation_request)
+        else:
+            job = await service.create_and_submit(
+                generation_request, title=payload.title, song_id=payload.song_id, project_id=payload.project_id
+            )
     except (SongNotFoundError, ProjectNotFoundError, InvalidIdError):
         raise HTTPException(status_code=404, detail="Song or project not found.")
+    except SourceVersionNotFoundError:
+        raise HTTPException(status_code=404, detail="Version not found for this song.")
+    except InvalidOperationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     if job.status.value not in ("FAILED",):
         background_tasks.add_task(service.run_until_terminal, job.id)
     return _respond(service, [job])[0]

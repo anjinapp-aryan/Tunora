@@ -32,6 +32,7 @@ import {
 } from "@/lib/api/songs";
 import { formatTime } from "@/lib/audio/format-time";
 import { formatDate } from "@/lib/format-date";
+import { canRevise, revisionHref, revisionMode } from "@/lib/revision";
 import { cn } from "@/lib/utils";
 
 type Result = { key: string; details?: SongDetails; notFound?: boolean; error?: string };
@@ -241,6 +242,16 @@ export function SongDetailsView({ songId }: { songId: string }) {
               onRepaintRegionChange={setRepaintRegion}
               repaintDragGeneration={repaintDragGeneration}
             />
+          )}
+          {!pending && canRevise(active) && (
+            // Phase 28: a new Version of this song from THIS version's own inputs (never the latest by default).
+            <Link
+              href={revisionHref(details.id, active.id)}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-4 w-fit")}
+              data-testid="revise-version"
+            >
+              {revisionMode(active) === "RETRY" ? "Retry / Revise" : "Revise"} Version {active.version_number}
+            </Link>
           )}
 
           <div className="mt-6 rounded-lg border border-border/60 p-3 text-sm" data-testid="provider-metadata">

@@ -519,4 +519,22 @@ describe("Phase 10: provider metadata and Compare Versions", () => {
     const section = screen.getByTestId("provider-metadata");
     expect(section.textContent).not.toMatch(/ver-\d|ace-step|8001|C:\\|provider_job_id/i);
   });
+  describe("Phase 28: Revise", () => {
+    it("revises the SELECTED version (not the latest) through the Create form", async () => {
+      await renderSong();
+      expect(screen.getByTestId("revise-version")).toHaveAttribute("href", "/create?song=song-1&version=ver-3");
+      await userEvent.click(within(screen.getAllByTestId("version-option")[2]).getByRole("radio"));
+      expect(screen.getByTestId("revise-version")).toHaveTextContent("Revise Version 1");
+      expect(screen.getByTestId("revise-version")).toHaveAttribute("href", "/create?song=song-1&version=ver-1");
+    });
+
+    it("offers Retry / Revise for a failed version and nothing for an extracted track", async () => {
+      const failed = await renderSong(details([version(1, { status: "FAILED", audio: null, duration: null })]), "song-1", false);
+      expect(screen.getByTestId("revise-version")).toHaveTextContent("Retry / Revise Version 1");
+      failed.unmount();
+      await renderSong(details([version(1), version(2, { operation: "EXTRACT", extracted_track: "vocals", source_version_number: 1 })]));
+      expect(screen.getByTestId("active-version-title")).toHaveTextContent("Version 2");
+      expect(screen.queryByTestId("revise-version")).toBeNull();
+    });
+  });
 });
