@@ -25,8 +25,9 @@ export interface SongSummary {
 /** `list_song_summaries(project=...)` value that means "songs with no Project". */
 export const PROJECT_FILTER_NONE = "none";
 
-export type VersionOperation = "ORIGINAL" | "EXTEND" | "REMIX" | "REPAINT" | "EXTRACT" | "ANOTHER_TAKE";
-export type CreativeOperation = Exclude<VersionOperation, "ORIGINAL">;
+export type VersionOperation = "ORIGINAL" | "EXTEND" | "REMIX" | "REPAINT" | "EXTRACT" | "ANOTHER_TAKE" | "REVISE";
+/** Operations started from a version's action panel (Revise goes through the Create form instead). */
+export type CreativeOperation = Exclude<VersionOperation, "ORIGINAL" | "REVISE">;
 
 /**
  * Music metadata the generation provider itself reported for this Version
@@ -53,6 +54,8 @@ export interface SongVersion {
   status: string;
   created_at: string;
   duration: number | null;
+  /** Phase 28: the duration that was requested (the stored spec); `duration` is the audio's length. */
+  requested_duration?: number | null;
   /** Null when this version has no stored audio (failed, still generating, never completed). */
   audio: { filename: string; media_type: string; size_bytes: number; audio_url: string } | null;
   prompt: string;
@@ -239,6 +242,7 @@ const OPERATION_NAMES: Record<VersionOperation, string> = {
   REPAINT: "Repaint",
   EXTRACT: "Extract",
   ANOTHER_TAKE: "Another take",
+  REVISE: "Revision",
 };
 
 /** The display name of one operation ("Extend", "Another take"); never an id. */

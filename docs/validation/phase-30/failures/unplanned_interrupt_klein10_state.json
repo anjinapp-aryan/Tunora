@@ -1,0 +1,18 @@
+{
+ "shots": {
+  "kf_s01": {
+   "status": "RUNNING",
+   "attempts": 1,
+   "history": []
+  }
+ },
+ "events": [
+  {
+   "time": "2026-10-05 21:00:11",
+   "type": "controller_start",
+   "pid": 1812,
+   "workload": "klein keyframes 1-10",
+   "shots": 10
+  }
+ ]
+}

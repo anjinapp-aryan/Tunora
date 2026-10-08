@@ -1,0 +1,31 @@
+{
+ "name": "identity references (klein)",
+ "state_dir": "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\identity\\refs_state",
+ "timeout_factor": 2.5,
+ "max_attempts": 2,
+ "shots": [
+  {
+   "shot_id": "ref_face",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png",
+   "width": 1024,
+   "height": 1024,
+   "seed": 7002,
+   "expected_seconds": 90,
+   "prompt": "Head and shoulders portrait, front view, of an original fictional dancer named Asha, a woman in her mid-twenties with warm brown skin, long black hair in a single braid woven with small white jasmine flowers, a small red bindi, gold jhumka earrings, wearing a deep teal and gold silk lehenga with a mirror-work choli and a flowing mustard-saffron dupatta, gold bangles on both wrists, neutral friendly expression, plain light grey studio background, even soft lighting. Character reference, photorealistic."
+  },
+  {
+   "shot_id": "ref_full",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 7001,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body front view of her standing straight facing the camera, arms relaxed, single braid over her shoulder, plain light grey studio background, even soft lighting. Character reference sheet, photorealistic."
+  }
+ ]
+}

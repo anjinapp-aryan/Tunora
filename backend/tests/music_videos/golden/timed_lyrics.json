@@ -1,0 +1,186 @@
+{
+ "version": 1,
+ "duration": 30.0,
+ "lines": [
+  {
+   "text": "I wake up to a brand new day",
+   "words": [
+    {
+     "text": "I",
+     "start": 5.0,
+     "end": 5.27
+    },
+    {
+     "text": "wake",
+     "start": 5.3,
+     "end": 5.57
+    },
+    {
+     "text": "up",
+     "start": 5.6,
+     "end": 5.87
+    },
+    {
+     "text": "to",
+     "start": 5.9,
+     "end": 6.17
+    },
+    {
+     "text": "a",
+     "start": 6.2,
+     "end": 6.47
+    },
+    {
+     "text": "brand",
+     "start": 6.5,
+     "end": 6.77
+    },
+    {
+     "text": "new",
+     "start": 6.8,
+     "end": 7.07
+    },
+    {
+     "text": "day",
+     "start": 7.1,
+     "end": 7.37
+    }
+   ]
+  },
+  {
+   "text": "With every fear I walk away",
+   "words": [
+    {
+     "text": "With",
+     "start": 8.0,
+     "end": 8.27
+    },
+    {
+     "text": "every",
+     "start": 8.3,
+     "end": 8.57
+    },
+    {
+     "text": "fear",
+     "start": 8.6,
+     "end": 8.87
+    },
+    {
+     "text": "I",
+     "start": 8.9,
+     "end": 9.17
+    },
+    {
+     "text": "walk",
+     "start": 9.2,
+     "end": 9.47
+    },
+    {
+     "text": "away",
+     "start": 9.5,
+     "end": 9.77
+    }
+   ]
+  },
+  {
+   "text": "When the night is getting colder and I cannot see the way ahead of me",
+   "words": [
+    {
+     "text": "When",
+     "start": 11.0,
+     "end": 11.225
+    },
+    {
+     "text": "the",
+     "start": 11.25,
+     "end": 11.475
+    },
+    {
+     "text": "night",
+     "start": 11.5,
+     "end": 11.725
+    },
+    {
+     "text": "is",
+     "start": 11.75,
+     "end": 11.975
+    },
+    {
+     "text": "getting",
+     "start": 12.0,
+     "end": 12.225
+    },
+    {
+     "text": "colder",
+     "start": 12.25,
+     "end": 12.475
+    },
+    {
+     "text": "and",
+     "start": 12.5,
+     "end": 12.725
+    },
+    {
+     "text": "I",
+     "start": 12.75,
+     "end": 12.975
+    },
+    {
+     "text": "cannot",
+     "start": 13.0,
+     "end": 13.225
+    },
+    {
+     "text": "see",
+     "start": 13.25,
+     "end": 13.475
+    },
+    {
+     "text": "the",
+     "start": 13.5,
+     "end": 13.725
+    },
+    {
+     "text": "way",
+     "start": 13.75,
+     "end": 13.975
+    },
+    {
+     "text": "ahead",
+     "start": 14.0,
+     "end": 14.225
+    },
+    {
+     "text": "of",
+     "start": 14.25,
+     "end": 14.475
+    },
+    {
+     "text": "me",
+     "start": 14.5,
+     "end": 14.725
+    }
+   ]
+  },
+  {
+   "text": "I will rise",
+   "words": [
+    {
+     "text": "I",
+     "start": 22.0,
+     "end": 22.27
+    },
+    {
+     "text": "will",
+     "start": 22.3,
+     "end": 22.57
+    },
+    {
+     "text": "rise",
+     "start": 22.6,
+     "end": 22.87
+    }
+   ]
+  }
+ ]
+}

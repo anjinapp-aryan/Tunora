@@ -13,6 +13,12 @@ export type JobStatus =
 
 export interface CreateJobPayload {
   title?: string | null;
+  /**
+   * Phase 28 (Revise / Retry): generate a NEW Version of this existing song from the inputs of
+   * `source_version_id`, one of its versions (the backend checks it belongs to the song).
+   */
+  song_id?: string | null;
+  source_version_id?: string | null;
   /** Puts a brand-new song in this Project (Phase 6). Ignored if a song_id is given. */
   project_id?: string | null;
   prompt: string;
@@ -152,6 +158,9 @@ export async function createJob(payload: CreateJobPayload): Promise<GenerationJo
 
   if (!response.ok) {
     console.error("createJob failed", response.status);
+    if (response.status === 404 && payload.source_version_id) {
+      throw new ApiError("not_found", "That song or version no longer exists.");
+    }
     const kind: ApiErrorKind =
       response.status === 400 || response.status === 422 ? "validation" : "server";
     throw new ApiError(kind, MESSAGES[kind]);

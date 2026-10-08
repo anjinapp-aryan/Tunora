@@ -96,6 +96,7 @@ function setup(overrides: Partial<World> = {}) {
       return Promise.resolve(response);
     }
     if (u === "/api/jobs/job-2") return Promise.resolve(json({ id: "job-2", status: world.jobStatus, version_id: "ver-2", version_number: 2, result: null }));
+    if (u.endsWith("/music-videos")) return Promise.resolve(json({ items: [] })); // Phase 23 section
     if (u.startsWith("/api/songs/")) return Promise.resolve(json(song(world)));
     return Promise.resolve(new Response("ID3", { status: 200 }));
   });
@@ -160,7 +161,9 @@ describe("Version actions", () => {
     finish(world);
 
     await waitFor(() => expect(screen.getByRole("radio", { name: /^version 2 /i })).toBeChecked(), { timeout: 8000 });
-    expect(screen.getByTestId("active-version-title")).toHaveTextContent("Version 2 — Latest");
+    // "— Latest" arrives with the details refresh that follows the selection; wait for it rather
+    // than racing it (the Phase 19 flake, made more frequent by the Phase 23 section's extra fetch).
+    await waitFor(() => expect(screen.getByTestId("active-version-title")).toHaveTextContent("Version 2 — Latest"), { timeout: 8000 });
     expect(screen.getByTestId("active-version-operation")).toHaveTextContent("Remix · from Version 1");
     expect(screen.getByTestId("audio-player")).toHaveAttribute("data-audio-url", "/api/jobs/tunora-job-2/audio");
     expect(screen.getAllByText("Latest")).toHaveLength(1);
