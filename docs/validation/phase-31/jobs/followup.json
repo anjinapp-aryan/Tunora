@@ -1,0 +1,29 @@
+{
+ "name": "Phase 31 stage 3: explicit camera sentence + subject motion",
+ "state_dir": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\metrics\\clip_state",
+ "timeout_factor": 2.5,
+ "max_attempts": 2,
+ "shots": [
+  {
+   "shot_id": "Y3_s1",
+   "kind": "fastwan_clip",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\camera-vs-subject\\Y3_s1.mp4",
+   "image": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\keyframes\\full.png",
+   "width": 704,
+   "height": 1280,
+   "frames": 77,
+   "seed": 31001,
+   "expected_seconds": 225,
+   "prompt": "an original fictional dancer named Asha, a woman in her mid-twenties with warm brown skin, long black hair in a single braid woven with small white jasmine flowers, a small red bindi, gold jhumka earrings, wearing a deep teal and gold silk lehenga with a mirror-work choli and a flowing mustard-saffron dupatta, gold bangles on both wrists. she slowly turns her body in a graceful half circle and looks back over her shoulder at the camera. Setting: sandstone palace courtyard with carved arches and marigold garlands, warm golden-hour light. Camera: the camera slowly dollies forward toward her face, cinematic push-in. Cinematic Indian music video, smooth natural motion, consistent face and costume.",
+   "meta": {
+    "action": "she slowly turns her body in a graceful half circle and looks back over her shoulder at the camera",
+    "camera": "the camera slowly dollies forward toward her face, cinematic push-in",
+    "keyframe": "full",
+    "motion_id": "Y3",
+    "stage": "composition",
+    "motion": "turning (B W2) + explicit push-in (K W2)",
+    "pair": "B2_s1"
+   }
+  }
+ ]
+}

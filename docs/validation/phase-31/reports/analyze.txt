@@ -1,0 +1,83 @@
+{
+ "clips": {
+  "attempts": 60,
+  "valid": 60,
+  "failed_attempts": 0,
+  "timeouts": 0,
+  "wall_mean_s": 222.1,
+  "wall_median_s": 220.5,
+  "wall_min_s": 215.9,
+  "wall_max_s": 249.1,
+  "slowest": "I2_s1",
+  "vram_peak_mib_max": 16026,
+  "worker_rss_peak_gb_max": 16.5,
+  "ram_min_avail_gb_min": 0.36,
+  "timeout_budget_used_max": 0.44,
+  "orphans_after_exit": 0,
+  "vram_recovery_s_max": 30.2
+ },
+ "keyframes": {
+  "attempts": 19,
+  "valid": 19,
+  "failed_attempts": 0,
+  "timeouts": 0,
+  "wall_mean_s": 48.6,
+  "wall_median_s": 48.6,
+  "wall_min_s": 46.2,
+  "wall_max_s": 54.4,
+  "slowest": "base_kf_s01",
+  "vram_peak_mib_max": 13926,
+  "worker_rss_peak_gb_max": 16.84,
+  "ram_min_avail_gb_min": 0.93,
+  "timeout_budget_used_max": 0.24,
+  "orphans_after_exit": 0,
+  "vram_recovery_s_max": 0.1
+ },
+ "disk_mib_by_folder": {
+  "arm": 13.8,
+  "baseline": 5.8,
+  "camera-orbit": 9.2,
+  "camera-push": 13.7,
+  "camera-track": 13.7,
+  "camera-vs-subject": 13.8,
+  "close-up": 18.2,
+  "composition": 13.8,
+  "dance-high": 13.8,
+  "dance-low": 9.2,
+  "dance-medium": 9.2,
+  "full-body": 13.7,
+  "keyframes": 3.8,
+  "leap": 9.2,
+  "montage": 87.9,
+  "montage_16x9": 44.4,
+  "spinning": 13.6,
+  "sway": 9.2,
+  "turning": 13.8,
+  "walking": 13.7
+ },
+ "disk_mib_total": 343.5,
+ "disk_free_gb_now": 4.75,
+ "gpu_seconds_total": 14249.6,
+ "interrupted_attempts": "see state.json history INTERRUPTED_BY_CONTROLLER_EXIT"
+}
+A 3.8 3.67 [('A1_s1', 4), ('A2_s1', 4), ('A1_s2', 4), ('mp_02', 4), ('mp_10', 3), ('ml_10', 3)]
+B 3.85 3.75 [('B1_s1', 4), ('B2_s1', 3), ('B1_s2', 4), ('mp_04', 4)]
+C 3.8 3.83 [('C1_s1', 4), ('C2_s1', 3), ('C1_s2', 4), ('mp_03', 4), ('mp_08', 4), ('ml_08', 4)]
+D 3.8 3 [('D1_s1', 3), ('D2_s1', 3)]
+E 3.86 3.71 [('E1_s1', 4), ('E2_s1', 4), ('E2_s2', 4), ('mp_06', 4), ('mp_09', 4), ('ml_06', 3), ('ml_09', 3)]
+F 3.84 3.6 [('F1_s1', 2), ('F2_s1', 4), ('F2_s2', 4), ('mp_07', 4), ('ml_07', 4)]
+G 3.6 3 [('G1_s1', 3), ('G2_s1', 3)]
+H 3.4 3 [('H1_s1', 3), ('H2_s1', 3)]
+I 3.33 2.67 [('I1_s1', 2), ('I2_s1', 3), ('I2_s2', 3)]
+J 3.2 2 [('J1_s1', 2), ('J2_s1', 2)]
+K 3.95 3.5 [('K1_s1', 2), ('K2_s1', 4), ('K2_s2', 4), ('mp_01', 4)]
+L 3.53 2.67 [('L1_s1', 3), ('L2_s1', 3), ('L1_s2', 2)]
+M 3.4 1 [('M1_s1', 1), ('M2_s1', 1)]
+N 3.56 3.6 [('N1_s1', 3), ('N2_s1', 3), ('N3_s1', 4), ('N3_s2', 4), ('mp_05', 4)]
+X1 3.6 3 [('X1_s1', 3)]
+X2 4 4 [('X2_s1', 4)]
+X3 3.2 3 [('X3_s1', 3)]
+Y1 3.6 3 [('Y1_s1', 3)]
+Y2 3.8 3 [('Y2_s1', 3)]
+Y3 4 4 [('Y3_s1', 4)]
+base 3.8 3 [('base_clip_s01', 3)]

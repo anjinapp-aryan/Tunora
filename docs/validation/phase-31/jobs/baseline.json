@@ -1,0 +1,38 @@
+{
+ "name": "Phase 30 baseline reproduction (s01)",
+ "state_dir": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\metrics\\baseline_state",
+ "timeout_factor": 2.5,
+ "max_attempts": 2,
+ "shots": [
+  {
+   "shot_id": "base_kf_s01",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\baseline\\kf_s01.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 8001,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Medium shot of her eyes closed, hands in a soft mudra, swaying gently, in a sandstone palace courtyard at dusk with marigold garlands and oil lamps, warm golden dusk light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "base_clip_s01",
+   "kind": "fastwan_clip",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\baseline\\clip_s01.mp4",
+   "image": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\baseline\\kf_s01.png",
+   "width": 704,
+   "height": 1280,
+   "frames": 77,
+   "seed": 9001,
+   "expected_seconds": 225,
+   "prompt": "an original fictional dancer named Asha, a woman in her mid-twenties with warm brown skin, long black hair in a single braid woven with small white jasmine flowers, a small red bindi, gold jhumka earrings, wearing a deep teal and gold silk lehenga with a mirror-work choli and a flowing mustard-saffron dupatta, gold bangles on both wrists. she sways gently and slowly opens her eyes, small graceful hand movements. Setting: sandstone palace courtyard at dusk with marigold garlands and oil lamps, warm golden dusk light. Camera: slow push-in. Cinematic Indian music video, smooth natural motion, consistent face and costume.",
+   "meta": {
+    "motion": "baseline (Phase 30 s01)",
+    "stage": "baseline"
+   }
+  }
+ ]
+}

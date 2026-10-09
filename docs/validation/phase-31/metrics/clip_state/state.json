@@ -1,0 +1,705 @@
+{
+ "shots": {
+  "A1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 221.7
+    }
+   ]
+  },
+  "A2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 223.3
+    }
+   ]
+  },
+  "B1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 225.7
+    }
+   ]
+  },
+  "B2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 225.7
+    }
+   ]
+  },
+  "C1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.6
+    }
+   ]
+  },
+  "C2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.7
+    }
+   ]
+  },
+  "D1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.6
+    }
+   ]
+  },
+  "D2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.3
+    }
+   ]
+  },
+  "E1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.3
+    }
+   ]
+  },
+  "E2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.1
+    }
+   ]
+  },
+  "F1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.2
+    }
+   ]
+  },
+  "F2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.5
+    }
+   ]
+  },
+  "G1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.7
+    }
+   ]
+  },
+  "G2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.6
+    }
+   ]
+  },
+  "H1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 218.6
+    }
+   ]
+  },
+  "H2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 218.7
+    }
+   ]
+  },
+  "I1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 220.9
+    }
+   ]
+  },
+  "I2_s1": {
+   "status": "COMPLETED",
+   "attempts": 2,
+   "history": [
+    {
+     "result": "INTERRUPTED_BY_CONTROLLER_EXIT"
+    },
+    {
+     "attempt": 2,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 249.1
+    }
+   ]
+  },
+  "J1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 228.9
+    }
+   ]
+  },
+  "J2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 234.5
+    }
+   ]
+  },
+  "K1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 243.6
+    }
+   ]
+  },
+  "K2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 218.4
+    }
+   ]
+  },
+  "L1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 219.3
+    }
+   ]
+  },
+  "L2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.4
+    }
+   ]
+  },
+  "M1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 220.5
+    }
+   ]
+  },
+  "M2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 238.8
+    }
+   ]
+  },
+  "N1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 225.5
+    }
+   ]
+  },
+  "N2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 220.5
+    }
+   ]
+  },
+  "X1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 220.1
+    }
+   ]
+  },
+  "X2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.5
+    }
+   ]
+  },
+  "X3_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 218.7
+    }
+   ]
+  },
+  "Y1_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 226.0
+    }
+   ]
+  },
+  "Y2_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 222.1
+    }
+   ]
+  },
+  "A1_s2": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 220.9
+    }
+   ]
+  },
+  "B1_s2": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 218.8
+    }
+   ]
+  },
+  "C1_s2": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 228.7
+    }
+   ]
+  },
+  "E2_s2": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 223.3
+    }
+   ]
+  },
+  "F2_s2": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 223.2
+    }
+   ]
+  },
+  "K2_s2": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 220.9
+    }
+   ]
+  },
+  "I2_s2": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 223.4
+    }
+   ]
+  },
+  "L1_s2": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 220.9
+    }
+   ]
+  },
+  "N3_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 223.2
+    }
+   ]
+  },
+  "N3_s2": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 223.6
+    }
+   ]
+  },
+  "Y3_s1": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 215.9
+    }
+   ]
+  }
+ },
+ "events": [
+  {
+   "time": "2026-10-08 22:26:00",
+   "type": "controller_start",
+   "pid": 2972,
+   "workload": "Phase 31 stage 1: 14 categories x 2 wordings, seed S1",
+   "shots": 28
+  },
+  {
+   "time": "2026-10-09 16:03:58",
+   "type": "controller_start",
+   "pid": 30860,
+   "workload": "Phase 31 stage 1: 14 categories x 2 wordings, seed S1",
+   "shots": 28
+  },
+  {
+   "time": "2026-10-09 16:03:58",
+   "type": "reset_running",
+   "shot": "I2_s1"
+  },
+  {
+   "time": "2026-10-09 16:46:36",
+   "type": "controller_done",
+   "summary": {
+    "COMPLETED": 28,
+    "FAILED": 0,
+    "PENDING": 0,
+    "BLOCKED_DISK": 0
+   }
+  },
+  {
+   "time": "2026-10-09 16:46:36",
+   "type": "controller_start",
+   "pid": 4492,
+   "workload": "Phase 31 stage 2a: composition + camera-vs-subject, seed S1",
+   "shots": 5
+  },
+  {
+   "time": "2026-10-09 17:05:33",
+   "type": "controller_done",
+   "summary": {
+    "COMPLETED": 33,
+    "FAILED": 0,
+    "PENDING": 0,
+    "BLOCKED_DISK": 0
+   }
+  },
+  {
+   "time": "2026-10-09 17:05:35",
+   "type": "controller_start",
+   "pid": 3336,
+   "workload": "Phase 31 stage 2b: repeat best wordings with seed S2 + close-up retest",
+   "shots": 10
+  },
+  {
+   "time": "2026-10-09 17:43:18",
+   "type": "controller_done",
+   "summary": {
+    "COMPLETED": 43,
+    "FAILED": 0,
+    "PENDING": 0,
+    "BLOCKED_DISK": 0
+   }
+  },
+  {
+   "time": "2026-10-09 19:42:22",
+   "type": "controller_start",
+   "pid": 24940,
+   "workload": "Phase 31 stage 3: explicit camera sentence + subject motion",
+   "shots": 1
+  },
+  {
+   "time": "2026-10-09 19:45:58",
+   "type": "controller_done",
+   "summary": {
+    "COMPLETED": 44,
+    "FAILED": 0,
+    "PENDING": 0,
+    "BLOCKED_DISK": 0
+   }
+  }
+ ]
+}

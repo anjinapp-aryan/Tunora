@@ -1,0 +1,3 @@
+[controller] base_kf_s01 attempt=1 rc=0 exited valid=True  wall=54.4s vram 2560->13926->2811 rss_peak=16.75GB min_avail=0.93GB
+[controller] base_clip_s01 attempt=1 rc=0 exited valid=True  wall=229.5s vram 2803->15999->1330 rss_peak=16.31GB min_avail=0.93GB
+[controller] done {'COMPLETED': 2, 'FAILED': 0, 'PENDING': 0, 'BLOCKED_DISK': 0}

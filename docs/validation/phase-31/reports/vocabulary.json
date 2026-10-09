@@ -1,0 +1,548 @@
+{
+ "A": {
+  "clips": [
+   {
+    "clip": "A1_s1",
+    "wording": "A1",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "A2_s1",
+    "wording": "A2",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "A1_s2",
+    "wording": "A1",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "mp_02",
+    "wording": "A1",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "mp_10",
+    "wording": "A2",
+    "mean": 3.4,
+    "usability": 3,
+    "executed": "weak"
+   },
+   {
+    "clip": "ml_10",
+    "wording": "A2",
+    "mean": 3.4,
+    "usability": 3,
+    "executed": "partial"
+   }
+  ],
+  "avg_mean": 3.8,
+  "avg_usability": 3.67
+ },
+ "B": {
+  "clips": [
+   {
+    "clip": "B1_s1",
+    "wording": "B1",
+    "mean": 3.8,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "B2_s1",
+    "wording": "B2",
+    "mean": 3.6,
+    "usability": 3,
+    "executed": "partial"
+   },
+   {
+    "clip": "B1_s2",
+    "wording": "B1",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "mp_04",
+    "wording": "B1",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   }
+  ],
+  "avg_mean": 3.85,
+  "avg_usability": 3.75
+ },
+ "C": {
+  "clips": [
+   {
+    "clip": "C1_s1",
+    "wording": "C1",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "C2_s1",
+    "wording": "C2",
+    "mean": 3.4,
+    "usability": 3,
+    "executed": "yes"
+   },
+   {
+    "clip": "C1_s2",
+    "wording": "C1",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "mp_03",
+    "wording": "C1",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "mp_08",
+    "wording": "C1",
+    "mean": 3.8,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "ml_08",
+    "wording": "C1",
+    "mean": 3.6,
+    "usability": 4,
+    "executed": "yes"
+   }
+  ],
+  "avg_mean": 3.8,
+  "avg_usability": 3.83
+ },
+ "D": {
+  "clips": [
+   {
+    "clip": "D1_s1",
+    "wording": "D1",
+    "mean": 3.8,
+    "usability": 3,
+    "executed": "weak"
+   },
+   {
+    "clip": "D2_s1",
+    "wording": "D2",
+    "mean": 3.8,
+    "usability": 3,
+    "executed": "weak"
+   }
+  ],
+  "avg_mean": 3.8,
+  "avg_usability": 3
+ },
+ "E": {
+  "clips": [
+   {
+    "clip": "E1_s1",
+    "wording": "E1",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "E2_s1",
+    "wording": "E2",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "E2_s2",
+    "wording": "E2",
+    "mean": 3.8,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "mp_06",
+    "wording": "E2",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "mp_09",
+    "wording": "E1",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "ml_06",
+    "wording": "E2",
+    "mean": 3.4,
+    "usability": 3,
+    "executed": "partial"
+   },
+   {
+    "clip": "ml_09",
+    "wording": "E1",
+    "mean": 3.8,
+    "usability": 3,
+    "executed": "partial"
+   }
+  ],
+  "avg_mean": 3.86,
+  "avg_usability": 3.71
+ },
+ "F": {
+  "clips": [
+   {
+    "clip": "F1_s1",
+    "wording": "F1",
+    "mean": 3.6,
+    "usability": 2,
+    "executed": "weak"
+   },
+   {
+    "clip": "F2_s1",
+    "wording": "F2",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "F2_s2",
+    "wording": "F2",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "mp_07",
+    "wording": "F2",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "ml_07",
+    "wording": "F2",
+    "mean": 3.6,
+    "usability": 4,
+    "executed": "yes"
+   }
+  ],
+  "avg_mean": 3.84,
+  "avg_usability": 3.6
+ },
+ "G": {
+  "clips": [
+   {
+    "clip": "G1_s1",
+    "wording": "G1",
+    "mean": 3.6,
+    "usability": 3,
+    "executed": "partial"
+   },
+   {
+    "clip": "G2_s1",
+    "wording": "G2",
+    "mean": 3.6,
+    "usability": 3,
+    "executed": "partial"
+   }
+  ],
+  "avg_mean": 3.6,
+  "avg_usability": 3
+ },
+ "H": {
+  "clips": [
+   {
+    "clip": "H1_s1",
+    "wording": "H1",
+    "mean": 3.4,
+    "usability": 3,
+    "executed": "partial"
+   },
+   {
+    "clip": "H2_s1",
+    "wording": "H2",
+    "mean": 3.4,
+    "usability": 3,
+    "executed": "partial"
+   }
+  ],
+  "avg_mean": 3.4,
+  "avg_usability": 3
+ },
+ "I": {
+  "clips": [
+   {
+    "clip": "I1_s1",
+    "wording": "I1",
+    "mean": 3.2,
+    "usability": 2,
+    "executed": "no"
+   },
+   {
+    "clip": "I2_s1",
+    "wording": "I2",
+    "mean": 3.4,
+    "usability": 3,
+    "executed": "yes"
+   },
+   {
+    "clip": "I2_s2",
+    "wording": "I2",
+    "mean": 3.4,
+    "usability": 3,
+    "executed": "yes"
+   }
+  ],
+  "avg_mean": 3.33,
+  "avg_usability": 2.67
+ },
+ "J": {
+  "clips": [
+   {
+    "clip": "J1_s1",
+    "wording": "J1",
+    "mean": 3.2,
+    "usability": 2,
+    "executed": "no"
+   },
+   {
+    "clip": "J2_s1",
+    "wording": "J2",
+    "mean": 3.2,
+    "usability": 2,
+    "executed": "no"
+   }
+  ],
+  "avg_mean": 3.2,
+  "avg_usability": 2
+ },
+ "K": {
+  "clips": [
+   {
+    "clip": "K1_s1",
+    "wording": "K1",
+    "mean": 3.8,
+    "usability": 2,
+    "executed": "no"
+   },
+   {
+    "clip": "K2_s1",
+    "wording": "K2",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "K2_s2",
+    "wording": "K2",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "mp_01",
+    "wording": "K2",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   }
+  ],
+  "avg_mean": 3.95,
+  "avg_usability": 3.5
+ },
+ "L": {
+  "clips": [
+   {
+    "clip": "L1_s1",
+    "wording": "L1",
+    "mean": 3.6,
+    "usability": 3,
+    "executed": "partial"
+   },
+   {
+    "clip": "L2_s1",
+    "wording": "L2",
+    "mean": 3.6,
+    "usability": 3,
+    "executed": "partial"
+   },
+   {
+    "clip": "L1_s2",
+    "wording": "L1",
+    "mean": 3.4,
+    "usability": 2,
+    "executed": "partial"
+   }
+  ],
+  "avg_mean": 3.53,
+  "avg_usability": 2.67
+ },
+ "M": {
+  "clips": [
+   {
+    "clip": "M1_s1",
+    "wording": "M1",
+    "mean": 3.4,
+    "usability": 1,
+    "executed": "no"
+   },
+   {
+    "clip": "M2_s1",
+    "wording": "M2",
+    "mean": 3.4,
+    "usability": 1,
+    "executed": "no"
+   }
+  ],
+  "avg_mean": 3.4,
+  "avg_usability": 1
+ },
+ "N": {
+  "clips": [
+   {
+    "clip": "N1_s1",
+    "wording": "N1",
+    "mean": 3.4,
+    "usability": 3,
+    "executed": "yes"
+   },
+   {
+    "clip": "N2_s1",
+    "wording": "N2",
+    "mean": 3,
+    "usability": 3,
+    "executed": "yes"
+   },
+   {
+    "clip": "N3_s1",
+    "wording": "N3",
+    "mean": 3.8,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "N3_s2",
+    "wording": "N3",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   },
+   {
+    "clip": "mp_05",
+    "wording": "N3",
+    "mean": 3.6,
+    "usability": 4,
+    "executed": "yes"
+   }
+  ],
+  "avg_mean": 3.56,
+  "avg_usability": 3.6
+ },
+ "X1": {
+  "clips": [
+   {
+    "clip": "X1_s1",
+    "wording": "X1",
+    "mean": 3.6,
+    "usability": 3,
+    "executed": "partial"
+   }
+  ],
+  "avg_mean": 3.6,
+  "avg_usability": 3
+ },
+ "X2": {
+  "clips": [
+   {
+    "clip": "X2_s1",
+    "wording": "X2",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   }
+  ],
+  "avg_mean": 4,
+  "avg_usability": 4
+ },
+ "X3": {
+  "clips": [
+   {
+    "clip": "X3_s1",
+    "wording": "X3",
+    "mean": 3.2,
+    "usability": 3,
+    "executed": "partial"
+   }
+  ],
+  "avg_mean": 3.2,
+  "avg_usability": 3
+ },
+ "Y1": {
+  "clips": [
+   {
+    "clip": "Y1_s1",
+    "wording": "Y1",
+    "mean": 3.6,
+    "usability": 3,
+    "executed": "partial"
+   }
+  ],
+  "avg_mean": 3.6,
+  "avg_usability": 3
+ },
+ "Y2": {
+  "clips": [
+   {
+    "clip": "Y2_s1",
+    "wording": "Y2",
+    "mean": 3.8,
+    "usability": 3,
+    "executed": "weak"
+   }
+  ],
+  "avg_mean": 3.8,
+  "avg_usability": 3
+ },
+ "Y3": {
+  "clips": [
+   {
+    "clip": "Y3_s1",
+    "wording": "Y3",
+    "mean": 4,
+    "usability": 4,
+    "executed": "yes"
+   }
+  ],
+  "avg_mean": 4,
+  "avg_usability": 4
+ },
+ "base": {
+  "clips": [
+   {
+    "clip": "base_clip_s01",
+    "wording": "base",
+    "mean": 3.8,
+    "usability": 3,
+    "executed": "partial"
+   }
+  ],
+  "avg_mean": 3.8,
+  "avg_usability": 3
+ }
+}

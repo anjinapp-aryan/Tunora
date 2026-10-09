@@ -1,0 +1,67 @@
+{
+ "time": "2026-10-09 19:47:16",
+ "os": "Windows-11-10.0.26200-SP0",
+ "python": "3.12.10",
+ "cpu": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel",
+ "cpu_count_logical": 20,
+ "cpu_util_baseline_pct_3s": 4.5,
+ "ram_total_gb": 31.64,
+ "ram_available_gb": 19.55,
+ "gpu": {
+  "name": "NVIDIA GeForce RTX 5060 Ti",
+  "memory_total_mib": "16311",
+  "memory_used_mib": "978",
+  "memory_free_mib": "15075",
+  "driver": "591.86",
+  "compute_cap": "12.0",
+  "utilization_pct": "0",
+  "temperature_c": "39",
+  "power_w": "6.08"
+ },
+ "disk_free_gb": {
+  "C:\\": 26.4,
+  "D:\\": 20.07,
+  "I:\\": 4.76
+ },
+ "torch": "2.7.1+cu128",
+ "torch_cuda": "12.8",
+ "cuda_available": true,
+ "device_capability": [
+  12,
+  0
+ ],
+ "diffusers": "0.40.0",
+ "transformers": "5.18.0",
+ "accelerate": "1.15.0",
+ "models": {
+  "z_image_turbo": {
+   "repo": "Tongyi-MAI/Z-Image-Turbo",
+   "revision": "f332072aa78be7aecdf3ee76d5c247082da564a6",
+   "local": "models/z-image-turbo-bf16"
+  },
+  "wan22_ti2v_5b": {
+   "repo": "Wan-AI/Wan2.2-TI2V-5B-Diffusers",
+   "revision": "b8fff7315c768468a5333511427288870b2e9635",
+   "used": "text_encoder, vae"
+  },
+  "fastwan22_ti2v_5b": {
+   "repo": "FastVideo/FastWan2.2-TI2V-5B-FullAttn-Diffusers",
+   "revision": "3e187042a324f6f5fb68fd22110a78725253de8f",
+   "used": "transformer"
+  },
+  "flux2_klein_4b": {
+   "repo": "black-forest-labs/FLUX.2-klein-4B",
+   "revision": "e7b7dc27f91deacad38e78976d1f2b499d76a294",
+   "used": "transformer, vae, tokenizer (Phase 30 candidate)"
+  }
+ },
+ "ace_step_listening_8001": false,
+ "model_snapshots_present": {
+  "KLEIN": true,
+  "ZIMAGE": true,
+  "WAN": true,
+  "FASTWAN": true
+ },
+ "ffmpeg": "ffmpeg version n9.0.2-10-g51c4a23d74-20260926 Copyright (c) 2000-2026 the FFmpeg developers",
+ "ffmpeg_gpl": false
+}

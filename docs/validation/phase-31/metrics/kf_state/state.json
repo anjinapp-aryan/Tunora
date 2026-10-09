@@ -1,0 +1,292 @@
+{
+ "shots": {
+  "kf_full": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 47.1
+    }
+   ]
+  },
+  "kf_close": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 46.2
+    }
+   ]
+  },
+  "kf_full_land": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 46.3
+    }
+   ]
+  },
+  "mkf_p01": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 50.2
+    }
+   ]
+  },
+  "mkf_p02": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 48.1
+    }
+   ]
+  },
+  "mkf_p03": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 48.1
+    }
+   ]
+  },
+  "mkf_p04": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 48.9
+    }
+   ]
+  },
+  "mkf_p05": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 48.4
+    }
+   ]
+  },
+  "mkf_p06": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 48.6
+    }
+   ]
+  },
+  "mkf_p07": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 50.4
+    }
+   ]
+  },
+  "mkf_p08": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 49.0
+    }
+   ]
+  },
+  "mkf_p09": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 48.6
+    }
+   ]
+  },
+  "mkf_p10": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 48.6
+    }
+   ]
+  },
+  "mkf_l06": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 47.9
+    }
+   ]
+  },
+  "mkf_l07": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 46.6
+    }
+   ]
+  },
+  "mkf_l08": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 48.6
+    }
+   ]
+  },
+  "mkf_l09": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 49.0
+    }
+   ]
+  },
+  "mkf_l10": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 49.1
+    }
+   ]
+  }
+ },
+ "events": [
+  {
+   "time": "2026-10-08 22:23:40",
+   "type": "controller_start",
+   "pid": 15844,
+   "workload": "Phase 31 fixed keyframes",
+   "shots": 3
+  },
+  {
+   "time": "2026-10-08 22:26:00",
+   "type": "controller_done",
+   "summary": {
+    "COMPLETED": 3,
+    "FAILED": 0,
+    "PENDING": 0,
+    "BLOCKED_DISK": 0
+   }
+  },
+  {
+   "time": "2026-10-09 17:43:18",
+   "type": "controller_start",
+   "pid": 18368,
+   "workload": "Phase 31 montage keyframes (10 x 9:16, 5 x 16:9)",
+   "shots": 15
+  },
+  {
+   "time": "2026-10-09 17:55:31",
+   "type": "controller_done",
+   "summary": {
+    "COMPLETED": 18,
+    "FAILED": 0,
+    "PENDING": 0,
+    "BLOCKED_DISK": 0
+   }
+  }
+ ]
+}

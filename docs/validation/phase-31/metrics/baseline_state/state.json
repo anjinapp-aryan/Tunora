@@ -1,0 +1,51 @@
+{
+ "shots": {
+  "base_kf_s01": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 54.4
+    }
+   ]
+  },
+  "base_clip_s01": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 229.5
+    }
+   ]
+  }
+ },
+ "events": [
+  {
+   "time": "2026-10-08 22:18:55",
+   "type": "controller_start",
+   "pid": 16760,
+   "workload": "Phase 30 baseline reproduction (s01)",
+   "shots": 2
+  },
+  {
+   "time": "2026-10-08 22:23:39",
+   "type": "controller_done",
+   "summary": {
+    "COMPLETED": 2,
+    "FAILED": 0,
+    "PENDING": 0,
+    "BLOCKED_DISK": 0
+   }
+  }
+ ]
+}

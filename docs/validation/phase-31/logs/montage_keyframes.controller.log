@@ -1,0 +1,16 @@
+[controller] mkf_p01 attempt=1 rc=0 exited valid=True  wall=50.2s vram 887->12000->887 rss_peak=16.76GB min_avail=0.93GB
+[controller] mkf_p02 attempt=1 rc=0 exited valid=True  wall=48.1s vram 887->12012->879 rss_peak=16.75GB min_avail=0.93GB
+[controller] mkf_p03 attempt=1 rc=0 exited valid=True  wall=48.1s vram 879->11983->879 rss_peak=16.84GB min_avail=0.93GB
+[controller] mkf_p04 attempt=1 rc=0 exited valid=True  wall=48.9s vram 879->11978->888 rss_peak=16.73GB min_avail=0.93GB
+[controller] mkf_p05 attempt=1 rc=0 exited valid=True  wall=48.4s vram 888->11982->879 rss_peak=16.8GB min_avail=0.93GB
+[controller] mkf_p06 attempt=1 rc=0 exited valid=True  wall=48.6s vram 879->11985->879 rss_peak=16.75GB min_avail=0.93GB
+[controller] mkf_p07 attempt=1 rc=0 exited valid=True  wall=50.4s vram 879->11987->879 rss_peak=16.74GB min_avail=0.93GB
+[controller] mkf_p08 attempt=1 rc=0 exited valid=True  wall=49.0s vram 879->11987->883 rss_peak=16.8GB min_avail=0.93GB
+[controller] mkf_p09 attempt=1 rc=0 exited valid=True  wall=48.6s vram 883->11987->879 rss_peak=16.84GB min_avail=0.93GB
+[controller] mkf_p10 attempt=1 rc=0 exited valid=True  wall=48.6s vram 879->11978->879 rss_peak=16.84GB min_avail=0.93GB
+[controller] mkf_l06 attempt=1 rc=0 exited valid=True  wall=47.9s vram 879->11978->879 rss_peak=16.77GB min_avail=0.93GB
+[controller] mkf_l07 attempt=1 rc=0 exited valid=True  wall=46.6s vram 879->11987->879 rss_peak=16.77GB min_avail=0.93GB
+[controller] mkf_l08 attempt=1 rc=0 exited valid=True  wall=48.6s vram 879->11988->883 rss_peak=16.75GB min_avail=0.93GB
+[controller] mkf_l09 attempt=1 rc=0 exited valid=True  wall=49.0s vram 883->11983->912 rss_peak=16.77GB min_avail=0.93GB
+[controller] mkf_l10 attempt=1 rc=0 exited valid=True  wall=49.1s vram 912->11977->874 rss_peak=16.77GB min_avail=0.93GB
+[controller] done {'COMPLETED': 18, 'FAILED': 0, 'PENDING': 0, 'BLOCKED_DISK': 0}

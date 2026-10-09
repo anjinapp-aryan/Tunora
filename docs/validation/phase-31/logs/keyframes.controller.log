@@ -1,0 +1,4 @@
+[controller] kf_full attempt=1 rc=0 exited valid=True  wall=47.1s vram 1317->12604->1420 rss_peak=16.67GB min_avail=0.93GB
+[controller] kf_close attempt=1 rc=0 exited valid=True  wall=46.2s vram 1420->12454->1348 rss_peak=16.74GB min_avail=0.93GB
+[controller] kf_full_land attempt=1 rc=0 exited valid=True  wall=46.3s vram 1348->12441->1316 rss_peak=16.77GB min_avail=0.93GB
+[controller] done {'COMPLETED': 3, 'FAILED': 0, 'PENDING': 0, 'BLOCKED_DISK': 0}

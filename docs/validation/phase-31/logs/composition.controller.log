@@ -1,0 +1,6 @@
+[controller] X1_s1 attempt=1 rc=0 exited valid=True  wall=220.1s vram 783->15969->751 rss_peak=16.34GB min_avail=0.93GB
+[controller] X2_s1 attempt=1 rc=0 exited valid=True  wall=216.5s vram 751->16009->558 rss_peak=15.99GB min_avail=0.93GB
+[controller] X3_s1 attempt=1 rc=0 exited valid=True  wall=218.7s vram 558->15989->1481 rss_peak=15.88GB min_avail=0.93GB
+[controller] Y1_s1 attempt=1 rc=0 exited valid=True  wall=226.0s vram 1465->16022->1174 rss_peak=16.13GB min_avail=0.93GB
+[controller] Y2_s1 attempt=1 rc=0 exited valid=True  wall=222.1s vram 1174->15933->1006 rss_peak=16.15GB min_avail=0.93GB
+[controller] done {'COMPLETED': 33, 'FAILED': 0, 'PENDING': 0, 'BLOCKED_DISK': 0}

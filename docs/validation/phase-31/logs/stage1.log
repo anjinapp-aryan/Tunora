@@ -1,0 +1,29 @@
+=== 2026-10-08 22:18:55 start baseline
+[controller] base_kf_s01 attempt=1 rc=0 exited valid=True  wall=54.4s vram 2560->13926->2811 rss_peak=16.75GB min_avail=0.93GB
+[controller] base_clip_s01 attempt=1 rc=0 exited valid=True  wall=229.5s vram 2803->15999->1330 rss_peak=16.31GB min_avail=0.93GB
+[controller] done {'COMPLETED': 2, 'FAILED': 0, 'PENDING': 0, 'BLOCKED_DISK': 0}
+=== 2026-10-08 22:23:40 end baseline rc=0
+=== 2026-10-08 22:23:40 start keyframes
+[controller] kf_full attempt=1 rc=0 exited valid=True  wall=47.1s vram 1317->12604->1420 rss_peak=16.67GB min_avail=0.93GB
+[controller] kf_close attempt=1 rc=0 exited valid=True  wall=46.2s vram 1420->12454->1348 rss_peak=16.74GB min_avail=0.93GB
+[controller] kf_full_land attempt=1 rc=0 exited valid=True  wall=46.3s vram 1348->12441->1316 rss_peak=16.77GB min_avail=0.93GB
+[controller] done {'COMPLETED': 3, 'FAILED': 0, 'PENDING': 0, 'BLOCKED_DISK': 0}
+=== 2026-10-08 22:26:00 end keyframes rc=0
+=== 2026-10-08 22:26:00 start matrix
+[controller] A1_s1 attempt=1 rc=0 exited valid=True  wall=221.7s vram 1316->16012->1015 rss_peak=16.0GB min_avail=0.93GB
+[controller] A2_s1 attempt=1 rc=0 exited valid=True  wall=223.3s vram 1015->15999->1223 rss_peak=16.22GB min_avail=0.93GB
+[controller] B1_s1 attempt=1 rc=0 exited valid=True  wall=225.7s vram 1223->16020->1288 rss_peak=15.73GB min_avail=0.93GB
+[controller] B2_s1 attempt=1 rc=0 exited valid=True  wall=225.7s vram 1280->16011->719 rss_peak=16.5GB min_avail=0.93GB
+[controller] C1_s1 attempt=1 rc=0 exited valid=True  wall=217.6s vram 715->15970->727 rss_peak=15.88GB min_avail=0.93GB
+[controller] C2_s1 attempt=1 rc=0 exited valid=True  wall=217.7s vram 727->15984->797 rss_peak=16.15GB min_avail=0.93GB
+[controller] D1_s1 attempt=1 rc=0 exited valid=True  wall=217.6s vram 797->15906->792 rss_peak=15.76GB min_avail=0.93GB
+[controller] D2_s1 attempt=1 rc=0 exited valid=True  wall=217.3s vram 792->15880->738 rss_peak=16.3GB min_avail=0.93GB
+[controller] E1_s1 attempt=1 rc=0 exited valid=True  wall=217.3s vram 738->15891->717 rss_peak=16.43GB min_avail=0.93GB
+[controller] E2_s1 attempt=1 rc=0 exited valid=True  wall=217.1s vram 717->15893->697 rss_peak=16.39GB min_avail=0.93GB
+[controller] F1_s1 attempt=1 rc=0 exited valid=True  wall=216.2s vram 697->15901->630 rss_peak=15.9GB min_avail=0.93GB
+[controller] F2_s1 attempt=1 rc=0 exited valid=True  wall=216.5s vram 630->15965->755 rss_peak=16.4GB min_avail=0.93GB
+[controller] G1_s1 attempt=1 rc=0 exited valid=True  wall=216.7s vram 755->15862->653 rss_peak=16.05GB min_avail=0.93GB
+[controller] G2_s1 attempt=1 rc=0 exited valid=True  wall=216.6s vram 653->15889->784 rss_peak=16.17GB min_avail=0.93GB
+[controller] H1_s1 attempt=1 rc=0 exited valid=True  wall=218.6s vram 784->15878->677 rss_peak=15.87GB min_avail=0.93GB
+[controller] H2_s1 attempt=1 rc=0 exited valid=True  wall=218.7s vram 677->15884->950 rss_peak=16.21GB min_avail=0.93GB
+[controller] I1_s1 attempt=1 rc=0 exited valid=True  wall=220.9s vram 950->15946->838 rss_peak=15.72GB min_avail=0.93GB

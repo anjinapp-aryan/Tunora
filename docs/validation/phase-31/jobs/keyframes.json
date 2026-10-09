@@ -1,0 +1,50 @@
+{
+ "name": "Phase 31 fixed keyframes",
+ "state_dir": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\metrics\\kf_state",
+ "timeout_factor": 2.5,
+ "max_attempts": 2,
+ "shots": [
+  {
+   "shot_id": "kf_full",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\keyframes\\full.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31100,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body shot of her standing in the middle of the courtyard facing the camera, arms relaxed at her sides, plenty of open space around her, in a sandstone palace courtyard with carved arches and marigold garlands, warm golden-hour light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "kf_close",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\keyframes\\close.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31101,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Close-up portrait of her face and shoulders looking at the camera with a soft expression, in a sandstone palace courtyard with carved arches and marigold garlands, warm golden-hour light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "kf_full_land",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\keyframes\\full_land.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 1280,
+   "height": 704,
+   "seed": 31102,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Wide full body shot of her standing in the middle of the courtyard facing the camera, arms relaxed at her sides, plenty of open space around her, in a sandstone palace courtyard with carved arches and marigold garlands, warm golden-hour light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  }
+ ]
+}

@@ -1,0 +1,218 @@
+{
+ "name": "Phase 31 montage keyframes (10 x 9:16, 5 x 16:9)",
+ "state_dir": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\metrics\\kf_state",
+ "timeout_factor": 2.5,
+ "max_attempts": 2,
+ "shots": [
+  {
+   "shot_id": "mkf_p01",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage\\keyframes\\bar01.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31201,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body shot of her standing calmly, hands softly together, centred in the frame, in a palace courtyard at dusk with marigold garlands and oil lamps, warm golden dusk light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_p02",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage\\keyframes\\bar02.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31202,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body shot of her standing at the far end, facing the camera, centred in the frame, in a long colonnade of carved sandstone arches, warm low sunset light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_p03",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage\\keyframes\\bar03.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31203,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body shot of her standing with arms relaxed, centred in the frame, in a rooftop terrace with a misty old city behind, golden hour light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_p04",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage\\keyframes\\bar04.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31204,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body shot of her standing facing the camera, centred in the frame, in a marble hall with tall pillars, soft window light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_p05",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage\\keyframes\\bar05.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31205,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Close-up portrait of her looking at the camera with a soft expression, centred in the frame, in a temple steps lit by many small oil lamps at night, warm firelight. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_p06",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage\\keyframes\\bar06.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31206,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body shot of her standing with arms relaxed, centred in the frame, in a rooftop terrace at sunrise, warm golden backlight. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_p07",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage\\keyframes\\bar07.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31207,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body shot of her standing tall, centred in the frame, in a festival courtyard with hanging marigolds and string lights at night, warm string-light glow. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_p08",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage\\keyframes\\bar08.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31208,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body shot of her standing with arms relaxed, centred in the frame, in a open field of tall golden grass, sunrise light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_p09",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage\\keyframes\\bar09.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31209,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body shot of her standing facing the camera, centred in the frame, in a lotus pond terrace at dawn, soft pink dawn light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_p10",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage\\keyframes\\bar10.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 704,
+   "height": 1280,
+   "seed": 31210,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Full body shot of her standing at the far side of the rooftop, centred in the frame, in a palace rooftop at night with fireworks in the sky, night light with firework glow. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_l06",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage_16x9\\keyframes\\bar06.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 1280,
+   "height": 704,
+   "seed": 31256,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Wide full body shot of her standing with arms relaxed, centred in the frame, in a rooftop terrace at sunrise, warm golden backlight. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_l07",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage_16x9\\keyframes\\bar07.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 1280,
+   "height": 704,
+   "seed": 31257,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Wide full body shot of her standing tall, centred in the frame, in a festival courtyard with hanging marigolds and string lights at night, warm string-light glow. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_l08",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage_16x9\\keyframes\\bar08.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 1280,
+   "height": 704,
+   "seed": 31258,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Wide full body shot of her standing with arms relaxed, centred in the frame, in a open field of tall golden grass, sunrise light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_l09",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage_16x9\\keyframes\\bar09.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 1280,
+   "height": 704,
+   "seed": 31259,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Wide full body shot of her standing facing the camera, centred in the frame, in a lotus pond terrace at dawn, soft pink dawn light. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  },
+  {
+   "shot_id": "mkf_l10",
+   "kind": "klein_keyframe",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\montage_16x9\\keyframes\\bar10.png",
+   "refs": [
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_full.png",
+    "I:\\Tunora-validation\\ai-video-feasibility\\phase-30\\outputs\\refs\\ref_face.png"
+   ],
+   "width": 1280,
+   "height": 704,
+   "seed": 31260,
+   "expected_seconds": 90,
+   "prompt": "The woman from the reference images: keep exactly the same face, the same skin tone, the same black braid with jasmine flowers, the same teal and gold lehenga with mirror-work choli, the same mustard-saffron dupatta and the same gold jewellery. Wide full body shot of her standing at the far side of the rooftop, centred in the frame, in a palace rooftop at night with fireworks in the sky, night light with firework glow. Photorealistic cinematic Indian music-video still, sharp focus on her face."
+  }
+ ]
+}

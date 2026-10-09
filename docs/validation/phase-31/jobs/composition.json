@@ -1,0 +1,113 @@
+{
+ "name": "Phase 31 stage 2a: composition + camera-vs-subject, seed S1",
+ "state_dir": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\metrics\\clip_state",
+ "timeout_factor": 2.5,
+ "max_attempts": 2,
+ "shots": [
+  {
+   "shot_id": "X1_s1",
+   "kind": "fastwan_clip",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\composition\\X1_s1.mp4",
+   "image": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\keyframes\\full.png",
+   "width": 704,
+   "height": 1280,
+   "frames": 77,
+   "seed": 31001,
+   "expected_seconds": 225,
+   "prompt": "an original fictional dancer named Asha, a woman in her mid-twenties with warm brown skin, long black hair in a single braid woven with small white jasmine flowers, a small red bindi, gold jhumka earrings, wearing a deep teal and gold silk lehenga with a mirror-work choli and a flowing mustard-saffron dupatta, gold bangles on both wrists. she slowly turns her body while making graceful flowing arm movements. Setting: sandstone palace courtyard with carved arches and marigold garlands, warm golden-hour light. Camera: static camera. Cinematic Indian music video, smooth natural motion, consistent face and costume.",
+   "meta": {
+    "action": "she slowly turns her body while making graceful flowing arm movements",
+    "camera": "static camera",
+    "keyframe": "full",
+    "motion_id": "X1",
+    "stage": "composition",
+    "motion": "composition: 2 concepts (turn + arms)",
+    "level": "simple"
+   }
+  },
+  {
+   "shot_id": "X2_s1",
+   "kind": "fastwan_clip",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\composition\\X2_s1.mp4",
+   "image": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\keyframes\\full.png",
+   "width": 704,
+   "height": 1280,
+   "frames": 77,
+   "seed": 31001,
+   "expected_seconds": 225,
+   "prompt": "an original fictional dancer named Asha, a woman in her mid-twenties with warm brown skin, long black hair in a single braid woven with small white jasmine flowers, a small red bindi, gold jhumka earrings, wearing a deep teal and gold silk lehenga with a mirror-work choli and a flowing mustard-saffron dupatta, gold bangles on both wrists. she gently sways side to side, then raises both arms gracefully above her head and smiles. Setting: sandstone palace courtyard with carved arches and marigold garlands, warm golden-hour light. Camera: static camera. Cinematic Indian music video, smooth natural motion, consistent face and costume.",
+   "meta": {
+    "action": "she gently sways side to side, then raises both arms gracefully above her head and smiles",
+    "camera": "static camera",
+    "keyframe": "full",
+    "motion_id": "X2",
+    "stage": "composition",
+    "motion": "composition: 3 concepts (sway + arms + expression)",
+    "level": "medium"
+   }
+  },
+  {
+   "shot_id": "X3_s1",
+   "kind": "fastwan_clip",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\composition\\X3_s1.mp4",
+   "image": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\keyframes\\full.png",
+   "width": 704,
+   "height": 1280,
+   "frames": 77,
+   "seed": 31001,
+   "expected_seconds": 225,
+   "prompt": "an original fictional dancer named Asha, a woman in her mid-twenties with warm brown skin, long black hair in a single braid woven with small white jasmine flowers, a small red bindi, gold jhumka earrings, wearing a deep teal and gold silk lehenga with a mirror-work choli and a flowing mustard-saffron dupatta, gold bangles on both wrists. fast energetic dance with spinning, jumping and complex choreography. Setting: sandstone palace courtyard with carved arches and marigold garlands, warm golden-hour light. Camera: camera orbits around her with a dramatic zoom. Cinematic Indian music video, smooth natural motion, consistent face and costume.",
+   "meta": {
+    "action": "fast energetic dance with spinning, jumping and complex choreography",
+    "camera": "camera orbits around her with a dramatic zoom",
+    "keyframe": "full",
+    "motion_id": "X3",
+    "stage": "composition",
+    "motion": "composition: overloaded (5+ concepts)",
+    "level": "overloaded"
+   }
+  },
+  {
+   "shot_id": "Y1_s1",
+   "kind": "fastwan_clip",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\camera-vs-subject\\Y1_s1.mp4",
+   "image": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\keyframes\\full.png",
+   "width": 704,
+   "height": 1280,
+   "frames": 77,
+   "seed": 31001,
+   "expected_seconds": 225,
+   "prompt": "an original fictional dancer named Asha, a woman in her mid-twenties with warm brown skin, long black hair in a single braid woven with small white jasmine flowers, a small red bindi, gold jhumka earrings, wearing a deep teal and gold silk lehenga with a mirror-work choli and a flowing mustard-saffron dupatta, gold bangles on both wrists. she slowly turns her body in a graceful half circle and looks back over her shoulder at the camera. Setting: sandstone palace courtyard with carved arches and marigold garlands, warm golden-hour light. Camera: slow push-in. Cinematic Indian music video, smooth natural motion, consistent face and costume.",
+   "meta": {
+    "action": "she slowly turns her body in a graceful half circle and looks back over her shoulder at the camera",
+    "camera": "slow push-in",
+    "keyframe": "full",
+    "motion_id": "Y1",
+    "stage": "composition",
+    "motion": "turning (B W2) + camera push-in",
+    "pair": "B2_s1"
+   }
+  },
+  {
+   "shot_id": "Y2_s1",
+   "kind": "fastwan_clip",
+   "out": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\camera-vs-subject\\Y2_s1.mp4",
+   "image": "I:\\Tunora-validation\\ai-video-feasibility\\phase-31\\outputs\\keyframes\\full.png",
+   "width": 704,
+   "height": 1280,
+   "frames": 77,
+   "seed": 31001,
+   "expected_seconds": 225,
+   "prompt": "an original fictional dancer named Asha, a woman in her mid-twenties with warm brown skin, long black hair in a single braid woven with small white jasmine flowers, a small red bindi, gold jhumka earrings, wearing a deep teal and gold silk lehenga with a mirror-work choli and a flowing mustard-saffron dupatta, gold bangles on both wrists. she gently sways her upper body from side to side in rhythm, soft relaxed shoulders, a calm smile. Setting: sandstone palace courtyard with carved arches and marigold garlands, warm golden-hour light. Camera: slow push-in. Cinematic Indian music video, smooth natural motion, consistent face and costume.",
+   "meta": {
+    "action": "she gently sways her upper body from side to side in rhythm, soft relaxed shoulders, a calm smile",
+    "camera": "slow push-in",
+    "keyframe": "full",
+    "motion_id": "Y2",
+    "stage": "composition",
+    "motion": "sway (D W2) + camera push-in",
+    "pair": "D2_s1"
+   }
+  }
+ ]
+}

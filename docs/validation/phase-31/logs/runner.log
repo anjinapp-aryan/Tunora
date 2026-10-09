@@ -1,0 +1,20 @@
+2026-10-09 16:03:58 runner start pid=30732 workloads=['jobs/matrix.json', 'jobs/composition.json']
+2026-10-09 16:03:58 start matrix
+2026-10-09 16:46:36 end matrix rc=0
+2026-10-09 16:46:36 start composition
+2026-10-09 16:47:55 runner start pid=26656 workloads=['jobs/repeats.json', 'jobs/montage_keyframes.json', 'jobs/montage_clips.json']
+2026-10-09 17:05:33 end composition rc=0
+2026-10-09 17:05:33 runner exit
+2026-10-09 17:05:35 no other controller running; starting
+2026-10-09 17:05:35 start repeats
+2026-10-09 17:43:18 end repeats rc=0
+2026-10-09 17:43:18 start montage_keyframes
+2026-10-09 17:55:31 end montage_keyframes rc=0
+2026-10-09 17:55:31 start montage_clips
+2026-10-09 18:50:47 end montage_clips rc=0
+2026-10-09 18:50:47 runner exit
+2026-10-09 19:42:22 runner start pid=11488 workloads=['jobs/followup.json']
+2026-10-09 19:42:22 no other controller running; starting
+2026-10-09 19:42:22 start followup
+2026-10-09 19:45:58 end followup rc=0
+2026-10-09 19:45:58 runner exit

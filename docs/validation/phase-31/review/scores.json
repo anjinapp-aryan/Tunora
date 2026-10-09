@@ -1,0 +1,602 @@
+{
+ "base_clip_s01": {
+  "realism": 3,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 5,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "MOTION_TOO_WEAK; CAMERA_NOT_EXECUTED",
+  "notes": "Reproduces Phase 30 s01 (same frames to the eye): opens eyes, hands shift slightly; 'sways gently' barely visible; 'slow push-in' not performed (zoom 0.98)."
+ },
+ "A1_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "Walks steadily toward camera, grows in frame, gait implied by skirt/shoulder motion (feet hidden by lehenga). Background arches also enlarge slightly (some implicit camera advance)."
+ },
+ "A2_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "Same as W1; descriptive wording adds a little arm swing; no visible gain over W1."
+ },
+ "B1_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "COSTUME_DRIFT (minor)",
+  "notes": "Clean continuous 180-degree turn front -> back, dupatta drapes plausibly. Back view: long jasmine braid is gone (hair reads as pinned up). Ends on her back (usable as a turn-away beat)."
+ },
+ "B2_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 4,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "MOTION_NOT_EXECUTED (look-back); COSTUME_DRIFT",
+  "notes": "Near-identical trajectory to B1 (same seed): turns to a back view; the second clause 'looks back over her shoulder at the camera' is NOT performed. Dupatta turns from opaque silk to a sheer veil in the back view."
+ },
+ "C1_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT (minor, soft hands)",
+  "notes": "Arms go out to the sides, then up overhead and are held; face visible throughout; bangles stay on. Hands small and soft at 704x1280."
+ },
+ "C2_s1": {
+  "realism": 3,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 4,
+  "usability": 3,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT",
+  "notes": "Reads as a classical gesture (hands to chest, open palms near the face, arms rising), smaller than C1. Hands are the subject and are soft/blobby at 704x1280 - weak as a hero shot."
+ },
+ "D1_s1": {
+  "realism": 3,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 5,
+  "usability": 3,
+  "executed": "weak",
+  "failures": "MOTION_TOO_WEAK",
+  "notes": "Gentle head tilt and slight lean; very stable, but the sway is subtle (centre energy 4.2 vs 7-12 for walking/turning). Usable as a calm verse shot, not as a rhythmic beat shot."
+ },
+ "D2_s1": {
+  "realism": 3,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 5,
+  "usability": 3,
+  "executed": "weak",
+  "failures": "MOTION_TOO_WEAK",
+  "notes": "Same as D1 with a little more head movement and a smile; descriptive wording adds almost nothing measurable (centre energy 4.4 vs 4.2)."
+ },
+ "E1_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "Near-full rotation front -> side -> back -> three-quarter front, skirt begins to flare at the end; face returns recognisable."
+ },
+ "E2_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "Partial turn with a large, physically plausible skirt flare and flowing dupatta; face visible most of the clip. Descriptive wording ('skirt flaring softly') measurably changed the result (more flare, edge/centre 0.24 vs 0.12)."
+ },
+ "F1_s1": {
+  "realism": 3,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 5,
+  "usability": 2,
+  "executed": "weak",
+  "failures": "MOTION_TOO_WEAK",
+  "notes": "Generic 'performs to the music' yields only small hand movements near the chest (centre energy 3.6). Not a performance shot."
+ },
+ "F2_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT (minor)",
+  "notes": "All three clauses performed: steps forward, sinks into a deep bend, rises with open arms; skirt pools/folds plausibly; spread fingers soft. Concrete physical verbs (step/bend/rise) executed where 'performs' (F1) was not."
+ },
+ "G1_s1": {
+  "realism": 3,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 5,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "MOTION_NOT_EXECUTED (footwork); HAND_ARTIFACT",
+  "notes": "'she dances' -> upper-body hand gestures at chest/shoulder height, body stationary; no steps. Calm, stable, but reads as gesturing, not dancing."
+ },
+ "G2_s1": {
+  "realism": 3,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 5,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "MOTION_NOT_EXECUTED (small steps); HAND_ARTIFACT",
+  "notes": "Mudra-like hand gestures near the chest; 'small steps' not performed; lowest energy of the dance prompts (centre 3.9). Descriptive wording did not add footwork."
+ },
+ "H1_s1": {
+  "realism": 3,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 4,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "MOTION_NOT_EXECUTED (footwork); HAND_ARTIFACT",
+  "notes": "Livelier arm work than G (centre 5.7), slight torso lean, one arm raised at the end; feet/body stay in place. Reads as an arm dance, not 'energetic dance'."
+ },
+ "H2_s1": {
+  "realism": 3,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 4,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "MOTION_NOT_EXECUTED (rhythmic steps); HAND_ARTIFACT",
+  "notes": "Sweeping arms rising overhead (centre 6.8, highest of the dance prompts so far); 'rhythmic steps' not performed. Usable with selection as an in-place dance beat."
+ },
+ "I1_s1": {
+  "realism": 3,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 4,
+  "usability": 2,
+  "executed": "no",
+  "failures": "MOTION_TOO_WEAK; MOTION_NOT_EXECUTED (fast/footwork); HAND_ARTIFACT",
+  "notes": "'fast energetic dance' -> moderate-pace arm gestures at chest height, slight body turn; centre energy 5.9 = same as medium dance (H1 5.7). The model does not produce fast movement; result is indistinguishable from H."
+ },
+ "I2_s1": {
+  "realism": 4,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 3,
+  "usability": 3,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT (motion blur on arms/hands)",
+  "notes": "Genuine energetic dance: body rotates, skirt swirls wide, sharp arm accents; centre energy 12.2 = 2x I1. Footwork hidden by the skirt; hands/arms blur at speed. Descriptive wording made the decisive difference vs I1. Single seed -> needs the repeat test and real-time viewing."
+ },
+ "J1_s1": {
+  "realism": 3,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 4,
+  "usability": 2,
+  "executed": "no",
+  "failures": "MOTION_NOT_EXECUTED (no jump)",
+  "notes": "'she jumps' -> she shifts weight and drifts toward the camera; never airborne (Phase 30 leap failure reproduced)."
+ },
+ "J2_s1": {
+  "realism": 3,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 4,
+  "usability": 2,
+  "executed": "no",
+  "failures": "MOTION_NOT_EXECUTED (no leap)",
+  "notes": "Descriptive leap wording -> namaste-like hand gesture and a slight dip; never airborne. Leap/jump fails with both wordings (and in Phase 30)."
+ },
+ "K1_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 5,
+  "usability": 2,
+  "executed": "no",
+  "failures": "CAMERA_NOT_EXECUTED",
+  "notes": "'slow push-in': zoom first->last 1.02 (no visible push); she stands and smiles. As a static smile shot it is clean (would be 3-4), but the requested camera move did not happen."
+ },
+ "K2_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "Push-in executed: gradual dolly from full body to waist-up, face grows, background enlarges (edge/centre 0.66). Explicit camera-verb wording ('the camera slowly dollies forward toward her face') worked where the short 'slow push-in' (K1) did not. zoom metric misreads this off-centre push (0.92)."
+ },
+ "L1_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 4,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "",
+  "notes": "She turns to profile and walks left while the framing follows her and the background slides (edge/centre 0.67); reads as a close follow shot. Face in profile (identity weaker). Whether it reads as camera tracking vs. subject turning needs real-time viewing."
+ },
+ "L2_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 4,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "",
+  "notes": "Near-identical to L1 (same seed): profile walk to the left, framing follows and drifts closer; at the end her face approaches the frame edge. Explicit lateral wording added nothing measurable (edge/centre 0.66 vs 0.67)."
+ },
+ "M1_s1": {
+  "realism": 3,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 5,
+  "usability": 1,
+  "executed": "no",
+  "failures": "CAMERA_NOT_EXECUTED; FROZEN_SUBJECT",
+  "notes": "'camera orbits around her' -> nearly a still frame (energy 1.28, no parallax). Same as Phase 30 (orbit 1/5)."
+ },
+ "M2_s1": {
+  "realism": 3,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 5,
+  "usability": 1,
+  "executed": "no",
+  "failures": "CAMERA_NOT_EXECUTED; FROZEN_SUBJECT",
+  "notes": "Descriptive orbit wording ('slow cinematic arc ... background rotating behind her') -> still frame (energy 1.49). Orbit fails with both wordings."
+ },
+ "N1_s1": {
+  "realism": 4,
+  "mechanics": 3,
+  "identity": 3,
+  "stability": 4,
+  "usability": 3,
+  "executed": "yes",
+  "failures": "FACE_DRIFT (with strong expression); HAND_ARTIFACT (foreshortened hand near lens)",
+  "notes": "Expressive singing: open-mouth vowels, head movement, a hand reaching toward the lens. Face widens/softens versus the keyframe once the expression is strong (Phase 30 close-up finding reproduced); large foreshortened hand in the foreground."
+ },
+ "N2_s1": {
+  "realism": 3,
+  "mechanics": 3,
+  "identity": 3,
+  "stability": 3,
+  "usability": 3,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT (fist occludes the face ~1/3 of the clip); FACE_DRIFT",
+  "notes": "Both clauses performed (sings, then smiles warmly - the smile at the end is the best close-up moment so far). But a large fist rises in front of the face mid-clip. Both close-up wordings contain 'toward the camera' and both produce a hand reaching at the lens -> hypothesis tested in stage 2 (N3 without it)."
+ },
+ "X1_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 4,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "COSTUME_DRIFT (dupatta becomes sheer in back view); MOTION_TOO_WEAK (arms)",
+  "notes": "2 concepts: the turn is performed (front -> back), the 'flowing arm movements' are small. Dupatta turns into a translucent veil in the back view, as in B2 - a repeatable back-view costume drift."
+ },
+ "X2_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT (minor)",
+  "notes": "3 concepts performed IN ORDER: slight sway, both arms raised above the head and held, smile. Sequential composition of simple motions works."
+ },
+ "X3_s1": {
+  "realism": 3,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 3,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "MOTION_NOT_EXECUTED (spin, jump); CAMERA_NOT_EXECUTED (orbit, zoom)",
+  "notes": "Overloaded prompt does NOT break the clip: the model keeps what it can do (energetic in-place dance, arm flourishes, skirt swirl - like I2, centre energy 13.4) and silently drops the spin, jump, orbit and zoom. Risk is not artifacts but unfulfilled instructions."
+ },
+ "Y1_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 4,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "CAMERA_NOT_EXECUTED; COSTUME_DRIFT",
+  "notes": "Turning (B2 text) + 'slow push-in': practically identical to B2 (centre energy 9.8 vs 9.9). Short camera text neither moved the camera nor changed or degraded the subject motion."
+ },
+ "Y2_s1": {
+  "realism": 3,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 5,
+  "usability": 3,
+  "executed": "weak",
+  "failures": "CAMERA_NOT_EXECUTED; MOTION_TOO_WEAK",
+  "notes": "Sway (D2 text) + 'slow push-in': same as D2; no push."
+ },
+ "A1_s2": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "Repeat (seed 31002): walks toward the camera and grows in frame, same quality as A1_s1."
+ },
+ "B1_s2": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "Repeat: full turn to a back view; this time the jasmine braid stays visible and the dupatta stays opaque - the B1_s1 braid loss was seed-dependent."
+ },
+ "C1_s2": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT (minor, soft hands)",
+  "notes": "Repeat: arms out then overhead and held - nearly the same trajectory as C1_s1."
+ },
+ "E2_s2": {
+  "realism": 4,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "BODY_DEFORMATION (minor: skirt balloons very wide)",
+  "notes": "Repeat: spin with a very wide, dramatic lehenga flare filling the frame width - exaggerated but reads as a classic twirl; face recognisable throughout."
+ },
+ "F2_s2": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT (minor)",
+  "notes": "Repeat: step forward, deep bend, rise with open arms - all three clauses again (centre energy 9.8)."
+ },
+ "K2_s2": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "Repeat: explicit push-in executed again (full body -> three-quarter, face enlarges; edge/centre 0.76). The explicit camera sentence is repeatable with a still subject."
+ },
+ "I2_s2": {
+  "realism": 4,
+  "mechanics": 3,
+  "identity": 4,
+  "stability": 3,
+  "usability": 3,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT (arm/hand blur at speed)",
+  "notes": "Repeat: energetic dance again - rotation, skirt swirl, sharp arm accents (centre 13.8). Executed 2/2 with the descriptive wording. Fast-motion artifacts (hand morphing, blur) can hide between the 12 sampled frames -> real-time viewing required before promotion."
+ },
+ "L1_s2": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 4,
+  "usability": 2,
+  "executed": "partial",
+  "failures": "CAMERA_NOT_EXECUTED",
+  "notes": "Repeat: subject turns to profile and walks left, partly out of frame at the end - the camera does NOT follow this time. Tracking 1/2 seeds."
+ },
+ "N3_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "FACE_DRIFT (wide laugh); LIGHTING_JUMP (minor, luma jump 3.8)",
+  "notes": "New wording without 'toward the camera' + 'hands out of frame': sings, then smiles/laughs; NO hand occlusion. Framing drifts down (shift y 37 px); face widens with the laugh."
+ },
+ "N3_s2": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "Same wording, seed 31002: clear singing mouth shapes, warm smile, steady framing, hands out of frame, identity holds. Close-up fixed by wording (2/2)."
+ },
+ "mp_01": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "LIGHTING_JUMP (minor, luma jump 3.5 in the first frames)",
+  "notes": "New scene (oil-lamp courtyard at dusk): explicit push-in executed - full body to three-quarter, warm smile. 3/3 for the explicit push-in sentence with a still subject."
+ },
+ "mp_02": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "New scene (colonnade): walks toward the camera, grows from small to three-quarter; identity holds."
+ },
+ "mp_03": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT (minor)",
+  "notes": "New scene (misty rooftop): arms curve up and are held overhead; same trajectory family as C1 s1/s2."
+ },
+ "mp_04": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "COSTUME_DRIFT (dupatta sheer in back view)",
+  "notes": "New scene (marble hall): turn to a back view; the dupatta again becomes a translucent veil when seen from behind (4 of the 7 turning clips that reach a back view) - a known turning artifact, not a blocker."
+ },
+ "mp_05": {
+  "realism": 4,
+  "mechanics": 3,
+  "identity": 3,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "FACE_DRIFT (broad laugh); HAND_ARTIFACT (hand briefly at the lower frame edge)",
+  "notes": "New scene (oil-lamp temple steps at night): sings, then laughs and smiles; face rounds out with the laugh but stays recognisable; a hand flashes at the bottom-left edge for ~0.3 s (no occlusion of the face)."
+ },
+ "mp_06": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "New scene (sunrise rooftop, backlit): spin to a side/back view with a wide skirt flare; face three-quarter at the end."
+ },
+ "mp_07": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "HAND_ARTIFACT (minor)",
+  "notes": "New scene (festival lights, crowd behind): steps forward, sinks low, rises with open arms - 3/3 for the step/bend/rise wording."
+ },
+ "mp_08": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 3,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "LIGHTING_JUMP (sun flare, luma jump 5.6)",
+  "notes": "New scene (golden grass at sunrise): arms out and overhead, held; strong backlight flare flickers as arms pass the sun."
+ },
+ "mp_09": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "New scene (lotus pond at dawn): plain 'she spins' -> turn to the back and round again with the dupatta flying; braid and costume hold."
+ },
+ "mp_10": {
+  "realism": 3,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 3,
+  "usability": 3,
+  "executed": "weak",
+  "failures": "MOTION_TOO_WEAK (barely walks); LIGHTING_JUMP (firework flash, luma jump 8.5)",
+  "notes": "New scene (rooftop at night with fireworks): she barely moves forward; the fireworks animate. First walking miss (walking 4/5). Bright animated backgrounds may compete with subject motion - single observation."
+ },
+ "ml_06": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 3,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "MOTION_TOO_WEAK (partial turn); LIGHTING_JUMP (backlit sun, luma jump 7.0)",
+  "notes": "16:9 counterpart of mp_06: partial turn with a moderate flare (portrait: full spin, wide flare). Subject smaller in frame; face tiny at full-body framing."
+ },
+ "ml_07": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 3,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "FACE_DRIFT (face slightly longer than reference); LIGHTING_JUMP (luma jump 5.0)",
+  "notes": "16:9 counterpart of mp_07: steps, sinks low, rises with open arms (executed); framing tightens during the clip; festival setting reads cinematic in landscape."
+ },
+ "ml_08": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 3,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "LIGHTING_JUMP (sun flare, luma jump 9.3)",
+  "notes": "16:9 counterpart of mp_08: arms raised overhead and held; small figure in a wide golden field - strong composition, small face."
+ },
+ "ml_09": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "MOTION_TOO_WEAK (partial turn)",
+  "notes": "16:9 counterpart of mp_09: turns to a side view and looks back over her shoulder with a dupatta swirl (portrait: full turn). Face recognisable."
+ },
+ "ml_10": {
+  "realism": 3,
+  "mechanics": 4,
+  "identity": 3,
+  "stability": 4,
+  "usability": 3,
+  "executed": "partial",
+  "failures": "MOTION_TOO_WEAK",
+  "notes": "16:9 counterpart of mp_10: drifts toward the camera and to the right (shift x 48 px) rather than a clear walk; fireworks animate. Both fireworks clips are the weakest walking shots."
+ },
+ "Y3_s1": {
+  "realism": 4,
+  "mechanics": 4,
+  "identity": 4,
+  "stability": 4,
+  "usability": 4,
+  "executed": "yes",
+  "failures": "",
+  "notes": "Turning (B2 text) + EXPLICIT push-in sentence: the camera dollies in to waist-up WHILE she turns, and she looks back over her shoulder (never performed in B2/Y1); dupatta stays opaque. The explicit camera sentence does not degrade subject motion (1 sample)."
+ }
+}

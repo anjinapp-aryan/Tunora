@@ -1,0 +1,2 @@
+[controller] Y3_s1 attempt=1 rc=0 exited valid=True  wall=215.9s vram 1400->15992->1001 rss_peak=16.4GB min_avail=0.93GB
+[controller] done {'COMPLETED': 44, 'FAILED': 0, 'PENDING': 0, 'BLOCKED_DISK': 0}
