@@ -10,6 +10,7 @@ import { DownloadButton } from "@/components/audio/download-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MusicVideosSection } from "@/components/song/music-videos";
 import { VersionActions } from "@/components/song/version-actions";
 import { VersionComparison } from "@/components/song/version-comparison";
 import { ApiError, type GenerationJob } from "@/lib/api/jobs";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/api/songs";
 import { formatTime } from "@/lib/audio/format-time";
 import { formatDate } from "@/lib/format-date";
+import { canRevise, revisionHref, revisionMode } from "@/lib/revision";
 import { cn } from "@/lib/utils";
 
 type Result = { key: string; details?: SongDetails; notFound?: boolean; error?: string };
@@ -241,6 +243,16 @@ export function SongDetailsView({ songId }: { songId: string }) {
               repaintDragGeneration={repaintDragGeneration}
             />
           )}
+          {!pending && canRevise(active) && (
+            // Phase 28: a new Version of this song from THIS version's own inputs (never the latest by default).
+            <Link
+              href={revisionHref(details.id, active.id)}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-4 w-fit")}
+              data-testid="revise-version"
+            >
+              {revisionMode(active) === "RETRY" ? "Retry / Revise" : "Revise"} Version {active.version_number}
+            </Link>
+          )}
 
           <div className="mt-6 rounded-lg border border-border/60 p-3 text-sm" data-testid="provider-metadata">
             <div className="flex items-baseline justify-between gap-2">
@@ -337,6 +349,9 @@ export function SongDetailsView({ songId }: { songId: string }) {
           {comparing && <VersionComparison versions={details.versions} />}
         </div>
       )}
+
+      {/* Phase 23: presentation artifacts made from a Version -- listed apart from the audio Versions. */}
+      <MusicVideosSection songId={details.id} versions={details.versions} selectedVersionId={active?.id ?? null} />
     </div>
   );
 }

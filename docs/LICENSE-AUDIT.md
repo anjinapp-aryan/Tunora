@@ -77,6 +77,23 @@ Per [REUSE-FIRST-LAW.md](./REUSE-FIRST-LAW.md): code license, model license, wei
 | OpenTelemetry / Prometheus | Apache-2.0 | ✅ |
 | Grafana (reference, deferred) | AGPLv3 per 2021 relicensing (reported) | ⚠️ not re-verified this session |
 
+## Music Video Composer (Phase 23) — adopted components
+
+Verified 2026-09-27 against each project's LICENSE / package metadata / the binary's own build
+configuration (details: `PHASE-23-MUSIC-VIDEO-COMPOSER.md` §9, `PHASE-23-IMPLEMENTATION.md` §13).
+
+| Component | Source license | Model/weights license | Verified? |
+|---|---|---|---|
+| FFmpeg (BtbN `n9.0` **lgpl-shared** build, operator-installed in `backend/tools/ffmpeg`) | **LGPL v3** (`--enable-version3`, no `--enable-gpl`, no `--enable-nonfree`; bundled `LICENSE.txt`) | N/A | ✅ — enforced at runtime by `app/music_videos/ffmpeg.py`, which rejects GPL/non-free builds (the winget "full_build" on PATH is rejected) |
+| libass (inside the FFmpeg build) + FreeType / HarfBuzz / FriBidi / fontconfig | ISC; FTL; MIT; LGPL-2.1+; MIT | N/A | ✅ |
+| OpenH264 encoder (inside the FFmpeg build) | BSD-2-Clause | N/A | ✅ copyright. ⚠️ **H.264 patents: commercial distribution of H.264 output requires separate legal review** (Cisco's patent coverage applies only to Cisco-distributed binaries) |
+| stable-ts 2.19.1 (optional `music-video` extra) | MIT | — | ✅ license. ⚠️ **repository archived (read-only) since 2026-05-30** — works as installed; isolated behind `LyricsAligner`, replaceable/forkable |
+| openai-whisper 20250625 (+ `base` weights) | MIT | MIT | ✅ |
+| torch 2.14.0 (CPU) / torchaudio 2.11.0 | Apache-2.0 (per package metadata) / BSD | N/A (torchaudio MMS weights NOT used) | ✅ |
+| numba/llvmlite, tiktoken, regex, tqdm, networkx, sympy, … (transitive) | BSD / BSD-2 + Apache-2.0-with-LLVM-exception, MIT, Apache-2.0 + CNRI-Python, MPL-2.0 + MIT, BSD-3, BSD | N/A | ✅ from installed package metadata |
+| Poppins font | SIL OFL-1.1 | N/A | ✅ (`OFL.txt` bundled with the font) |
+| Remotion (rejected, Phase 22B) | Source-available "Remotion License" (company-size gated) | N/A | ✅ — rejected |
+
 ## Standing Policy
 
 Every entry above marked ⚠️ or ❌ is a blocking or follow-up item before that component can move from "candidate" to "adopted" in an implementation phase. No component with an unresolved commercial-use-relevant license question (Demucs weights, torchaudio MMS weights, `fspecii/ace-step-ui`'s actual LICENSE file) should be built upon without first resolving the flag directly — reading the primary source (LICENSE file, model card, or a direct statement from the maintainer), not a secondary summary.

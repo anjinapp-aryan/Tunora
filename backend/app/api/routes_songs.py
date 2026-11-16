@@ -109,10 +109,15 @@ async def delete_song(
     deletion strategy and failure semantics."""
 
     service = _get_service(request)
+    # Its Music Videos (Phase 23) go with it: rows by ON DELETE CASCADE, files best-effort after.
+    music_videos = getattr(request.app.state, "music_video_service", None)
+    video_ids = music_videos.video_ids_for_song(song_id) if music_videos else []
     try:
         service.delete_song(song_id)
     except (SongNotFoundError, InvalidIdError):
         raise HTTPException(status_code=404, detail="Song not found.")
+    if music_videos:
+        music_videos.delete_files(video_ids)
 
 
 @router.post("/{song_id}/versions/{version_id}/{operation}", response_model=JobResponse)

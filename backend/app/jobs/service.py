@@ -625,6 +625,88 @@ class JobService:
             except StorageError as exc:
                 logger.warning("could not delete audio for a deleted song: key=%s error=%s", key, exc)
 
+    def _source_audio_path(self, source: Version) -> Path:
+        """The verified audio file of an existing Version (trusted record -> AudioStorage).
+        Raises SourceAudioUnavailableError if it never got audio or the file is gone/empty."""
+
+        if source.audio is None:
+            raise SourceAudioUnavailableError("The source version has no audio.")
+        try:
+            source_path = self._storage.get_path(source.audio.key)
+        except StorageError as exc:
+            raise SourceAudioUnavailableError("The source audio is unavailable.") from exc
+        if not source_path.is_file() or source_path.stat().st_size == 0:
+            raise SourceAudioUnavailableError("The source audio is unavailable.")
+        return source_path
+
+    def resolve_version_audio(self, song_id: str, version_id: str) -> tuple[Version, Path]:
+        """A COMPLETED Version of `song_id` and its verified audio path, for read-only consumers
+        such as Music Videos (Phase 23). Same checks as a creative operation's source: raises
+        InvalidIdError, SongNotFoundError, SourceVersionNotFoundError (unknown, or another song's
+        version) or SourceAudioUnavailableError. Never modifies the Version."""
+
+        if not is_valid_id(song_id) or not is_valid_id(version_id):
+            raise InvalidIdError("Malformed id.")
+        self.get_song(song_id)
+        version = self._repository.get_version(version_id)
+        if version is None or version.song_id != song_id:
+            raise SourceVersionNotFoundError(version_id)
+        return version, self._source_audio_path(version)
+
+    def version_audio_state(self, song_id: str, version_id: str) -> tuple[Version, str]:
+        """Where one exact Version of `song_id` is in its audio lifecycle (Phase 26), for a Music
+        Video requested together with its song: "ready" (verified audio), "pending" (its job is
+        still running) or "failed" (its job ended without audio, or the file is gone). Raises
+        InvalidIdError, SongNotFoundError or SourceVersionNotFoundError (unknown, or another
+        song's version). Never modifies anything."""
+
+        if not is_valid_id(song_id) or not is_valid_id(version_id):
+            raise InvalidIdError("Malformed id.")
+        self.get_song(song_id)
+        entry = next((e for e in self._repository.list_version_entries(song_id) if e.version.id == version_id), None)
+        if entry is None:
+            raise SourceVersionNotFoundError(version_id)
+        if entry.version.audio is not None:
+            try:
+                self._source_audio_path(entry.version)
+            except SourceAudioUnavailableError:
+                return entry.version, "failed"
+            return entry.version, "ready"
+        terminal = {status.value for status in TERMINAL_STATUSES}
+        if entry.job_status is not None and entry.job_status not in terminal:
+            return entry.version, "pending"
+        return entry.version, "failed"
+
+    # -- revise / retry (Phase 28) ----------------------------------------------------------------
+
+    async def create_revision(self, song_id: str, source_version_id: str, request: GenerationRequest) -> Job:
+        """Generate a NEW Version of `song_id` from the inputs of one explicit Version, as edited
+        by the user (Revise) or unchanged (Retry -- e.g. after the source Version's generation
+        failed). The source Version, its Job and its audio are never touched; the new Version gets
+        its own row, Job and audio, lineage `REVISE` from the source, and `operation_params`
+        {"changed": [...]} naming the fields that differ from the source (empty = a retry).
+
+        Raises InvalidIdError, SongNotFoundError, SourceVersionNotFoundError (unknown, or another
+        song's version -- also enforced by a DB trigger), InvalidOperationError (empty prompt, or an
+        extracted-track source) or UnsupportedOperationError."""
+
+        if not is_valid_id(song_id) or not is_valid_id(source_version_id):
+            raise InvalidIdError("Malformed id.")
+        self.get_song(song_id)
+        source = self._repository.get_version(source_version_id)
+        if source is None or source.song_id != song_id:
+            raise SourceVersionNotFoundError(source_version_id)
+        if source.operation == ops.EXTRACT:
+            raise InvalidOperationError("An extracted track can't be revised. Revise the version it came from.")
+        if not request.prompt.strip():
+            raise InvalidOperationError("Describe the song.")
+        # Exactly one output becomes exactly one Version (as for Another Take): batch_size is not taken.
+        request = replace(request, operation=ops.REVISE, batch_size=None, prompt=request.prompt.strip())
+        changed = [f for f in ops.REVISABLE_FIELDS if getattr(request, f) != getattr(source.spec, f)]
+        return await self.create_and_submit(
+            request, song_id=song_id, source_version_id=source.id, operation_params={"changed": changed}
+        )
+
     # -- creative operations (Phase 5B) ----------------------------------------------------------
 
     async def create_version_from_operation(
@@ -662,14 +744,7 @@ class JobService:
             raise UnsupportedOperationError(f"Operation {operation!r} is not supported by this provider")
         if operation == ops.ANOTHER_TAKE:
             return await self._create_another_take(song_id, source)
-        if source.audio is None:
-            raise SourceAudioUnavailableError("The source version has no audio.")
-        try:
-            source_path = self._storage.get_path(source.audio.key)
-        except StorageError as exc:
-            raise SourceAudioUnavailableError("The source audio is unavailable.") from exc
-        if not source_path.is_file() or source_path.stat().st_size == 0:
-            raise SourceAudioUnavailableError("The source audio is unavailable.")
+        source_path = self._source_audio_path(source)
 
         spec = source.spec
         new_prompt = (prompt or "").strip() or None

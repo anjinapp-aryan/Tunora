@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.jobs.models import Job, JobStatus
 from app.jobs.titles import derive_title
 from app.director.spec import SongSpec
+from app.music_videos.profiles import DEFAULT_PROFILE_ID, PROFILES
 from app.projects.models import Project, ProjectSongEntry, ProjectSummary
 from app.songs.models import Song, SongSummary, Version, VersionEntry
 from app.storage.filenames import safe_audio_filename
@@ -25,6 +26,9 @@ class CreateJobRequest(BaseModel):
     title: Optional[str] = None
     # Generate another Version of an existing Song instead of a new Song.
     song_id: Optional[str] = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$")
+    # Phase 28 (Revise / Retry): the explicit Version of `song_id` whose inputs this request edits.
+    # The new Version records it as its source; it must belong to `song_id` (checked server-side).
+    source_version_id: Optional[str] = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$")
     # Optional: put a brand-new Song in this Project (Phase 6). Ignored when song_id is set.
     project_id: Optional[str] = Field(default=None, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9-]*$")
     prompt: str
@@ -166,6 +170,9 @@ class VersionResponse(BaseModel):
     status: str
     created_at: str
     duration: Optional[float] = None
+    # Phase 28: the duration that was REQUESTED (the stored spec), so a failed or unfinished version
+    # can be revised with its own settings; `duration` above is the measured audio length.
+    requested_duration: Optional[float] = None
     # Null when the version has no stored audio (failed, still generating, or never completed).
     audio: Optional[VersionAudioResponse] = None
     prompt: str
@@ -253,6 +260,7 @@ def song_details_response(
                 status=entry.job_status or "CREATED",
                 created_at=v.created_at.isoformat(),
                 duration=v.audio.duration if v.audio else None,
+                requested_duration=v.spec.duration,
                 audio=audio,
                 prompt=v.spec.prompt,
                 lyrics=v.spec.lyrics,
@@ -473,3 +481,69 @@ class SongSpecPayload(BaseModel):
 class RefineSongPlanRequest(BaseModel):
     song_spec: SongSpecPayload
     instruction: str = Field(min_length=1, max_length=500)
+
+
+# -- Music Videos (Phase 23) -------------------------------------------------------------------
+# Allowlist: never a storage key, a filesystem path, the internal `error` text, or TimedLyrics
+# timing internals. `unmatched_lines` is the user's own stored lyric text that could not be
+# matched to the audio (so the UI can say so); the stored lyrics themselves are never modified.
+
+
+
+def music_video_url_for(music_video_id: str) -> str:
+    return f"/api/music-videos/{music_video_id}/video"
+
+
+class MusicVideoResponse(BaseModel):
+    id: str
+    song_id: str
+    source_version_id: str
+    source_version_number: Optional[int] = None
+    status: str
+    style: str
+    aspect_ratio: str
+    # Phase 27: the canonical output format; width/height/resolution come from it.
+    output_profile: str
+    resolution: str
+    width: int
+    height: int
+    duration: Optional[float] = None
+    size_bytes: Optional[int] = None
+    video_url: Optional[str] = None
+    matched_line_count: int = 0
+    unmatched_lines: list[str] = Field(default_factory=list)
+    error: Optional[str] = None
+    created_at: str
+    updated_at: str
+    completed_at: Optional[str] = None
+
+
+class MusicVideoListResponse(BaseModel):
+    items: list[MusicVideoResponse]
+
+
+def music_video_response(video: Any, version_number: Optional[int], error: Optional[str]) -> MusicVideoResponse:
+    profile = PROFILES.get(video.output_profile) or PROFILES[DEFAULT_PROFILE_ID]
+    completed = video.status.value == "COMPLETED"
+    return MusicVideoResponse(
+        id=video.id,
+        song_id=video.song_id,
+        source_version_id=video.source_version_id,
+        source_version_number=version_number,
+        status=video.status.value,
+        style=video.style,
+        aspect_ratio=profile.aspect_ratio,
+        output_profile=profile.id,
+        resolution=profile.resolution_class,
+        width=profile.width,
+        height=profile.height,
+        duration=video.duration,
+        size_bytes=video.output_size_bytes if completed else None,
+        video_url=music_video_url_for(video.id) if completed else None,
+        matched_line_count=video.matched_line_count,
+        unmatched_lines=video.unmatched_lines,
+        error=error,
+        created_at=video.created_at.isoformat(),
+        updated_at=video.updated_at.isoformat(),
+        completed_at=video.completed_at.isoformat() if video.completed_at else None,
+    )

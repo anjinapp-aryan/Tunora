@@ -238,4 +238,5 @@ async def test_existing_fields_are_unchanged_when_metadata_is_added(h, client):
         "id", "version_number", "is_latest", "operation", "source_version_number", "status", "created_at",
         "duration", "audio", "prompt", "lyrics", "language", "instrumental", "seed", "metadata",
         "extracted_track",  # Phase 11 addition, null here (not an EXTRACT version)
+        "requested_duration",  # Phase 28 addition: the stored spec's duration (for Revise / Retry)
     }

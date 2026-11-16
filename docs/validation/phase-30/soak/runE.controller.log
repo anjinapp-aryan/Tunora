@@ -1,0 +1,21 @@
+[controller] clip_s32 attempt=2 rc=0 exited valid=True  wall=952.1s vram 1700->15977->1656 rss_peak=16.16GB min_avail=0.01GB
+[controller] clip_s33 attempt=1 rc=0 exited valid=True  wall=437.9s vram 1662->15999->1004 rss_peak=16.93GB min_avail=0.93GB
+[controller] clip_s34 attempt=1 rc=0 exited valid=True  wall=433.0s vram 1009->15920->925 rss_peak=16.94GB min_avail=0.93GB
+[controller] clip_s35 attempt=1 rc=0 exited valid=True  wall=532.1s vram 925->15897->917 rss_peak=17.78GB min_avail=0.93GB
+[controller] clip_s36 attempt=1 rc=0 exited valid=True  wall=217.5s vram 917->15913->891 rss_peak=16.11GB min_avail=0.93GB
+[controller] clip_s37 attempt=1 rc=0 exited valid=True  wall=217.8s vram 891->15881->898 rss_peak=16.35GB min_avail=0.93GB
+[controller] clip_s38 attempt=1 rc=0 exited valid=True  wall=217.9s vram 898->15857->791 rss_peak=15.87GB min_avail=0.93GB
+[controller] clip_s39 attempt=1 rc=0 exited valid=True  wall=216.7s vram 791->15880->829 rss_peak=16.07GB min_avail=0.93GB
+[controller] clip_s40 attempt=1 rc=0 exited valid=True  wall=216.4s vram 829->15938->936 rss_peak=15.79GB min_avail=0.93GB
+[controller] clip_s41 attempt=1 rc=0 exited valid=True  wall=217.5s vram 936->15878->816 rss_peak=16.4GB min_avail=0.93GB
+[controller] clip_s42 attempt=1 rc=0 exited valid=True  wall=218.2s vram 816->15918->1007 rss_peak=16.48GB min_avail=0.93GB
+[controller] clip_s43 attempt=1 rc=0 exited valid=True  wall=231.3s vram 1007->16013->1343 rss_peak=15.97GB min_avail=0.93GB
+[controller] clip_s44 attempt=1 rc=0 exited valid=True  wall=224.2s vram 1343->16009->1286 rss_peak=16.25GB min_avail=0.93GB
+[controller] clip_s45 attempt=1 rc=0 exited valid=True  wall=226.2s vram 1286->15985->1430 rss_peak=15.89GB min_avail=0.93GB
+[controller] clip_s46 attempt=1 rc=0 exited valid=True  wall=224.8s vram 1430->16002->1504 rss_peak=16.04GB min_avail=0.93GB
+[controller] clip_s47 attempt=1 rc=0 exited valid=True  wall=226.0s vram 1504->16001->1350 rss_peak=16.46GB min_avail=0.93GB
+[controller] clip_s48 attempt=1 rc=0 exited valid=True  wall=222.2s vram 1350->15998->845 rss_peak=15.82GB min_avail=0.93GB
+[controller] clip_s49 attempt=1 rc=0 exited valid=True  wall=222.0s vram 844->15955->862 rss_peak=16.4GB min_avail=0.93GB
+[controller] clip_s50 attempt=1 rc=0 exited valid=True  wall=254.0s vram 862->15990->1367 rss_peak=16.1GB min_avail=0.93GB
+[controller] done {'COMPLETED': 50, 'FAILED': 0, 'PENDING': 0, 'BLOCKED_DISK': 0}
+rc=0

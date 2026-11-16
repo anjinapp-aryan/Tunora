@@ -1,0 +1,4 @@
+[controller] clip_s23 attempt=2 rc=0 exited valid=True  wall=235.0s vram 1860->16002->381 rss_peak=16.42GB min_avail=0.93GB
+[controller] clip_s24 attempt=1 rc=0 exited valid=True  wall=214.1s vram 381->15995->500 rss_peak=15.94GB min_avail=0.93GB
+[controller] clip_s25 attempt=1 rc=0 exited valid=True  wall=214.2s vram 500->15897->700 rss_peak=15.8GB min_avail=0.93GB
+rc=1

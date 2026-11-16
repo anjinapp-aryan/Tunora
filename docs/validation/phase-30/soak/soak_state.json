@@ -1,0 +1,814 @@
+{
+ "shots": {
+  "clip_s01": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 219.2
+    }
+   ]
+  },
+  "clip_s02": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 224.2
+    }
+   ]
+  },
+  "clip_s03": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 226.5
+    }
+   ]
+  },
+  "clip_s04": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 220.3
+    }
+   ]
+  },
+  "clip_s05": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 222.8
+    }
+   ]
+  },
+  "clip_s06": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 225.4
+    }
+   ]
+  },
+  "clip_s07": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 221.7
+    }
+   ]
+  },
+  "clip_s08": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 226.0
+    }
+   ]
+  },
+  "clip_s09": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 229.3
+    }
+   ]
+  },
+  "clip_s10": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 223.3
+    }
+   ]
+  },
+  "clip_s11": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 222.1
+    }
+   ]
+  },
+  "clip_s12": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 224.9
+    }
+   ]
+  },
+  "clip_s13": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 230.4
+    }
+   ]
+  },
+  "clip_s14": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 228.6
+    }
+   ]
+  },
+  "clip_s15": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.9
+    }
+   ]
+  },
+  "clip_s16": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 218.3
+    }
+   ]
+  },
+  "clip_s17": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.8
+    }
+   ]
+  },
+  "clip_s18": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 225.1
+    }
+   ]
+  },
+  "clip_s19": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 221.0
+    }
+   ]
+  },
+  "clip_s20": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.4
+    }
+   ]
+  },
+  "clip_s21": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 231.2
+    }
+   ]
+  },
+  "clip_s22": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 223.1
+    }
+   ]
+  },
+  "clip_s23": {
+   "status": "COMPLETED",
+   "attempts": 2,
+   "history": [
+    {
+     "result": "INTERRUPTED_BY_CONTROLLER_EXIT"
+    },
+    {
+     "attempt": 2,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 235.0
+    }
+   ]
+  },
+  "clip_s24": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 214.1
+    }
+   ]
+  },
+  "clip_s25": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 214.2
+    }
+   ]
+  },
+  "clip_s26": {
+   "status": "COMPLETED",
+   "attempts": 2,
+   "history": [
+    {
+     "result": "INTERRUPTED_BY_CONTROLLER_EXIT"
+    },
+    {
+     "attempt": 2,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.9
+    }
+   ]
+  },
+  "clip_s27": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 214.3
+    }
+   ]
+  },
+  "clip_s28": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 214.1
+    }
+   ]
+  },
+  "clip_s29": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 214.1
+    }
+   ]
+  },
+  "clip_s30": {
+   "status": "COMPLETED",
+   "attempts": 2,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 1,
+     "termination": "timeout:graceful",
+     "valid": false,
+     "failure_reason": "timeout:graceful",
+     "wall_seconds": 8032.0
+    },
+    {
+     "attempt": 2,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.2
+    }
+   ]
+  },
+  "clip_s31": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 429.2
+    }
+   ]
+  },
+  "clip_s32": {
+   "status": "COMPLETED",
+   "attempts": 2,
+   "history": [
+    {
+     "result": "INTERRUPTED_BY_CONTROLLER_EXIT"
+    },
+    {
+     "attempt": 2,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 952.1
+    }
+   ]
+  },
+  "clip_s33": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 437.9
+    }
+   ]
+  },
+  "clip_s34": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 433.0
+    }
+   ]
+  },
+  "clip_s35": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 532.1
+    }
+   ]
+  },
+  "clip_s36": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.5
+    }
+   ]
+  },
+  "clip_s37": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.8
+    }
+   ]
+  },
+  "clip_s38": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.9
+    }
+   ]
+  },
+  "clip_s39": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.7
+    }
+   ]
+  },
+  "clip_s40": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 216.4
+    }
+   ]
+  },
+  "clip_s41": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 217.5
+    }
+   ]
+  },
+  "clip_s42": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 218.2
+    }
+   ]
+  },
+  "clip_s43": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 231.3
+    }
+   ]
+  },
+  "clip_s44": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 224.2
+    }
+   ]
+  },
+  "clip_s45": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 226.2
+    }
+   ]
+  },
+  "clip_s46": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 224.8
+    }
+   ]
+  },
+  "clip_s47": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 226.0
+    }
+   ]
+  },
+  "clip_s48": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 222.2
+    }
+   ]
+  },
+  "clip_s49": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 222.0
+    }
+   ]
+  },
+  "clip_s50": {
+   "status": "COMPLETED",
+   "attempts": 1,
+   "history": [
+    {
+     "attempt": 1,
+     "exit_code": 0,
+     "termination": "exited",
+     "valid": true,
+     "failure_reason": "",
+     "wall_seconds": 254.0
+    }
+   ]
+  }
+ },
+ "events": [
+  {
+   "time": "2026-10-05 21:56:49",
+   "type": "controller_start",
+   "pid": 5400,
+   "workload": "soak: 50 FastWan clips from klein keyframes",
+   "shots": 50
+  },
+  {
+   "time": "2026-10-05 21:56:49",
+   "type": "disk_preflight_block",
+   "shot": "clip_s01",
+   "free_gb": 5.06,
+   "min_free_gb": 999.0
+  },
+  {
+   "time": "2026-10-05 21:57:00",
+   "type": "controller_start",
+   "pid": 9040,
+   "workload": "soak: 50 FastWan clips from klein keyframes",
+   "shots": 50
+  },
+  {
+   "time": "2026-10-05 22:34:54",
+   "type": "controller_stop_requested",
+   "after": 10
+  },
+  {
+   "time": "2026-10-05 22:35:06",
+   "type": "controller_start",
+   "pid": 26984,
+   "workload": "soak: 50 FastWan clips from klein keyframes",
+   "shots": 50
+  },
+  {
+   "time": "2026-10-06 07:53:07",
+   "type": "controller_start",
+   "pid": 7668,
+   "workload": "soak: 50 FastWan clips from klein keyframes",
+   "shots": 50
+  },
+  {
+   "time": "2026-10-06 07:53:07",
+   "type": "reset_running",
+   "shot": "clip_s23"
+  },
+  {
+   "time": "2026-10-06 08:05:31",
+   "type": "controller_start",
+   "pid": 24244,
+   "workload": "soak: 50 FastWan clips from klein keyframes",
+   "shots": 50
+  },
+  {
+   "time": "2026-10-06 08:05:36",
+   "type": "orphan_worker_found",
+   "pid": 23896,
+   "kill": "forced"
+  },
+  {
+   "time": "2026-10-06 08:05:36",
+   "type": "orphan_worker_found",
+   "pid": 25752,
+   "kill": "already_gone"
+  },
+  {
+   "time": "2026-10-06 08:05:36",
+   "type": "reset_running",
+   "shot": "clip_s26"
+  },
+  {
+   "time": "2026-10-06 21:12:31",
+   "type": "controller_start",
+   "pid": 30236,
+   "workload": "soak: 50 FastWan clips from klein keyframes",
+   "shots": 50
+  },
+  {
+   "time": "2026-10-06 21:12:31",
+   "type": "reset_running",
+   "shot": "clip_s32"
+  },
+  {
+   "time": "2026-10-06 22:49:00",
+   "type": "controller_done",
+   "summary": {
+    "COMPLETED": 50,
+    "FAILED": 0,
+    "PENDING": 0,
+    "BLOCKED_DISK": 0
+   }
+  }
+ ]
+}

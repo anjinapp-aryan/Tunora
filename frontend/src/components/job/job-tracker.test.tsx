@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { rememberJobPrompt } from "@/lib/jobs/job-summary";
@@ -161,6 +161,83 @@ describe("JobTracker", () => {
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
 
+  // Phase 24: audio is the finished product; a music video is an optional next step, never automatic.
+  it("after COMPLETED offers opening the song and an OPTIONAL music video, and starts nothing by itself", async () => {
+    fetchMock.mockResolvedValue(ok(job("COMPLETED", { song_id: "song-9", version_id: "ver-9", result: completedResult() })));
+    await renderTracker();
+    const steps = screen.getByTestId("next-steps");
+    expect(within(steps).getByRole("link", { name: "Open song" })).toHaveAttribute("href", "/songs/song-9");
+    expect(within(steps).getByRole("link", { name: /create a music video \(optional\)/i })).toHaveAttribute(
+      "href",
+      "/songs/song-9#create-music-video",
+    );
+    // Phase 26: the page also READS this song's music videos (to show one requested with the song);
+    // it still starts nothing -- every request is a GET.
+    expect(fetchMock.mock.calls.every(([u, init]) =>
+      ["/api/jobs/tunora-1", "/api/songs/song-9/music-videos"].includes(String(u)) && (!init?.method || init.method === "GET"))).toBe(true);
+    expect(screen.queryByTestId("job-music-video")).toBeNull(); // Audio Only: no video stage
+  });
+
+  describe("Phase 26: a music video requested with the song", () => {
+    function video(status: string, extra: Record<string, unknown> = {}) {
+      return { id: "mv-1", song_id: "song-9", source_version_id: "ver-9", source_version_number: 1, status, style: "cinematic",
+        aspect_ratio: "9:16", output_profile: "vertical_hd", resolution: "HD", width: 1080, height: 1920, duration: null, size_bytes: null, video_url: null,
+        matched_line_count: 0, unmatched_lines: [], error: null, created_at: "2026-09-28T00:00:00+00:00",
+        updated_at: "2026-09-28T00:00:00+00:00", completed_at: null, ...extra };
+    }
+    function serve(jobStatus: string, videos: unknown[], jobExtra: Record<string, unknown> = {}) {
+      fetchMock.mockImplementation((url: string) =>
+        Promise.resolve(String(url).startsWith("/api/songs/song-9/music-videos")
+          ? ok({ items: videos })
+          : ok(job(jobStatus, { song_id: "song-9", version_id: "ver-9", ...jobExtra }))));
+    }
+
+    it("shows the video as its own stage, waiting while the audio generates", async () => {
+      serve("RUNNING", [video("WAITING_FOR_AUDIO"), video("COMPLETED", { id: "mv-other", source_version_id: "ver-other" })]);
+      await renderTracker();
+      await advance(0);
+      const stage = screen.getByTestId("job-music-video");
+      expect(within(stage).getAllByTestId("music-video")).toHaveLength(1); // only this exact version's video
+      expect(within(stage).getByTestId("music-video-status")).toHaveTextContent(/waiting for the audio/i);
+      expect(within(stage).queryByTestId("music-video-retry")).toBeNull();
+      expect(screen.getByRole("heading", { name: /generating your song/i })).toBeInTheDocument();
+    });
+
+    it("keeps the audio complete when the video fails and offers Retry Music Video", async () => {
+      serve("COMPLETED", [video("FAILED", { error: "Music video generation failed." })], { result: completedResult() });
+      await renderTracker();
+      await advance(0);
+      expect(screen.getByRole("heading", { name: /generation complete/i })).toBeInTheDocument();
+      expect(screen.getByTestId("audio-saved")).toBeInTheDocument();
+      const stage = screen.getByTestId("job-music-video");
+      expect(within(stage).getByTestId("music-video-failed")).toHaveTextContent("Music video generation failed.");
+      expect(within(stage).getByTestId("music-video-retry")).toBeInTheDocument();
+    });
+
+    it("offers no retry when the song's own audio failed", async () => {
+      serve("FAILED", [video("FAILED", { error: "The song's audio could not be generated, so this video was not made." })]);
+      await renderTracker();
+      await advance(0);
+      const stage = screen.getByTestId("job-music-video");
+      expect(stage).toHaveTextContent(/audio could not be generated/i);
+      expect(within(stage).queryByTestId("music-video-retry")).toBeNull();
+    });
+
+    it("says so when the video could not be started", async () => {
+      window.sessionStorage.setItem("tunora:job-video-error:tunora-1", "The music video could not be started.");
+      serve("RUNNING", []);
+      await renderTracker();
+      await advance(0);
+      expect(screen.getByTestId("job-video-start-error")).toHaveTextContent("could not be started");
+    });
+  });
+
+  it("offers no music video step while the song is still generating or when it failed", async () => {
+    fetchMock.mockResolvedValue(ok(job("RUNNING", { song_id: "song-9" })));
+    await renderTracker();
+    expect(screen.queryByTestId("next-steps")).toBeNull();
+  });
+
   it("gives the player only Tunora's own URL", async () => {
     fetchMock.mockResolvedValue(ok(job("COMPLETED", { result: completedResult() })));
     const { container } = await renderTracker();
@@ -220,7 +297,8 @@ describe("JobTracker", () => {
     expect(screen.getByRole("heading", { name: /generation failed/i })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/couldn't complete this generation/i);
     expect(container.textContent).not.toMatch(/traceback|ProviderResponseError|query_result|C:\\|\.cache|out\.mp3/i);
-    expect(screen.getByRole("link", { name: /back to create song/i })).toHaveAttribute("href", "/create");
+    // Phase 28 renamed the fresh-start link (Retry / Revise is the primary action when the job has a version).
+    expect(screen.getByRole("link", { name: /start a new song instead/i })).toHaveAttribute("href", "/create");
   });
 
   it("does not expose provider or internal details", async () => {
@@ -291,6 +369,15 @@ describe("JobTracker", () => {
 
     await advance(RETRY_DELAYS_MS[0]);
     expect(screen.queryByTestId("connection-problem")).toBeNull();
+  });
+
+  it("Phase 28: a failed job offers Retry / Revise on its own version, keeping the inputs", async () => {
+    fetchMock.mockResolvedValue(ok(job("FAILED", { song_id: "song-9", version_id: "ver-9" })));
+    await renderTracker();
+    const retry = within(screen.getByTestId("retry-revise")).getByRole("link", { name: "Retry / Revise" });
+    expect(retry).toHaveAttribute("href", "/create?song=song-9&version=ver-9");
+    expect(screen.getByTestId("retry-revise")).toHaveTextContent(/description, lyrics and settings are kept/i);
+    expect(screen.getByRole("link", { name: /start a new song instead/i })).toHaveAttribute("href", "/create");
   });
 
   it("shows 'Job not found' on 404 and stops polling", async () => {

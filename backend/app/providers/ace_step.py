@@ -62,10 +62,11 @@ class AceStepMusicGenerationProvider(MusicGenerationProvider):
 
     name = "ace-step"
     # Verified against the local turbo model (see docs/PHASE-5B-EXTEND-REMIX-REPAINT.md).
-    supported_operations = frozenset({"ORIGINAL", "EXTEND", "REMIX", "REPAINT", "EXTRACT", "ANOTHER_TAKE"})
+    supported_operations = frozenset({"ORIGINAL", "EXTEND", "REMIX", "REPAINT", "EXTRACT", "ANOTHER_TAKE", "REVISE"})
 
-    # Plain text-to-music: no source audio is uploaded (ANOTHER_TAKE is a fresh generation, Phase 13).
-    _TEXT_TO_MUSIC_OPERATIONS = frozenset({"ORIGINAL", "ANOTHER_TAKE"})
+    # Plain text-to-music: no source audio is uploaded (ANOTHER_TAKE is a fresh generation, Phase 13;
+    # REVISE is a fresh generation from a Version's edited inputs, Phase 28).
+    _TEXT_TO_MUSIC_OPERATIONS = frozenset({"ORIGINAL", "ANOTHER_TAKE", "REVISE"})
 
     # EXTRACT needs ACE-Step's base-tier model (Phase 11 spike,
     # docs/PHASE-11-IMPLEMENTATION.md): `extract` is not in ACE-Step's turbo-tier task set
