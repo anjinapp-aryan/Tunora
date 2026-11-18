@@ -8,7 +8,7 @@ Free, open-source-first, self-hostable AI Music Studio: describe a song (optiona
 
 Repo layout: `backend/` (FastAPI), `frontend/` (Next.js), `docs/` (decisions and per-phase write-ups), `ACE-Step-1.5/` (git **submodule**: the upstream model server, treated as an external dependency; never add Tunora code there and never commit its local/untracked files), `start-tunora.ps1`/`stop-tunora.ps1`/`restart-tunora.ps1`/`tunora-services.ps1` (service management, see `docs/TUNORA-SERVICE-MANAGEMENT.md`).
 
-State (through Phase 28): Create → Generate → Track → Save → Play/Seek → Download (FLAC canonical, MP3/WAV on-demand export) → Song-oriented Library → Song Details (`/songs/{id}`, version history and selection) → Extend/Remix/Repaint (new Versions of an existing Song) → Projects (organizational grouping of Songs) → AI Song Director (natural language → reviewable `SongSpec` → generation) → Music Videos (Phases 23–27: lyric video from a Version, 9:16/16:9/1:1, HD/4K) → Revise & Retry (Phase 28: new Version from a stored Version's inputs) all work end to end. Phases 29–30 are AI-video feasibility labs (results only, not product features). Read the latest `docs/PHASE-*.md` / `docs/MILESTONE-*.md` before assuming what exists; they record what was actually verified and known limitations — phase numbering is not contiguous across doc types (`*-IMPLEMENTATION.md` vs `*-PRODUCT-CAPABILITY-GAP-AUDIT.md`).
+State (as of Phase 28; later work is in the newest `docs/PHASE-*.md`): Create → Generate → Track → Save → Play/Seek → Download (FLAC canonical, MP3/WAV on-demand export) → Song-oriented Library → Song Details (`/songs/{id}`, version history and selection) → Extend/Remix/Repaint (new Versions of an existing Song) → Projects (organizational grouping of Songs) → AI Song Director (natural language → reviewable `SongSpec` → generation) → Music Videos (Phases 23–27: lyric video from a Version, 9:16/16:9/1:1, HD/4K) → Revise & Retry (Phase 28: new Version from a stored Version's inputs) all work end to end. Phases 29–30 are AI-video feasibility labs (results only, not product features); their scripts and results live in `docs/validation/` (`phase-29-ai-video`, `phase-30`; the sibling `results/` holds Phase 19 measurements, not these), not in `backend/` or `frontend/`. Read the latest `docs/PHASE-*.md` / `docs/MILESTONE-*.md` before assuming what exists; they record what was actually verified and known limitations — phase numbering is not contiguous across doc types (`*-IMPLEMENTATION.md` vs `*-PRODUCT-CAPABILITY-GAP-AUDIT.md`).
 
 ## The rule that governs everything: Reuse-First Law
 
@@ -16,7 +16,9 @@ State (through Phase 28): Create → Generate → Track → Save → Play/Seek �
 
 ## Commands
 
-Everything runs locally on Windows (PowerShell/Git Bash). `uv` for Python, `npm` for the frontend.
+Everything runs locally on Windows. `uv` for Python, `npm` for the frontend. Service scripts are PowerShell (`powershell -File ...`); the other blocks use POSIX syntax (Git Bash), e.g. `VAR=x cmd` env prefixes — in PowerShell set `$env:VAR` instead.
+
+First-time setup: `git submodule update --init` (ACE-Step-1.5), then the per-project installs listed under Environment notes.
 
 ```bash
 # Start/stop/restart all three services (ACE-Step :8001, backend :8000, frontend :3000), each in its own window.
@@ -37,7 +39,7 @@ uv run pytest tests/songs/test_domain.py::test_name -q  # single test
 npm install
 npm run dev            # http://localhost:3000; /api/* is proxied to TUNORA_API_URL (default http://127.0.0.1:8000)
 npm test               # vitest; single file: npx vitest run src/components/audio/download-button.test.tsx
-npm run typecheck && npx eslint
+npm run typecheck && npm run lint
 npm run build
 npm run test:e2e       # Playwright against the REAL stack (see below)
 ```
